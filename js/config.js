@@ -12,8 +12,8 @@
 const AppConfig = {
 
   // ── Supabase 연결 정보 ─────────────────────────────────────
-  SUPABASE_URL:  'https://ngshvlonttthwuozygqx.supabase.co',
-  SUPABASE_ANON: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5nc2h2bG9udHR0aHd1b3p5Z3F4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MDc5MzEsImV4cCI6MjA5Nzk4MzkzMX0.r-8vKXv3gWJGpD1LHy39d5GqQ3rSaiIKo24Mm_zhW5Y',
+  SUPABASE_URL:  'https://ipfhpplufjdagfadgskb.supabase.co',
+  SUPABASE_ANON: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlwZmhwcGx1ZmpkYWdmYWRnc2tiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4NDY0ODAsImV4cCI6MjA5ODQyMjQ4MH0.wOgnMxpVz9wOsf2OPBSix9pNbpl141di03uaplKUBKM',
 
   // ── 테이블명 ───────────────────────────────────────────────
   TABLES: {
