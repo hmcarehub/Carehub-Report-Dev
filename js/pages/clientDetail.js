@@ -120,7 +120,7 @@ const ClientDetailPage = {
               ${this._statusBadge(c.status)}
               <span id="report-status-badge"></span>
             </div>
-            <div style="font-size:12px;color:var(--color-gray-500);">
+            <div style="font-size:18px;color:var(--color-gray-500);">
               고객 ID: <span style="font-family:monospace;font-weight:600;color:var(--color-gray-700);">${c.clientId}</span>
               &nbsp;·&nbsp; ${c.gender || '-'} &nbsp;·&nbsp; ${c.admitPeriod || '-'} 입소
             </div>
@@ -149,7 +149,7 @@ const ClientDetailPage = {
         <!-- 기본 정보 카드 (비고 제외 2행) -->
         <div class="card top-info-card" style="flex:3 1 360px;min-width:0;display:flex;flex-direction:column;min-height:220px;">
           <div class="card-header" style="padding:8px 14px;flex-shrink:0;">
-            <h2 class="card-title" style="font-size:13px;"><span class="card-title-dot"></span>기본 정보</h2>
+            <h2 class="card-title" style="font-size:20px;"><span class="card-title-dot"></span>기본 정보</h2>
           </div>
           <div class="card-body" style="padding:0;flex:1;display:flex;flex-direction:column;align-items:stretch;height:100%;">
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:0;width:100%;flex-shrink:0;">
@@ -163,13 +163,13 @@ const ClientDetailPage = {
                 {l:'종료 예정일',v:c.endDate||'-', s:'font-weight:700;'},
                 {l:'입소기간',  v:c.admitPeriod||'-'},
               ].map(f=>`<div class="detail-info-item" style="padding:6px 10px;">
-                <div class="detail-info-label" style="font-size:9px;margin-bottom:1px;">${f.l}</div>
-                <div class="detail-info-value" style="font-size:11px;${f.s||''}">${f.v}</div>
+                <div class="detail-info-label" style="font-size:18px;margin-bottom:1px;">${f.l}</div>
+                <div class="detail-info-value" style="font-size:18px;${f.s||''}">${f.v}</div>
               </div>`).join('')}
             </div>
             <div class="detail-info-item" style="padding:5px 10px;border-top:1px solid var(--color-gray-100);flex:1;display:flex;flex-direction:column;">
-              <div class="detail-info-label" style="font-size:9px;margin-bottom:1px;">비고</div>
-              <div class="detail-info-value" style="font-size:11px;color:var(--color-gray-600);white-space:pre-wrap;flex:1;">${c.note || '-'}</div>
+              <div class="detail-info-label" style="font-size:18px;margin-bottom:1px;">비고</div>
+              <div class="detail-info-value" style="font-size:18px;color:var(--color-gray-600);white-space:pre-wrap;flex:1;">${c.note || '-'}</div>
             </div>
           </div>
         </div>
@@ -177,17 +177,17 @@ const ClientDetailPage = {
         <!-- 입소 진행현황 -->
         <div class="card top-info-card" style="flex:1 1 220px;min-width:0;display:flex;flex-direction:column;min-height:220px;">
           <div class="card-header" style="padding:8px 14px;flex-shrink:0;">
-            <h2 class="card-title" style="font-size:13px;"><span class="card-title-dot"></span>입소 진행현황</h2>
+            <h2 class="card-title" style="font-size:20px;"><span class="card-title-dot"></span>입소 진행현황</h2>
           </div>
           <div class="card-body" style="padding:12px 14px;flex:1;display:flex;flex-direction:column;justify-content:center;">
             <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:10px;">
               <div>
                 <div style="font-size:36px;font-weight:800;color:var(--color-primary);line-height:1;">${admitProg.pct}<span style="font-size:18px;color:var(--color-gray-400);">%</span></div>
-                <div style="font-size:12px;color:var(--color-gray-500);margin-top:3px;">전체 ${admitProg.total}일 과정</div>
+                <div style="font-size:18px;color:var(--color-gray-500);margin-top:3px;">전체 ${admitProg.total}일 과정</div>
               </div>
               <div style="text-align:right;">
-                <div style="font-size:11px;color:var(--color-gray-500);">경과 <span style="font-size:16px;font-weight:700;color:var(--color-gray-700);">${admitProg.elapsed}</span>일</div>
-                <div style="font-size:11px;color:var(--color-gray-500);">잔여 <span style="font-size:16px;font-weight:700;color:var(--color-primary-dark);">${admitProg.remaining}</span>일</div>
+                <div style="font-size:18px;color:var(--color-gray-500);">경과 <span style="font-size:16px;font-weight:700;color:var(--color-gray-700);">${admitProg.elapsed}</span>일</div>
+                <div style="font-size:18px;color:var(--color-gray-500);">잔여 <span style="font-size:16px;font-weight:700;color:var(--color-primary-dark);">${admitProg.remaining}</span>일</div>
               </div>
             </div>
             <div class="progress-bar-outer" style="height:8px;border-radius:5px;">
@@ -199,10 +199,10 @@ const ClientDetailPage = {
         <!-- 회차 진행현황 (리포트 생성 기준) -->
         <div class="card top-info-card" id="round-progress-card" style="flex:1 1 220px;min-width:0;display:flex;flex-direction:column;min-height:220px;">
           <div class="card-header" style="padding:8px 14px;flex-shrink:0;">
-            <h2 class="card-title" style="font-size:13px;"><span class="card-title-dot"></span>진행현황 <span style="font-size:10px;font-weight:400;color:var(--color-gray-400);">(리포트 기준)</span></h2>
+            <h2 class="card-title" style="font-size:20px;"><span class="card-title-dot"></span>진행현황 <span style="font-size:18px;font-weight:400;color:var(--color-gray-400);">(리포트 기준)</span></h2>
           </div>
           <div class="card-body" style="padding:12px 14px;flex:1;display:flex;flex-direction:column;justify-content:center;" id="round-progress-body">
-            <div style="font-size:11px;color:var(--color-gray-400);">불러오는 중...</div>
+            <div style="font-size:18px;color:var(--color-gray-400);">불러오는 중...</div>
           </div>
         </div>
 
@@ -213,9 +213,9 @@ const ClientDetailPage = {
         <div class="card-header" style="padding:10px 16px;border-bottom:2px solid var(--color-gray-200);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;">
           <div style="display:flex;gap:0;align-items:stretch;flex-wrap:wrap;">
             ${Array.from({length:Math.min(c.totalRounds||0,7)},(_,i)=>i+1).map(n=>`
-              <button class="round-tab${(this.activeDetailTab==='rounds'||this.activeDetailTab==='trend')&&this.activeRound===n?' active':''}" data-main-tab="round" data-round="${n}" style="font-size:12px;padding:8px 14px;">${this._weekLabelShort(n)}</button>
+              <button class="round-tab${(this.activeDetailTab==='rounds'||this.activeDetailTab==='trend')&&this.activeRound===n?' active':''}" data-main-tab="round" data-round="${n}" style="font-size:18px;padding:8px 14px;">${this._weekLabelShort(n)}</button>
             `).join('')}
-            <button class="round-tab${this.activeDetailTab==='report'?' active':''}" data-main-tab="report" style="font-size:12px;padding:8px 14px;border-left:2px solid var(--color-gray-200);">📊 통합 리포트</button>
+            <button class="round-tab${this.activeDetailTab==='report'?' active':''}" data-main-tab="report" style="font-size:18px;padding:8px 14px;border-left:2px solid var(--color-gray-200);">📊 통합 리포트</button>
           </div>
           <!-- 우측 상태값: 리포트 상태 배지 (report 탭이 아닐 때 현재 선택 회차 상태 표시) -->
           <div style="flex-shrink:0;display:flex;align-items:center;gap:8px;margin-left:8px;" id="tab-status-area">
@@ -321,10 +321,10 @@ const ClientDetailPage = {
         <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:10px;">
           <div>
             <div style="font-size:36px;font-weight:800;color:#4CAF50;line-height:1;">${reportedRounds}<span style="font-size:18px;color:var(--color-gray-400);"> / ${totalRounds}</span></div>
-            <div style="font-size:12px;color:var(--color-gray-500);margin-top:3px;">리포트 생성 완료</div>
+            <div style="font-size:18px;color:var(--color-gray-500);margin-top:3px;">리포트 생성 완료</div>
           </div>
           <div style="text-align:right;">
-            <div style="font-size:11px;color:var(--color-gray-500);">달성률 <span style="font-size:20px;font-weight:700;color:#2E7D32;">${pct}</span>%</div>
+            <div style="font-size:18px;color:var(--color-gray-500);">달성률 <span style="font-size:20px;font-weight:700;color:#2E7D32;">${pct}</span>%</div>
           </div>
         </div>
         <div class="progress-bar-outer" style="height:8px;border-radius:5px;">
@@ -332,7 +332,7 @@ const ClientDetailPage = {
         </div>`;
     } catch(e) {
       const body2 = document.getElementById('round-progress-body');
-      if (body2) body2.innerHTML = '<div style="font-size:12px;color:var(--color-gray-400);">불러오기 실패</div>';
+      if (body2) body2.innerHTML = '<div style="font-size:18px;color:var(--color-gray-400);">불러오기 실패</div>';
     }
   },
 
@@ -349,8 +349,8 @@ const ClientDetailPage = {
     const activeSubTab = this.activeDetailTab === 'trend' ? 'trend' : 'scores';
     content.innerHTML = `
       <div style="display:flex;gap:0;padding:0 16px;border-bottom:1px solid var(--color-gray-100);background:var(--color-gray-50);">
-        <button data-sub-tab="scores" style="padding:8px 16px;font-size:12px;font-weight:600;background:none;border:none;border-bottom:2px solid ${activeSubTab==='scores'?'var(--color-primary)':'transparent'};color:${activeSubTab==='scores'?'var(--color-primary)':'var(--color-gray-500)'};cursor:pointer;">📊 평가 점수</button>
-        <button data-sub-tab="trend"  style="padding:8px 16px;font-size:12px;font-weight:600;background:none;border:none;border-bottom:2px solid ${activeSubTab==='trend' ?'var(--color-primary)':'transparent'};color:${activeSubTab==='trend' ?'var(--color-primary)':'var(--color-gray-500)'};cursor:pointer;">📈 변화 추이</button>
+        <button data-sub-tab="scores" style="padding:8px 16px;font-size:18px;font-weight:600;background:none;border:none;border-bottom:2px solid ${activeSubTab==='scores'?'var(--color-primary)':'transparent'};color:${activeSubTab==='scores'?'var(--color-primary)':'var(--color-gray-500)'};cursor:pointer;">📊 평가 점수</button>
+        <button data-sub-tab="trend"  style="padding:8px 16px;font-size:18px;font-weight:600;background:none;border:none;border-bottom:2px solid ${activeSubTab==='trend' ?'var(--color-primary)':'transparent'};color:${activeSubTab==='trend' ?'var(--color-primary)':'var(--color-gray-500)'};cursor:pointer;">📈 변화 추이</button>
       </div>
       <div id="round-content"></div>`;
 
@@ -385,7 +385,7 @@ const ClientDetailPage = {
               d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
           </svg>
           <div style="font-size:14px;font-weight:600;color:var(--color-gray-500);">주차를 선택하시면 평가 내역을 확인할 수 있습니다</div>
-          <div style="font-size:12px;color:var(--color-gray-400);">위의 초기·4주차·8주차 등 탭을 클릭해 주세요</div>
+          <div style="font-size:18px;color:var(--color-gray-400);">위의 초기·4주차·8주차 등 탭을 클릭해 주세요</div>
         </div>`;
       return;
     }
@@ -436,7 +436,7 @@ const ClientDetailPage = {
       if (score == null) return `
         <div style="width:100px;height:100px;border-radius:50%;background:conic-gradient(#E8E8E8 0% 100%);display:flex;align-items:center;justify-content:center;">
           <div style="width:72px;height:72px;border-radius:50%;background:white;display:flex;align-items:center;justify-content:center;">
-            <span style="font-size:15px;font-weight:800;color:#ccc;">-</span>
+            <span style="font-size:18px;font-weight:800;color:#ccc;">-</span>
           </div>
         </div>`;
       const pct = Math.min(100, Math.max(0, (Number(score) / max) * 100));
@@ -469,12 +469,12 @@ const ClientDetailPage = {
         bars += `<rect x="${i*(barW+gap)}" y="${maxH-h}" width="${barW}" height="${h}" rx="2" fill="${i===idx?'#1565C0':'#D6E4F0'}"/>`;
       });
       return `<div style="width:100%;text-align:center;">
-        <div style="font-size:13px;font-weight:700;color:var(--color-gray-600);margin-bottom:4px;">상위 ${p}%예요</div>
+        <div style="font-size:20px;font-weight:700;color:var(--color-gray-600);margin-bottom:4px;">상위 ${p}%예요</div>
         <svg width="${totalW}" height="${maxH+16}" viewBox="0 0 ${totalW} ${maxH+16}" style="overflow:visible;">
           <polygon points="${markerX-6},${maxH-heights[idx]-12} ${markerX+6},${maxH-heights[idx]-12} ${markerX},${maxH-heights[idx]-2}" fill="#1565C0"/>
           ${bars}
         </svg>
-        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--color-gray-400);margin-top:3px;width:${totalW}px;margin:4px auto 0;">
+        <div style="display:flex;justify-content:space-between;font-size:18px;color:var(--color-gray-400);margin-top:3px;width:${totalW}px;margin:4px auto 0;">
           <span>100%</span><span>1%</span>
         </div>
       </div>`;
@@ -485,7 +485,7 @@ const ClientDetailPage = {
       if (score==null) return '';
       return `<div style="text-align:center;">
         <div style="font-size:32px;font-weight:800;color:${color};line-height:1;">${score}</div>
-        <div style="font-size:13px;color:var(--color-gray-400);margin-top:2px;">${unit}</div>
+        <div style="font-size:20px;color:var(--color-gray-400);margin-top:2px;">${unit}</div>
       </div>`;
     };
 
@@ -494,7 +494,7 @@ const ClientDetailPage = {
       if (score==null) return '';
       const p = Math.min(100,Math.max(0,Number(score)));
       return `<div style="width:100%;">
-        <div style="text-align:center;font-size:28px;font-weight:800;color:${color};margin-bottom:8px;">${score}<span style="font-size:13px;font-weight:400;color:var(--color-gray-400);">/100</span></div>
+        <div style="text-align:center;font-size:28px;font-weight:800;color:${color};margin-bottom:8px;">${score}<span style="font-size:20px;font-weight:400;color:var(--color-gray-400);">/100</span></div>
         <div style="height:10px;border-radius:5px;background:#E8E8E8;overflow:hidden;">
           <div style="height:100%;width:${p}%;background:${color};border-radius:5px;"></div>
         </div>
@@ -516,7 +516,7 @@ const ClientDetailPage = {
       return `<div style="margin-top:4px;width:100%;">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
           <span style="font-size:28px;font-weight:900;color:${g.color};">${s}</span>
-          <span style="background:${g.bg};color:${g.color};padding:3px 10px;border-radius:8px;font-size:13px;font-weight:700;">${g.l}</span>
+          <span style="background:${g.bg};color:${g.color};padding:3px 10px;border-radius:8px;font-size:20px;font-weight:700;">${g.l}</span>
         </div>
         <div style="position:relative;margin-bottom:2px;height:12px;">
           <div style="position:absolute;left:calc(${pct}% - 6px);top:0;width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:10px solid ${g.color};"></div>
@@ -531,15 +531,15 @@ const ClientDetailPage = {
     // ── 코멘트 카드 (우측 25%) ──
     const commentCard = (icon, title, text) => `
       <div style="height:100%;min-height:140px;display:flex;flex-direction:column;padding:16px;border-radius:8px;background:#ffffff;border:1px solid #e5e7eb;box-sizing:border-box;">
-        <div style="font-size:11px;font-weight:700;color:var(--color-gray-600);margin-bottom:8px;flex-shrink:0;">${icon} ${title}</div>
-        <div style="font-size:12px;line-height:1.6;color:${text?'var(--color-gray-700)':'var(--color-gray-400)'};white-space:pre-wrap;flex:1;overflow:visible;">${text || '등록된 코멘트가 없습니다.'}</div>
+        <div style="font-size:18px;font-weight:700;color:var(--color-gray-600);margin-bottom:8px;flex-shrink:0;">${icon} ${title}</div>
+        <div style="font-size:18px;line-height:1.6;color:${text?'var(--color-gray-700)':'var(--color-gray-400)'};white-space:pre-wrap;flex:1;overflow:visible;">${text || '등록된 코멘트가 없습니다.'}</div>
       </div>`;
 
     // ── 평가항목 카드 ──
     const itemCard = (label, vizHtml, gradeBadge) => `
       <div style="flex:1 1 180px;min-width:160px;display:flex;flex-direction:column;align-items:center;padding:18px 14px;border-radius:10px;background:#ffffff;border:1px solid #e5e7eb;box-sizing:border-box;">
-        <div style="font-size:13px;font-weight:700;color:var(--color-gray-600);margin-bottom:14px;align-self:flex-start;">${label}</div>
-        <div style="flex:1;display:flex;align-items:center;justify-content:center;width:100%;">${vizHtml || '<span style="font-size:13px;color:var(--color-gray-300);">데이터 없음</span>'}</div>
+        <div style="font-size:20px;font-weight:700;color:var(--color-gray-600);margin-bottom:14px;align-self:flex-start;">${label}</div>
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;width:100%;">${vizHtml || '<span style="font-size:20px;color:var(--color-gray-300);">데이터 없음</span>'}</div>
         ${gradeBadge ? `<div style="margin-top:12px;">${gradeBadge}</div>` : ''}
       </div>`;
 
@@ -548,7 +548,7 @@ const ClientDetailPage = {
     const secCardSplit = (icon, title, color, gridItemsHtml, commentIcon, commentTitle, commentText) => `
       <div style="border:1.5px solid ${color}33;border-radius:12px;overflow:hidden;margin-bottom:16px;">
         <div style="background:${color};padding:10px 18px;">
-          <span style="font-size:13px;font-weight:800;color:white;">${icon} ${title}</span>
+          <span style="font-size:20px;font-weight:800;color:white;">${icon} ${title}</span>
         </div>
         <div class="eval-comment-split" style="display:flex;background:var(--color-gray-50);gap:16px;padding:18px 20px;box-sizing:border-box;">
           <div class="eval-result-col" style="flex:3 1 0;min-width:0;">
@@ -573,9 +573,9 @@ const ClientDetailPage = {
     const stressGrd  = (s)=>s==null?null:Number(s)<35?{l:'정상',c:'#2E7D32'}:Number(s)<45?{l:'초기',c:'#F57F17'}:Number(s)<60?{l:'진행',c:'#E65100'}:{l:'만성',c:'#C62828'};
 
     // 평가일 표시 헬퍼
-    const dateTag = (d) => d ? `<span style="font-size:10px;font-weight:400;color:var(--color-gray-400);margin-left:6px;">[평가일: ${d}]</span>` : '';
+    const dateTag = (d) => d ? `<span style="font-size:18px;font-weight:400;color:var(--color-gray-400);margin-left:6px;">[평가일: ${d}]</span>` : '';
     // 등급 배지
-    const gb = (g) => g ? `<span style="background:${g.c}22;color:${g.c};padding:4px 14px;border-radius:10px;font-size:13px;font-weight:700;">${g.l}</span>` : '';
+    const gb = (g) => g ? `<span style="background:${g.c}22;color:${g.c};padding:4px 14px;border-radius:10px;font-size:20px;font-weight:700;">${g.l}</span>` : '';
     // 최신 날짜
     const cogDate  = cog?.measureDate||'';
     const moveDate = [ergo?.measureDate,evx?.measureDate,fra?.measureDate].filter(Boolean).sort().pop()||'';
@@ -609,9 +609,9 @@ const ClientDetailPage = {
     el.innerHTML = `
       <div style="padding:14px 18px;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-          <span style="font-size:13px;font-weight:700;">${this._weekEvalLabel(round)}</span>
+          <span style="font-size:20px;font-weight:700;">${this._weekEvalLabel(round)}</span>
 
-          <span style="font-size:11px;color:var(--color-gray-400);margin-left:auto;">수정은 평가관리에서</span>
+          <span style="font-size:18px;color:var(--color-gray-400);margin-left:auto;">수정은 평가관리에서</span>
         </div>
 
         <!-- 🧠 인지 평가 (좌 75%: Grid 평가결과 / 우 25%: 인지 전문가 코멘트) -->
@@ -651,19 +651,19 @@ const ClientDetailPage = {
         const yPos=v=>padT+(1-Math.min(1,Math.max(0,v/axMax)))*(H-padT-padB);
         const latest=pts[pts.length-1]?.v,first=pts[0]?.v;
         const diff=pts.length>1?Math.round((latest-first)*10)/10:null;
-        const db=diff==null?'':diff>0?`<span style="font-size:9px;font-weight:800;color:#1D6FF2;margin-left:3px;">▲${diff}${unit}</span>`:diff<0?`<span style="font-size:9px;font-weight:800;color:#E53935;margin-left:3px;">▼${Math.abs(diff)}${unit}</span>`:'';
+        const db=diff==null?'':diff>0?`<span style="font-size:18px;font-weight:800;color:#1D6FF2;margin-left:3px;">▲${diff}${unit}</span>`:diff<0?`<span style="font-size:18px;font-weight:800;color:#E53935;margin-left:3px;">▼${Math.abs(diff)}${unit}</span>`:'';
         let pathD='',areaD='',svgG='',htmlL='';
         pts.forEach((p,i)=>{const x=xPos(i),y=yPos(p.v);pathD+=(i===0?`M${x},${y}`:`L${x},${y}`);});
         if(!isSingle){areaD=pathD+` L${xPos(pts.length-1)},${H-padB} L${xPos(0)},${H-padB} Z`;svgG+=`<path d="${areaD}" fill="${AC}" stroke="none"/><path d="${pathD}" fill="none" stroke="${LC}" stroke-width="2" stroke-linejoin="round"/>`;}
         pts.forEach((p,i)=>{
           const x=xPos(i),y=yPos(p.v),iL=i===pts.length-1;
-          if(iL){const sp=Array.from({length:5},(_,si)=>{const a=(si*72-90)*Math.PI/180,a2=((si*72+36)-90)*Math.PI/180;return`${x+5*Math.cos(a)},${y+5*Math.sin(a)} ${x+2*Math.cos(a2)},${y+2*Math.sin(a2)}`;}).join(' ');svgG+=`<polygon points="${sp}" fill="#F59E0B" stroke="#D97706" stroke-width="0.5"/>`;htmlL+=`<span style="position:absolute;right:${(100-x/W*100).toFixed(1)}%;bottom:${(100-y/H*100).toFixed(1)}%;transform:translateY(-14px);font-size:12px;font-weight:700;color:${LC};white-space:nowrap;">${p.v}${unit}</span>`;}
-          else{svgG+=`<circle cx="${x}" cy="${y}" r="2.5" fill="${LC}" stroke="white" stroke-width="1"/>`;htmlL+=`<span style="position:absolute;left:${(x/W*100).toFixed(1)}%;bottom:${(100-y/H*100).toFixed(1)}%;transform:translateY(-10px);font-size:10px;font-weight:500;color:#999;white-space:nowrap;">${p.v}${unit}</span>`;}
+          if(iL){const sp=Array.from({length:5},(_,si)=>{const a=(si*72-90)*Math.PI/180,a2=((si*72+36)-90)*Math.PI/180;return`${x+5*Math.cos(a)},${y+5*Math.sin(a)} ${x+2*Math.cos(a2)},${y+2*Math.sin(a2)}`;}).join(' ');svgG+=`<polygon points="${sp}" fill="#F59E0B" stroke="#D97706" stroke-width="0.5"/>`;htmlL+=`<span style="position:absolute;right:${(100-x/W*100).toFixed(1)}%;bottom:${(100-y/H*100).toFixed(1)}%;transform:translateY(-14px);font-size:18px;font-weight:700;color:${LC};white-space:nowrap;">${p.v}${unit}</span>`;}
+          else{svgG+=`<circle cx="${x}" cy="${y}" r="2.5" fill="${LC}" stroke="white" stroke-width="1"/>`;htmlL+=`<span style="position:absolute;left:${(x/W*100).toFixed(1)}%;bottom:${(100-y/H*100).toFixed(1)}%;transform:translateY(-10px);font-size:18px;font-weight:500;color:#999;white-space:nowrap;">${p.v}${unit}</span>`;}
           svgG+=`<text x="${x}" y="${H-2}" text-anchor="middle" font-family="sans-serif" font-size="7" fill="#bbb">${p.round===1?"초기":(p.round-1)*4+"주"}</text>`;
         });
         svgG+=`<line x1="${padL}" y1="${H-padB}" x2="${W-padR}" y2="${H-padB}" stroke="rgba(155,115,75,0.25)" stroke-width="0.8"/>`;
         return `<div style="display:flex;flex-direction:column;flex:1;min-width:0;padding:8px 8px 6px;border:1px solid ${BR};border-radius:8px;background:rgba(155,115,75,0.03);">
-          <div style="font-size:10px;font-weight:700;color:#3A2A1A;margin-bottom:3px;display:flex;align-items:center;white-space:nowrap;">${label}${db}</div>
+          <div style="font-size:18px;font-weight:700;color:#3A2A1A;margin-bottom:3px;display:flex;align-items:center;white-space:nowrap;">${label}${db}</div>
           <div style="flex:1;min-height:90px;position:relative;">
             <svg width="100%" height="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="display:block;">${svgG}</svg>${htmlL}
           </div>
@@ -671,7 +671,7 @@ const ClientDetailPage = {
       };
       const row=(items,gap=8)=>`<div style="display:flex;gap:${gap}px;">${items.map(it=>mkC(it.f,it.l,it.u||'')).filter(Boolean).join('')}</div>`;
       const secT=(icon,title,color,rowHtml)=>`<div style="margin-bottom:10px;">
-        <div style="font-size:10px;font-weight:800;color:${color};padding-bottom:3px;border-bottom:1px solid rgba(155,115,75,0.2);margin-bottom:6px;">${icon} ${title}</div>
+        <div style="font-size:18px;font-weight:800;color:${color};padding-bottom:3px;border-bottom:1px solid rgba(155,115,75,0.2);margin-bottom:6px;">${icon} ${title}</div>
         ${rowHtml}
       </div>`;
 
@@ -707,7 +707,7 @@ const ClientDetailPage = {
       const listHtml = completed.map(m => `
         <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border:1px solid var(--color-gray-200);border-radius:10px;background:white;margin-bottom:8px;">
           <div style="flex:1;">
-            <div style="font-size:15px;font-weight:700;color:var(--color-gray-900);">${this._weekReportLabel(m.round)}</div>
+            <div style="font-size:18px;font-weight:700;color:var(--color-gray-900);">${this._weekReportLabel(m.round)}</div>
 
           </div>
           <button class="btn btn-outline btn-sm report-preview-btn" data-round="${m.round}" style="white-space:nowrap;">👁 미리보기</button>
@@ -930,7 +930,7 @@ const ClientDetailPage = {
         <div style="height:14px;background:#E8E8E8;border-radius:7px;overflow:hidden;position:relative;">
           <div style="height:100%;width:${p}%;background:linear-gradient(90deg,#FF7043,#FFA726,#66BB6A);border-radius:7px;"></div>
         </div>
-        <div style="display:flex;justify-content:space-between;font-size:9px;color:#aaa;margin-top:2px;"><span>하위</span><span style="font-weight:700;color:#1565C0;">상위 ${p}%</span><span>상위</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:18px;color:#aaa;margin-top:2px;"><span>하위</span><span style="font-weight:700;color:#1565C0;">상위 ${p}%</span><span>상위</span></div>
       </div>`;
     };
 
@@ -939,9 +939,9 @@ const ClientDetailPage = {
       const matched = labelFn ? labelFn(score) : null;
       return `<div>
         <div style="display:flex;height:20px;border-radius:4px;overflow:hidden;gap:1px;">
-          ${segments.map(sg=>`<div style="flex:1;background:${sg.color};opacity:${matched&&matched===sg.l?1:0.2};display:flex;align-items:center;justify-content:center;font-size:9px;color:white;font-weight:700;">${sg.l}</div>`).join('')}
+          ${segments.map(sg=>`<div style="flex:1;background:${sg.color};opacity:${matched&&matched===sg.l?1:0.2};display:flex;align-items:center;justify-content:center;font-size:18px;color:white;font-weight:700;">${sg.l}</div>`).join('')}
         </div>
-        ${matched?`<div style="text-align:center;margin-top:4px;font-weight:700;font-size:13px;color:${segments.find(s=>s.l===matched)?.color||'#888'};">${matched}</div>`:''}
+        ${matched?`<div style="text-align:center;margin-top:4px;font-weight:700;font-size:20px;color:${segments.find(s=>s.l===matched)?.color||'#888'};">${matched}</div>`:''}
       </div>`;
     };
 
@@ -985,7 +985,7 @@ const ClientDetailPage = {
         ? [['최우수','40.0↑','37.0↑'],['우수','36.0~39.9','33.0~37.0'],['평균이상','32.0~35.9','29.0~32.9'],['평균','29.0~31.9','26.0~28.9'],['평균이하','25.0~28.9','22.0~25.9'],['최하위','25.0↓','22.0↓']]
         : [['최우수','33.0↑','32.0↑'],['우수','29.0~32.9','28.0~32.0'],['평균이상','25.0~28.9','25.0~27.9'],['평균','22.0~24.9','22.0~24.9'],['평균이하','19.0~21.9','19.0~21.9'],['최하위','19.0↓','19.0↓']];
       const grade = getCardioGrade(master.cardioScore, gender, birthDate);
-      return `<table style="font-size:10px;border-collapse:collapse;width:100%;">
+      return `<table style="font-size:18px;border-collapse:collapse;width:100%;">
         <thead><tr style="background:#f5f5f5;"><th style="padding:3px 6px;border:1px solid #ddd;">등급</th><th style="padding:3px 6px;border:1px solid #ddd;">60~65세</th><th style="padding:3px 6px;border:1px solid #ddd;">66세↑</th></tr></thead>
         <tbody>${rows.map(r=>`<tr style="background:${grade===r[0]?'#E3F2FD':''};"><td style="padding:3px 6px;border:1px solid #ddd;font-weight:${grade===r[0]?'800':'400'};">${r[0]}</td><td style="padding:3px 6px;border:1px solid #ddd;text-align:center;">${r[1]}</td><td style="padding:3px 6px;border:1px solid #ddd;text-align:center;">${r[2]}</td></tr>`).join('')}</tbody>
       </table>`;
@@ -1022,7 +1022,7 @@ const ClientDetailPage = {
 
     // 추이 그래프 (SVG 선 그래프)
     const trendChart = (masterList, fields) => {
-      if (!masterList || masterList.length < 1) return '<div style="color:#aaa;font-size:12px;text-align:center;padding:16px;">이전 회차 데이터 없음</div>';
+      if (!masterList || masterList.length < 1) return '<div style="color:#aaa;font-size:18px;text-align:center;padding:16px;">이전 회차 데이터 없음</div>';
       const sorted = [...masterList].sort((a,b)=>a.round-b.round);
       const W=460, H=140, pad=36;
       const colors=['#B8934A','#1565C0','#2E7D32','#7B1FA2','#E65100','#C62828','#00695C'];
@@ -1050,7 +1050,7 @@ const ClientDetailPage = {
           svgDots += `<circle cx="${p.x}" cy="${p.y}" r="4" fill="${colors[fi%colors.length]}" stroke="white" stroke-width="1.5"/>`;
           svgDots += `<text x="${p.x}" y="${p.y-8}" text-anchor="middle" font-size="9" fill="${colors[fi%colors.length]}">${p.v}</text>`;
         });
-        legend += `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;margin-right:10px;"><span style="display:inline-block;width:14px;height:3px;background:${colors[fi%colors.length]};border-radius:2px;"></span>${f.label}</span>`;
+        legend += `<span style="display:inline-flex;align-items:center;gap:4px;font-size:18px;margin-right:10px;"><span style="display:inline-block;width:14px;height:3px;background:${colors[fi%colors.length]};border-radius:2px;"></span>${f.label}</span>`;
       });
 
       // X축 레이블
@@ -1093,7 +1093,7 @@ const ClientDetailPage = {
 
   <!-- 중앙: 제목 -->
   <div style="text-align:center;padding:30px 0;">
-    <div style="font-size:11px;letter-spacing:0.3em;color:#B8934A;font-weight:700;margin-bottom:20px;text-transform:uppercase;">Integrated Health Report</div>
+    <div style="font-size:18px;letter-spacing:0.3em;color:#B8934A;font-weight:700;margin-bottom:20px;text-transform:uppercase;">Integrated Health Report</div>
     <div style="font-size:52px;font-weight:900;color:#1A1A1A;letter-spacing:-0.02em;line-height:1.1;margin-bottom:16px;">통합 리포트</div>
     <div style="width:60px;height:3px;background:#B8934A;margin:20px auto 28px;border-radius:2px;"></div>
     <div style="font-size:28px;font-weight:700;color:#2C2C2C;">${c.name} 님</div>
@@ -1102,12 +1102,12 @@ const ClientDetailPage = {
   <!-- 하단: 고객 정보 -->
   <div style="border-top:1px solid #E0D5C5;padding-top:28px;">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 40px;max-width:400px;">
-      <div><div style="font-size:11px;color:#B8934A;font-weight:700;letter-spacing:0.08em;margin-bottom:4px;">나이</div><div style="font-size:15px;font-weight:600;">${age}세</div></div>
-      <div><div style="font-size:11px;color:#B8934A;font-weight:700;letter-spacing:0.08em;margin-bottom:4px;">성별</div><div style="font-size:15px;font-weight:600;">${c.gender||'-'}</div></div>
-      <div><div style="font-size:11px;color:#B8934A;font-weight:700;letter-spacing:0.08em;margin-bottom:4px;">입소 등록일</div><div style="font-size:15px;font-weight:600;">${c.firstVisit||'-'}</div></div>
-      <div><div style="font-size:11px;color:#B8934A;font-weight:700;letter-spacing:0.08em;margin-bottom:4px;">리포트 생성일</div><div style="font-size:15px;font-weight:600;">${todayStr}</div></div>
+      <div><div style="font-size:18px;color:#B8934A;font-weight:700;letter-spacing:0.08em;margin-bottom:4px;">나이</div><div style="font-size:18px;font-weight:600;">${age}세</div></div>
+      <div><div style="font-size:18px;color:#B8934A;font-weight:700;letter-spacing:0.08em;margin-bottom:4px;">성별</div><div style="font-size:18px;font-weight:600;">${c.gender||'-'}</div></div>
+      <div><div style="font-size:18px;color:#B8934A;font-weight:700;letter-spacing:0.08em;margin-bottom:4px;">입소 등록일</div><div style="font-size:18px;font-weight:600;">${c.firstVisit||'-'}</div></div>
+      <div><div style="font-size:18px;color:#B8934A;font-weight:700;letter-spacing:0.08em;margin-bottom:4px;">리포트 생성일</div><div style="font-size:18px;font-weight:600;">${todayStr}</div></div>
     </div>
-    <div style="margin-top:24px;font-size:11px;color:#aaa;letter-spacing:0.05em;">CARE HUB IN HANAM · 케어허브 하남</div>
+    <div style="margin-top:24px;font-size:18px;color:#aaa;letter-spacing:0.05em;">CARE HUB IN HANAM · 케어허브 하남</div>
   </div>
 </div>
 
@@ -1115,8 +1115,8 @@ const ClientDetailPage = {
 <div style="width:100%;min-height:100vh;padding:14px 28px;box-sizing:border-box;page-break-after:always;font-family:'Noto Sans KR',sans-serif;display:flex;flex-direction:column;">
   <!-- 헤더 -->
   <div style="border-bottom:2px solid #B8934A;padding-bottom:5px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
-    <div style="font-size:17px;font-weight:800;color:#1A1A1A;">${weekEvalLabel(master.round)} 평가 결과</div>
-    <div style="font-size:11px;color:#aaa;">${c.name} · ${todayStr}</div>
+    <div style="font-size:20px;font-weight:800;color:#1A1A1A;">${weekEvalLabel(master.round)} 평가 결과</div>
+    <div style="font-size:18px;color:#aaa;">${c.name} · ${todayStr}</div>
   </div>
 
   <!-- 세 영역: 인지(3):움직임(2):대사(1) -->
@@ -1125,7 +1125,7 @@ const ClientDetailPage = {
     <!-- ▣ 인지 관리 (flex:3) -->
     <div style="border:1.5px solid #BBDEFB;border-radius:8px;overflow:hidden;flex:2;display:flex;flex-direction:column;min-height:0;">
       <div style="background:#1565C0;padding:6px 12px;flex-shrink:0;">
-        <span style="font-size:13px;font-weight:900;color:white;">🧠 인지 관리 리포트</span>
+        <span style="font-size:20px;font-weight:900;color:white;">🧠 인지 관리 리포트</span>
       </div>
       <div style="padding:8px 12px;background:white;flex:1;overflow:hidden;display:flex;flex-direction:column;">
         <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px;flex:1;min-height:0;">
@@ -1135,7 +1135,7 @@ const ClientDetailPage = {
 
             <!-- 인지점수 영역 (flex:1) -->
             <div style="flex:1;display:flex;flex-direction:column;">
-              <div style="font-size:13px;font-weight:900;color:#1A1A1A;margin-bottom:6px;text-align:left;">인지점수</div>
+              <div style="font-size:20px;font-weight:900;color:#1A1A1A;margin-bottom:6px;text-align:left;">인지점수</div>
               <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
                 <div style="display:flex;justify-content:center;">
                   ${(()=>{
@@ -1153,7 +1153,7 @@ const ClientDetailPage = {
                   })()}
                 </div>
                 <!-- 상태값 배지 -->
-                ${cogGrade!=='-'?`<div style="text-align:center;margin-top:4px;"><span style="background:${cogGrade==='최적'?'#E8F5E9':cogGrade==='양호'?'#C8E6C9':cogGrade==='개선'?'#FFF8E1':'#FFEBEE'};color:${cogGrade==='최적'?'#1B5E20':cogGrade==='양호'?'#2E7D32':cogGrade==='개선'?'#F57F17':'#C62828'};padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;">${cogGrade}</span></div>`:''}
+                ${cogGrade!=='-'?`<div style="text-align:center;margin-top:4px;"><span style="background:${cogGrade==='최적'?'#E8F5E9':cogGrade==='양호'?'#C8E6C9':cogGrade==='개선'?'#FFF8E1':'#FFEBEE'};color:${cogGrade==='최적'?'#1B5E20':cogGrade==='양호'?'#2E7D32':cogGrade==='개선'?'#F57F17':'#C62828'};padding:2px 8px;border-radius:6px;font-size:18px;font-weight:700;">${cogGrade}</span></div>`:''}
                 <!-- 범례 아래 1행 -->
                 <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:5px;">
                   ${[{l:'최적',c:'#1B5E20',t:'90↑'},{l:'양호',c:'#2E7D32',t:'80~89'},{l:'개선',c:'#F57F17',t:'65~79'},{l:'주의',c:'#C62828',t:'~64'}]
@@ -1166,10 +1166,10 @@ const ClientDetailPage = {
 
             <!-- 동연령대 영역 (flex:1, 타이틀 좌측상단 고정) -->
             <div style="flex:1;display:flex;flex-direction:column;">
-              <div style="font-size:13px;font-weight:900;color:#1A1A1A;margin-bottom:6px;text-align:left;">동연령대 상위 분포도</div>
+              <div style="font-size:20px;font-weight:900;color:#1A1A1A;margin-bottom:6px;text-align:left;">동연령대 상위 분포도</div>
               <div style="flex:1;display:flex;align-items:center;justify-content:center;">
                 ${(()=>{
-                  if (master.agePercentile==null) return '<div style="font-size:9px;color:#aaa;">-</div>';
+                  if (master.agePercentile==null) return '<div style="font-size:18px;color:#aaa;">-</div>';
                   const p = master.agePercentile;
                   const heights=[16,24,32,40,46,40,32,24,16];
                   const barW=7, gap=3, n=heights.length;
@@ -1183,7 +1183,7 @@ const ClientDetailPage = {
                     bars+=`<rect x="${x}" y="${y}" width="${barW}" height="${h}" rx="1.5" fill="${active?'#1565C0':'#D6E4F0'}"/>`;
                   });
                   return `<div style="text-align:center;">
-                    <div style="font-size:10px;color:#666;margin-bottom:2px;">상위 ${p}%예요</div>
+                    <div style="font-size:18px;color:#666;margin-bottom:2px;">상위 ${p}%예요</div>
                     <svg width="${totalW}" height="${maxH+10}" viewBox="0 0 ${totalW} ${maxH+10}" style="overflow:visible;">
                       <polygon points="${markerX-4},${maxH-heights[idx]-8} ${markerX+4},${maxH-heights[idx]-8} ${markerX},${maxH-heights[idx]-2}" fill="#1565C0"/>
                       ${bars}
@@ -1206,14 +1206,14 @@ const ClientDetailPage = {
               const pct=Math.min(100,Math.max(0,Number(score)||0));
               const r=36,circ=2*Math.PI*r,dash=(pct/100)*circ;
               return `<div style="padding:7px 12px;background:#F8FBFF;border-radius:7px;border:1px solid #E3F2FD;display:flex;flex-direction:column;align-items:center;">
-                <div style="font-size:13px;font-weight:900;color:#1A1A1A;margin-bottom:10px;align-self:flex-start;">${item.label}</div>
+                <div style="font-size:20px;font-weight:900;color:#1A1A1A;margin-bottom:10px;align-self:flex-start;">${item.label}</div>
                 <div style="display:flex;align-items:center;gap:8px;">
                   <svg width="88" height="88" viewBox="0 0 88 88" style="flex-shrink:0;">
                     <circle cx="44" cy="44" r="${r}" fill="none" stroke="#E8E8E8" stroke-width="10"/>
                     ${pct>0?`<circle cx="44" cy="44" r="${r}" fill="none" stroke="${clr}" stroke-width="10" stroke-dasharray="${dash.toFixed(1)} ${circ.toFixed(1)}" stroke-dashoffset="${(circ/4).toFixed(1)}" stroke-linecap="round"/>`:''}
                     <text x="44" y="48" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="800" fill="${clr}">${score!=null?score+'점':'-'}</text>
                   </svg>
-                  ${item.gradeFn(score)?`<span style="background:${item.gradeFn(score).b};color:${item.gradeFn(score).c};padding:3px 8px;border-radius:6px;font-size:12px;font-weight:700;">${item.gradeFn(score).l}</span>`:''}
+                  ${item.gradeFn(score)?`<span style="background:${item.gradeFn(score).b};color:${item.gradeFn(score).c};padding:3px 8px;border-radius:6px;font-size:18px;font-weight:700;">${item.gradeFn(score).l}</span>`:''}
                 </div>
                 <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;justify-content:center;">
                   ${item.grades.map(g=>`<div style="display:flex;align-items:center;gap:3px;"><span style="width:6px;height:6px;border-radius:50%;background:${g.c};flex-shrink:0;"></span><span style="font-size:8px;color:${g.c};font-weight:600;">${g.l} ${g.t}</span></div>`).join('')}
@@ -1227,14 +1227,14 @@ const ClientDetailPage = {
               const pct=score!=null?Math.min(100,(Number(score)/60)*100):0;
               const r=36,circ=2*Math.PI*r,dash=(pct/100)*circ, clr=dg?.c||'#7B1FA2';
               return `<div style="padding:7px 12px;background:#F8FBFF;border-radius:7px;border:1px solid #E3F2FD;display:flex;flex-direction:column;align-items:center;">
-                <div style="font-size:13px;font-weight:900;color:#1A1A1A;margin-bottom:10px;align-self:flex-start;">우울점수</div>
+                <div style="font-size:20px;font-weight:900;color:#1A1A1A;margin-bottom:10px;align-self:flex-start;">우울점수</div>
                 <div style="display:flex;align-items:center;gap:8px;">
                   <svg width="88" height="88" viewBox="0 0 88 88" style="flex-shrink:0;">
                     <circle cx="44" cy="44" r="${r}" fill="none" stroke="#E8E8E8" stroke-width="10"/>
                     ${pct>0?`<circle cx="44" cy="44" r="${r}" fill="none" stroke="${clr}" stroke-width="10" stroke-dasharray="${dash.toFixed(1)} ${circ.toFixed(1)}" stroke-dashoffset="${(circ/4).toFixed(1)}" stroke-linecap="round"/>`:''}
                     <text x="44" y="48" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="800" fill="${clr}">${score!=null?score+'점':'-'}</text>
                   </svg>
-                  ${dg?`<span style="background:${dg.b};color:${dg.c};padding:3px 8px;border-radius:6px;font-size:12px;font-weight:700;">${dg.l}</span>`:''}
+                  ${dg?`<span style="background:${dg.b};color:${dg.c};padding:3px 8px;border-radius:6px;font-size:18px;font-weight:700;">${dg.l}</span>`:''}
                 </div>
                 <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;justify-content:center;">
                   ${[{l:'경도',c:'#2E7D32',t:'0~20'},{l:'중등도',c:'#F57F17',t:'21~24'},{l:'높은수준',c:'#C62828',t:'25~60'}].map(g=>`<div style="display:flex;align-items:center;gap:3px;"><span style="width:6px;height:6px;border-radius:50%;background:${g.c};flex-shrink:0;"></span><span style="font-size:8px;color:${g.c};font-weight:600;">${g.l} ${g.t}</span></div>`).join('')}
@@ -1248,11 +1248,11 @@ const ClientDetailPage = {
               const clr=p==null?'#888':p>=60?'#C62828':p>=30?'#F57F17':'#2E7D32';
               const lvl=p==null?'-':p>=60?'높음':p>=30?'주의':'낮음';
               return `<div style="padding:7px 12px;background:#F8FBFF;border-radius:7px;border:1px solid #E3F2FD;display:flex;flex-direction:column;align-items:center;justify-content:center;">
-                <div style="font-size:13px;font-weight:900;color:#1A1A1A;margin-bottom:10px;align-self:flex-start;">치매위험요인</div>
+                <div style="font-size:20px;font-weight:900;color:#1A1A1A;margin-bottom:10px;align-self:flex-start;">치매위험요인</div>
                 <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;">
                   ${p!=null?`
                   <div style="font-size:30px;font-weight:900;color:${clr};line-height:1;">${p}<span style="font-size:14px;font-weight:600;">%</span></div>
-                  <div style="margin-top:6px;"><span style="background:${clr}22;color:${clr};padding:2px 9px;border-radius:6px;font-size:11px;font-weight:700;">${lvl}</span></div>`:'<div style="font-size:13px;color:#aaa;">-</div>'}
+                  <div style="margin-top:6px;"><span style="background:${clr}22;color:${clr};padding:2px 9px;border-radius:6px;font-size:18px;font-weight:700;">${lvl}</span></div>`:'<div style="font-size:20px;color:#aaa;">-</div>'}
                 </div>
               </div>`;
             })()}
@@ -1265,7 +1265,7 @@ const ClientDetailPage = {
     <!-- ▣ 움직임 관리 (flex:2) -->
     <div style="border:1.5px solid #C8E6C9;border-radius:8px;overflow:hidden;flex:2;display:flex;flex-direction:column;min-height:0;">
       <div style="background:#2E7D32;padding:6px 12px;flex-shrink:0;">
-        <span style="font-size:13px;font-weight:900;color:white;">🏃 움직임 관리 리포트</span>
+        <span style="font-size:20px;font-weight:900;color:white;">🏃 움직임 관리 리포트</span>
       </div>
       <div style="padding:8px 12px;background:white;flex:1;overflow:hidden;display:flex;flex-direction:column;gap:7px;">
  
@@ -1273,7 +1273,7 @@ const ClientDetailPage = {
         <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;">
           <!-- 심폐기능 -->
           <div style="padding:7px;background:#F5FBF5;border-radius:6px;border:1px solid #C8E6C9;">
-            <div style="font-size:11px;font-weight:900;color:#1A1A1A;margin-bottom:4px;">심폐기능지수 (VO2peak)</div>
+            <div style="font-size:18px;font-weight:900;color:#1A1A1A;margin-bottom:4px;">심폐기능지수 (VO2peak)</div>
             ${master.cardioScore!=null?`
             ${(()=>{
               const isMale=c.gender==='남자';
@@ -1283,8 +1283,8 @@ const ClientDetailPage = {
               const matched=getCardioGrade(master.cardioScore,c.gender,c.birthDate);
               const matchedG=gradeOrder.find(g=>g.l===matched);
               return `<div style="display:flex;align-items:center;gap:7px;margin-bottom:4px;">
-                <span style="font-size:18px;font-weight:800;color:${matchedG?.c||'#2E7D32'};">${master.cardioScore}<span style="font-size:9px;color:#aaa;font-weight:400;"> ml/kg/min</span></span>
-                <span style="background:${matchedG?.c||'#888'}22;color:${matchedG?.c||'#888'};padding:2px 6px;border-radius:5px;font-size:10px;font-weight:700;">${matched||''}</span>
+                <span style="font-size:18px;font-weight:800;color:${matchedG?.c||'#2E7D32'};">${master.cardioScore}<span style="font-size:18px;color:#aaa;font-weight:400;"> ml/kg/min</span></span>
+                <span style="background:${matchedG?.c||'#888'}22;color:${matchedG?.c||'#888'};padding:2px 6px;border-radius:5px;font-size:18px;font-weight:700;">${matched||''}</span>
               </div>
               <div style="padding:0 20px;">
                 <div style="position:relative;height:10px;margin-bottom:1px;">
@@ -1306,8 +1306,8 @@ const ClientDetailPage = {
           </div>
           <!-- 신체움직임 -->
           <div style="padding:7px 7px 20px;background:#F5FBF5;border-radius:6px;border:1px solid #C8E6C9;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;">
-            <div style="font-size:11px;font-weight:900;color:#1A1A1A;margin-bottom:4px;">신체 움직임 점수</div>
-            <div style="display:flex;align-items:baseline;gap:3px;"><span style="font-size:26px;font-weight:900;color:#0288D1;">${master.bodyMovementIndex??'-'}</span><span style="font-size:12px;color:#aaa;">/ 100점</span></div>
+            <div style="font-size:18px;font-weight:900;color:#1A1A1A;margin-bottom:4px;">신체 움직임 점수</div>
+            <div style="display:flex;align-items:baseline;gap:3px;"><span style="font-size:26px;font-weight:900;color:#0288D1;">${master.bodyMovementIndex??'-'}</span><span style="font-size:18px;color:#aaa;">/ 100점</span></div>
             ${master.bodyMovementIndex!=null?`<div style="width:100%;margin-top:5px;">${scoreBar(master.bodyMovementIndex,'#0288D1')}</div>`:''}
           </div>
         </div>
@@ -1323,14 +1323,14 @@ const ClientDetailPage = {
             const pct=Math.min(100,Math.max(0,Number(score)||0));
             const r=36,circ=2*Math.PI*r,dash=(pct/100)*circ;
             return `<div style="padding:7px 8px;background:#F5FBF5;border-radius:6px;border:1px solid #C8E6C9;display:flex;flex-direction:column;align-items:center;overflow:visible;">
-              <div style="font-size:13px;font-weight:900;color:#1A1A1A;margin-bottom:10px;align-self:flex-start;">${item.label}</div>
+              <div style="font-size:20px;font-weight:900;color:#1A1A1A;margin-bottom:10px;align-self:flex-start;">${item.label}</div>
               <svg width="88" height="88" viewBox="0 0 88 88" style="overflow:visible;margin-bottom:8px;">
                 <circle cx="44" cy="44" r="${r}" fill="none" stroke="#E8E8E8" stroke-width="10"/>
                 ${pct>0?`<circle cx="44" cy="44" r="${r}" fill="none" stroke="${item.color}" stroke-width="10" stroke-dasharray="${dash.toFixed(1)} ${circ.toFixed(1)}" stroke-dashoffset="${(circ/4).toFixed(1)}" stroke-linecap="round"/>`:''}
                 <text x="44" y="48" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="800" fill="${item.color}">${score!=null?score+'점':'-'}</text>
               </svg>
               <div style="display:flex;justify-content:center;">
-                <div style="font-size:9px;color:#444;line-height:1.8;text-align:left;">
+                <div style="font-size:18px;color:#444;line-height:1.8;text-align:left;">
                   ${item.items.map(it=>`<div>• ${it.label}</div>`).join('')}
                 </div>
               </div>
@@ -1343,20 +1343,20 @@ const ClientDetailPage = {
     <!-- ▣ 대사(생활) 관리 (flex:1) -->
     <div style="border:1.5px solid #FFE0B2;border-radius:8px;overflow:hidden;flex:1;display:flex;flex-direction:column;min-height:0;">
       <div style="background:#E65100;padding:6px 12px;flex-shrink:0;">
-        <span style="font-size:13px;font-weight:900;color:white;">💊 대사(생활) 관리 리포트</span>
+        <span style="font-size:20px;font-weight:900;color:white;">💊 대사(생활) 관리 리포트</span>
       </div>
       <div style="padding:8px 12px;background:white;flex:1;overflow:hidden;">
         <div style="display:grid;grid-template-columns:1fr 2fr;gap:8px;height:100%;">
           <!-- 체성분 -->
           <div style="padding:7px;background:#FFF8F0;border-radius:6px;border:1px solid #FFE0B2;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;">
-            <div style="font-size:11px;font-weight:900;color:#1A1A1A;margin-bottom:4px;">체성분 종합 점수</div>
-            <div style="display:flex;align-items:baseline;gap:3px;"><span style="font-size:26px;font-weight:900;color:#2E7D32;">${master.bodyCompScore??'-'}</span><span style="font-size:12px;color:#aaa;">/ 100점</span></div>
+            <div style="font-size:18px;font-weight:900;color:#1A1A1A;margin-bottom:4px;">체성분 종합 점수</div>
+            <div style="display:flex;align-items:baseline;gap:3px;"><span style="font-size:26px;font-weight:900;color:#2E7D32;">${master.bodyCompScore??'-'}</span><span style="font-size:18px;color:#aaa;">/ 100점</span></div>
             ${master.bodyCompScore!=null?`<div style="width:100%;margin-top:5px;">${scoreBar(master.bodyCompScore,'#2E7D32')}</div>`:''}
             <div style="font-size:8px;color:#aaa;margin-top:3px;text-align:center;">※ 근육이 매우 많을 경우 100점을 넘을 수 있습니다.</div>
           </div>
           <!-- 스트레스 (이미지2 참고: 부드러운 그라데이션 + 마커) -->
           <div style="padding:7px;background:#FFF8F0;border-radius:6px;border:1px solid #FFE0B2;display:flex;flex-direction:column;">
-            <div style="font-size:11px;font-weight:900;color:#1A1A1A;margin-bottom:10px;">스트레스 점수</div>
+            <div style="font-size:18px;font-weight:900;color:#1A1A1A;margin-bottom:10px;">스트레스 점수</div>
             ${master.stressScore!=null?`
             ${(()=>{
               const s = master.stressScore;
@@ -1372,7 +1372,7 @@ const ClientDetailPage = {
               return `<div style="display:flex;flex-direction:column;flex:1;">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
                   <span style="font-size:28px;font-weight:900;color:${rptG.color};">${s}점</span>
-                  <span style="background:${rptG.bg};color:${rptG.color};padding:3px 10px;border-radius:8px;font-size:13px;font-weight:700;">${sg||''}</span>
+                  <span style="background:${rptG.bg};color:${rptG.color};padding:3px 10px;border-radius:8px;font-size:20px;font-weight:700;">${sg||''}</span>
                 </div>
                 <div style="padding:0 20px;">
                   <div style="position:relative;margin-bottom:2px;height:12px;">
@@ -1384,7 +1384,7 @@ const ClientDetailPage = {
                   </div>
                 </div>
               </div>`;
-            })()}`:`<div style="font-size:13px;color:#aaa;">-</div>`}
+            })()}`:`<div style="font-size:20px;color:#aaa;">-</div>`}
           </div>
         </div>
       </div>
@@ -1398,8 +1398,8 @@ const ClientDetailPage = {
 
   <!-- 헤더 -->
   <div style="border-bottom:2px solid rgba(155,115,75,0.8);padding-bottom:6px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
-    <div style="font-size:17px;font-weight:800;color:#1A1A1A;">기간별 지표 변화</div>
-    <div style="font-size:11px;color:#aaa;">${c.name} · ${todayStr}</div>
+    <div style="font-size:20px;font-weight:800;color:#1A1A1A;">기간별 지표 변화</div>
+    <div style="font-size:18px;color:#aaa;">${c.name} · ${todayStr}</div>
   </div>
 
   <!-- 추이 그래프 영역 (50%) -->
@@ -1411,7 +1411,7 @@ const ClientDetailPage = {
 
     const currentRound = master.round;
     const sorted = [...trendMasters].filter(m=>m.round<=currentRound).sort((a,b)=>a.round-b.round);
-    if (!sorted.length) return '<div style="color:#aaa;font-size:12px;text-align:center;padding:20px;">데이터 없음</div>';
+    if (!sorted.length) return '<div style="color:#aaa;font-size:18px;text-align:center;padding:20px;">데이터 없음</div>';
 
     const yDef = {
       cogScore:{max:100}, depression:{max:60}, cardioScore:{max:44},
@@ -1435,8 +1435,8 @@ const ClientDetailPage = {
       const first  = pts[0]?.v;
       const diff   = pts.length>1 ? Math.round((latest-first)*10)/10 : null;
       const diffBadge = diff==null?'':
-        diff>0?`<span style="font-size:9px;font-weight:800;color:#1D6FF2;margin-left:4px;">▲${diff}${unit}</span>`:
-        diff<0?`<span style="font-size:9px;font-weight:800;color:#E53935;margin-left:4px;">▼${Math.abs(diff)}${unit}</span>`:'';
+        diff>0?`<span style="font-size:18px;font-weight:800;color:#1D6FF2;margin-left:4px;">▲${diff}${unit}</span>`:
+        diff<0?`<span style="font-size:18px;font-weight:800;color:#E53935;margin-left:4px;">▼${Math.abs(diff)}${unit}</span>`:'';
 
       // SVG: 그래프(선/영역/마커)만 — preserveAspectRatio="none"으로 카드 너비에 꽉 채움
       // 텍스트 레이블은 HTML로 분리 → 폰트 크기 고정
@@ -1480,15 +1480,15 @@ const ClientDetailPage = {
         const pctY = (y/H*100).toFixed(1);
         if (isLatest) {
           // 최신: 우측정렬, 위쪽, 12px #9B734B
-          htmlLabels += `<span style="position:absolute;right:${(100-x/W*100).toFixed(1)}%;bottom:${(100-(y/H*100)).toFixed(1)}%;transform:translateY(-14px);font-size:12px;font-weight:700;color:${LC};white-space:nowrap;line-height:1;">${p.v}${unit==='점'?'점':unit}</span>`;
+          htmlLabels += `<span style="position:absolute;right:${(100-x/W*100).toFixed(1)}%;bottom:${(100-(y/H*100)).toFixed(1)}%;transform:translateY(-14px);font-size:18px;font-weight:700;color:${LC};white-space:nowrap;line-height:1;">${p.v}${unit==='점'?'점':unit}</span>`;
         } else {
           // 이전: 좌측정렬, 위쪽, 10px 회색
-          htmlLabels += `<span style="position:absolute;left:${pctX}%;bottom:${(100-(y/H*100)).toFixed(1)}%;transform:translateY(-10px);font-size:10px;font-weight:500;color:#999;white-space:nowrap;line-height:1;">${p.v}${unit==='점'?'점':unit}</span>`;
+          htmlLabels += `<span style="position:absolute;left:${pctX}%;bottom:${(100-(y/H*100)).toFixed(1)}%;transform:translateY(-10px);font-size:18px;font-weight:500;color:#999;white-space:nowrap;line-height:1;">${p.v}${unit==='점'?'점':unit}</span>`;
         }
       });
 
       return `<div style="display:flex;flex-direction:column;flex:1;min-width:0;padding:8px 21px 6px 21px;border:1px solid ${BR};border-radius:7px;box-sizing:border-box;background:rgba(155,115,75,0.03);">
-        <div style="font-size:10px;font-weight:700;color:#3A2A1A;margin-bottom:3px;display:flex;align-items:center;flex-wrap:wrap;white-space:nowrap;padding:0 2px;">${label}${diffBadge}</div>
+        <div style="font-size:18px;font-weight:700;color:#3A2A1A;margin-bottom:3px;display:flex;align-items:center;flex-wrap:wrap;white-space:nowrap;padding:0 2px;">${label}${diffBadge}</div>
         <div style="flex:1;min-height:0;position:relative;">
           <svg width="100%" height="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="display:block;">${svgGraph}</svg>
           ${htmlLabels}
@@ -1503,7 +1503,7 @@ const ClientDetailPage = {
 
     const sec = (label,color,items) => `
       <div style="display:flex;flex-direction:column;flex:1;min-height:0;margin-bottom:6px;">
-        <div style="font-size:9px;font-weight:800;color:${color};letter-spacing:0.04em;margin-bottom:3px;padding-bottom:2px;border-bottom:1px solid rgba(155,115,75,0.2);flex-shrink:0;">${label}</div>
+        <div style="font-size:18px;font-weight:800;color:${color};letter-spacing:0.04em;margin-bottom:3px;padding-bottom:2px;border-bottom:1px solid rgba(155,115,75,0.2);flex-shrink:0;">${label}</div>
         ${row(items)}
       </div>`;
 
@@ -1518,22 +1518,22 @@ const ClientDetailPage = {
 
   <!-- 전문가 코멘트 (50%) -->
   <div style="flex:1;min-height:0;display:flex;flex-direction:column;">
-    <div style="font-size:11px;font-weight:800;color:#3A2A1A;margin-bottom:6px;flex-shrink:0;padding-bottom:4px;border-bottom:1px solid rgba(155,115,75,0.4);">전문가 코멘트</div>
+    <div style="font-size:18px;font-weight:800;color:#3A2A1A;margin-bottom:6px;flex-shrink:0;padding-bottom:4px;border-bottom:1px solid rgba(155,115,75,0.4);">전문가 코멘트</div>
     <div style="display:flex;flex-direction:column;gap:5px;flex:1;min-height:0;">
       <div style="border:1px solid rgba(155,115,75,0.8);border-radius:7px;overflow:hidden;flex:1;display:flex;flex-direction:column;background:rgba(155,115,75,0.04);">
-        <div style="background:rgba(155,115,75,0.12);padding:4px 12px;font-size:10px;font-weight:700;color:#3A2A1A;flex-shrink:0;">🧠 인지 전문가 코멘트</div>
-        <div style="padding:6px 12px;font-size:13px;line-height:1.6;color:#333;flex:1;overflow:hidden;">${master.cogComment||'(코멘트 없음)'}</div>
+        <div style="background:rgba(155,115,75,0.12);padding:4px 12px;font-size:18px;font-weight:700;color:#3A2A1A;flex-shrink:0;">🧠 인지 전문가 코멘트</div>
+        <div style="padding:6px 12px;font-size:20px;line-height:1.6;color:#333;flex:1;overflow:hidden;">${master.cogComment||'(코멘트 없음)'}</div>
       </div>
       <div style="border:1px solid rgba(155,115,75,0.8);border-radius:7px;overflow:hidden;flex:1;display:flex;flex-direction:column;background:rgba(155,115,75,0.04);">
-        <div style="background:rgba(155,115,75,0.12);padding:4px 12px;font-size:10px;font-weight:700;color:#3A2A1A;flex-shrink:0;">🏃 운동 전문가 코멘트</div>
-        <div style="padding:6px 12px;font-size:13px;line-height:1.6;color:#333;flex:1;overflow:hidden;">${master.exComment||'(코멘트 없음)'}</div>
+        <div style="background:rgba(155,115,75,0.12);padding:4px 12px;font-size:18px;font-weight:700;color:#3A2A1A;flex-shrink:0;">🏃 운동 전문가 코멘트</div>
+        <div style="padding:6px 12px;font-size:20px;line-height:1.6;color:#333;flex:1;overflow:hidden;">${master.exComment||'(코멘트 없음)'}</div>
       </div>
       <div style="border:1px solid rgba(155,115,75,0.8);border-radius:7px;overflow:hidden;flex:1;display:flex;flex-direction:column;background:rgba(155,115,75,0.04);">
-        <div style="background:rgba(155,115,75,0.12);padding:4px 12px;font-size:10px;font-weight:700;color:#3A2A1A;flex-shrink:0;">💼 케어 매니저 코멘트</div>
-        <div style="padding:6px 12px;font-size:13px;line-height:1.6;color:#333;flex:1;overflow:hidden;">${master.cmComment||'(코멘트 없음)'}</div>
+        <div style="background:rgba(155,115,75,0.12);padding:4px 12px;font-size:18px;font-weight:700;color:#3A2A1A;flex-shrink:0;">💼 케어 매니저 코멘트</div>
+        <div style="padding:6px 12px;font-size:20px;line-height:1.6;color:#333;flex:1;overflow:hidden;">${master.cmComment||'(코멘트 없음)'}</div>
       </div>
     </div>
-    <div style="text-align:center;margin-top:6px;font-size:9px;color:#aaa;flex-shrink:0;">CARE HUB IN HANAM · 케어허브 하남</div>
+    <div style="text-align:center;margin-top:6px;font-size:18px;color:#aaa;flex-shrink:0;">CARE HUB IN HANAM · 케어허브 하남</div>
   </div>
 
 </div>`;
