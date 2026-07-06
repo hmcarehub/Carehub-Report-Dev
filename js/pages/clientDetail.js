@@ -1405,8 +1405,8 @@ const ClientDetailPage = {
   </div>
 </div>
 
-<!-- ===================== PAGE 3: 추이 + 코멘트 ===================== -->
-<div style="width:100%;min-height:100vh;height:100vh;padding:16px 28px;box-sizing:border-box;font-family:'Noto Sans KR',sans-serif;display:flex;flex-direction:column;gap:0;">
+<!-- ===================== PAGE 3: 추이 ===================== -->
+<div style="width:100%;min-height:100vh;height:100vh;padding:16px 28px;box-sizing:border-box;page-break-after:always;font-family:'Noto Sans KR',sans-serif;display:flex;flex-direction:column;gap:0;">
 
   <!-- 헤더 -->
   <div style="border-bottom:2px solid rgba(155,115,75,0.8);padding-bottom:6px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
@@ -1414,7 +1414,7 @@ const ClientDetailPage = {
     <div style="font-size:18px;color:#aaa;">${c.name} · ${todayStr}</div>
   </div>
 
-  <!-- 추이 그래프 영역 (50%) -->
+  <!-- 추이 그래프 영역 -->
   <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
   ${(()=>{
     const BR = 'rgba(155,115,75,0.8)';
@@ -1437,7 +1437,6 @@ const ClientDetailPage = {
 
       const isSingle = pts.length===1;
       const axMax = (yDef[field]||{max:100}).max;
-      // padL/padR 최소화로 그래프 꽉 채우기
       const W=200, H=100, padL=10, padR=10, padT=22, padB=14;
       const innerW = W-padL-padR, innerH = H-padT-padB;
       const xPos = i => isSingle ? padL+innerW/2 : padL + i*(innerW/(pts.length-1));
@@ -1450,8 +1449,6 @@ const ClientDetailPage = {
         diff>0?`<span style="font-size:18px;font-weight:800;color:#1D6FF2;margin-left:4px;">▲${diff}${unit}</span>`:
         diff<0?`<span style="font-size:18px;font-weight:800;color:#E53935;margin-left:4px;">▼${Math.abs(diff)}${unit}</span>`:'';
 
-      // SVG: 그래프(선/영역/마커)만 — preserveAspectRatio="none"으로 카드 너비에 꽉 채움
-      // 텍스트 레이블은 HTML로 분리 → 폰트 크기 고정
       let pathD='', areaD='', svgGraph='';
       pts.forEach((p,i)=>{
         const x=xPos(i), y=yPos(p.v);
@@ -1463,7 +1460,6 @@ const ClientDetailPage = {
         svgGraph += `<path d="${pathD}" fill="none" stroke="${LC}" stroke-width="1.8" stroke-linejoin="round"/>`;
       }
 
-      // 마커 + 회차 텍스트(SVG 내, 크기 왜곡 감수)
       pts.forEach((p,i)=>{
         const x=xPos(i), y=yPos(p.v);
         const isLatest = i===pts.length-1;
@@ -1476,25 +1472,20 @@ const ClientDetailPage = {
         } else {
           svgGraph += `<circle cx="${x}" cy="${y}" r="2.5" fill="${LC}" stroke="white" stroke-width="1"/>`;
         }
-        // 주차 레이블 (회차 → 주차 변환)
         const wLbl = p.round===1 ? '초기' : `${(p.round-1)*4}주`;
         svgGraph += `<text x="${x}" y="${H-2}" text-anchor="middle" font-family="sans-serif" font-size="7" fill="#bbb">${wLbl}</text>`;
       });
       svgGraph += `<line x1="${padL}" y1="${H-padB}" x2="${W-padR}" y2="${H-padB}" stroke="rgba(155,115,75,0.25)" stroke-width="0.8"/>`;
 
-      // HTML 텍스트 레이블: 퍼센트 위치로 absolute 배치 → 폰트 크기 고정
       let htmlLabels = '';
       pts.forEach((p,i)=>{
         const x=xPos(i), y=yPos(p.v);
         const isLatest = i===pts.length-1;
-        // SVG viewBox 기준 퍼센트로 변환
         const pctX = (x/W*100).toFixed(1);
         const pctY = (y/H*100).toFixed(1);
         if (isLatest) {
-          // 최신: 우측정렬, 위쪽, 12px #9B734B
           htmlLabels += `<span style="position:absolute;right:${(100-x/W*100).toFixed(1)}%;bottom:${(100-(y/H*100)).toFixed(1)}%;transform:translateY(-14px);font-size:18px;font-weight:700;color:${LC};white-space:nowrap;line-height:1;">${p.v}${unit==='점'?'점':unit}</span>`;
         } else {
-          // 이전: 좌측정렬, 위쪽, 10px 회색
           htmlLabels += `<span style="position:absolute;left:${pctX}%;bottom:${(100-(y/H*100)).toFixed(1)}%;transform:translateY(-10px);font-size:18px;font-weight:500;color:#999;white-space:nowrap;line-height:1;">${p.v}${unit==='점'?'점':unit}</span>`;
         }
       });
@@ -1528,29 +1519,10 @@ const ClientDetailPage = {
   })()}
   </div>
 
-//   <!-- 전문가 코멘트 (50%) -->
-//   <div style="flex:1;min-height:0;display:flex;flex-direction:column;">
-//     <div style="font-size:18px;font-weight:800;color:#3A2A1A;margin-bottom:6px;flex-shrink:0;padding-bottom:4px;border-bottom:1px solid rgba(155,115,75,0.4);">전문가 코멘트</div>
-//     <div style="display:flex;flex-direction:column;gap:5px;flex:1;min-height:0;">
-//       <div style="border:1px solid rgba(155,115,75,0.8);border-radius:7px;overflow:hidden;flex:1;display:flex;flex-direction:column;background:rgba(155,115,75,0.04);">
-//         <div style="background:rgba(155,115,75,0.12);padding:4px 12px;font-size:18px;font-weight:700;color:#3A2A1A;flex-shrink:0;">🧠 인지 전문가 코멘트</div>
-//         <div style="padding:6px 12px;font-size:20px;line-height:1.6;color:#333;flex:1;overflow:hidden;">${master.cogComment||'(코멘트 없음)'}</div>
-//       </div>
-//       <div style="border:1px solid rgba(155,115,75,0.8);border-radius:7px;overflow:hidden;flex:1;display:flex;flex-direction:column;background:rgba(155,115,75,0.04);">
-//         <div style="background:rgba(155,115,75,0.12);padding:4px 12px;font-size:18px;font-weight:700;color:#3A2A1A;flex-shrink:0;">🏃 운동 전문가 코멘트</div>
-//         <div style="padding:6px 12px;font-size:20px;line-height:1.6;color:#333;flex:1;overflow:hidden;">${master.exComment||'(코멘트 없음)'}</div>
-//       </div>
-//       <div style="border:1px solid rgba(155,115,75,0.8);border-radius:7px;overflow:hidden;flex:1;display:flex;flex-direction:column;background:rgba(155,115,75,0.04);">
-//         <div style="background:rgba(155,115,75,0.12);padding:4px 12px;font-size:18px;font-weight:700;color:#3A2A1A;flex-shrink:0;">💼 케어 매니저 코멘트</div>
-//         <div style="padding:6px 12px;font-size:20px;line-height:1.6;color:#333;flex:1;overflow:hidden;">${master.cmComment||'(코멘트 없음)'}</div>
-//       </div>
-//     </div>
-//     <div style="text-align:center;margin-top:6px;font-size:18px;color:#aaa;flex-shrink:0;">CARE HUB IN HANAM · 케어허브 하남</div>
-//   </div>
+</div>
 
-// </div>`;
-<!-- ==================== PAGE 4: 전문가 코멘트 ===================== -->
-<div style="page-break-before:always;width:100%;min-height:100vh;height:100vh;padding:16px 28px;box-sizing:border-box;font-family:'Noto Sans KR',sans-serif;display:flex;flex-direction:column;">
+<!-- ===================== PAGE 4: 전문가 코멘트 ===================== -->
+<div style="width:100%;min-height:100vh;height:100vh;padding:16px 28px;box-sizing:border-box;font-family:'Noto Sans KR',sans-serif;display:flex;flex-direction:column;">
 
   <!-- 헤더 -->
   <div style="border-bottom:2px solid rgba(155,115,75,0.8);padding-bottom:6px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;">
@@ -1594,8 +1566,8 @@ const ClientDetailPage = {
   </div>
 
 </div>
+  `;
   },
-  
 
   _printReport: function(master, _unused) {
     // 새 창에서 HTML을 직접 생성해 출력 — 현재 화면에 미리보기 없이 바로 프린트 창만 표시
