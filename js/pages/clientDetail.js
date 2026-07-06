@@ -99,6 +99,12 @@ const ClientDetailPage = {
 
   _renderDetail: function(container) {
     const c = this.client;
+    // 최초 진입 시 가장 최근 회차를 기본 선택
+    if (!this._roundSelected) {
+        this.activeRound = Math.max(1, Math.min(c.doneRounds || 1, c.totalRounds || 1));
+        this.activeDetailTab = 'rounds';
+        this._roundSelected = true;
+    }
     const admitProg = this._calcProgress(c);
     const roundPct  = c.totalRounds > 0 ? Math.round(c.doneRounds / c.totalRounds * 100) : 0;
 
@@ -1409,7 +1415,7 @@ const ClientDetailPage = {
   </div>
 
   <!-- 추이 그래프 영역 (50%) -->
-  <div style="flex:1;min-height:0;overflow:hidden;margin-bottom:0;">
+  <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
   ${(()=>{
     const BR = 'rgba(155,115,75,0.8)';
     const LC = '#9B734B';
@@ -1522,29 +1528,74 @@ const ClientDetailPage = {
   })()}
   </div>
 
-  <!-- 전문가 코멘트 (50%) -->
-  <div style="flex:1;min-height:0;display:flex;flex-direction:column;">
-    <div style="font-size:18px;font-weight:800;color:#3A2A1A;margin-bottom:6px;flex-shrink:0;padding-bottom:4px;border-bottom:1px solid rgba(155,115,75,0.4);">전문가 코멘트</div>
-    <div style="display:flex;flex-direction:column;gap:5px;flex:1;min-height:0;">
-      <div style="border:1px solid rgba(155,115,75,0.8);border-radius:7px;overflow:hidden;flex:1;display:flex;flex-direction:column;background:rgba(155,115,75,0.04);">
-        <div style="background:rgba(155,115,75,0.12);padding:4px 12px;font-size:18px;font-weight:700;color:#3A2A1A;flex-shrink:0;">🧠 인지 전문가 코멘트</div>
-        <div style="padding:6px 12px;font-size:20px;line-height:1.6;color:#333;flex:1;overflow:hidden;">${master.cogComment||'(코멘트 없음)'}</div>
-      </div>
-      <div style="border:1px solid rgba(155,115,75,0.8);border-radius:7px;overflow:hidden;flex:1;display:flex;flex-direction:column;background:rgba(155,115,75,0.04);">
-        <div style="background:rgba(155,115,75,0.12);padding:4px 12px;font-size:18px;font-weight:700;color:#3A2A1A;flex-shrink:0;">🏃 운동 전문가 코멘트</div>
-        <div style="padding:6px 12px;font-size:20px;line-height:1.6;color:#333;flex:1;overflow:hidden;">${master.exComment||'(코멘트 없음)'}</div>
-      </div>
-      <div style="border:1px solid rgba(155,115,75,0.8);border-radius:7px;overflow:hidden;flex:1;display:flex;flex-direction:column;background:rgba(155,115,75,0.04);">
-        <div style="background:rgba(155,115,75,0.12);padding:4px 12px;font-size:18px;font-weight:700;color:#3A2A1A;flex-shrink:0;">💼 케어 매니저 코멘트</div>
-        <div style="padding:6px 12px;font-size:20px;line-height:1.6;color:#333;flex:1;overflow:hidden;">${master.cmComment||'(코멘트 없음)'}</div>
-      </div>
-    </div>
-    <div style="text-align:center;margin-top:6px;font-size:18px;color:#aaa;flex-shrink:0;">CARE HUB IN HANAM · 케어허브 하남</div>
+//   <!-- 전문가 코멘트 (50%) -->
+//   <div style="flex:1;min-height:0;display:flex;flex-direction:column;">
+//     <div style="font-size:18px;font-weight:800;color:#3A2A1A;margin-bottom:6px;flex-shrink:0;padding-bottom:4px;border-bottom:1px solid rgba(155,115,75,0.4);">전문가 코멘트</div>
+//     <div style="display:flex;flex-direction:column;gap:5px;flex:1;min-height:0;">
+//       <div style="border:1px solid rgba(155,115,75,0.8);border-radius:7px;overflow:hidden;flex:1;display:flex;flex-direction:column;background:rgba(155,115,75,0.04);">
+//         <div style="background:rgba(155,115,75,0.12);padding:4px 12px;font-size:18px;font-weight:700;color:#3A2A1A;flex-shrink:0;">🧠 인지 전문가 코멘트</div>
+//         <div style="padding:6px 12px;font-size:20px;line-height:1.6;color:#333;flex:1;overflow:hidden;">${master.cogComment||'(코멘트 없음)'}</div>
+//       </div>
+//       <div style="border:1px solid rgba(155,115,75,0.8);border-radius:7px;overflow:hidden;flex:1;display:flex;flex-direction:column;background:rgba(155,115,75,0.04);">
+//         <div style="background:rgba(155,115,75,0.12);padding:4px 12px;font-size:18px;font-weight:700;color:#3A2A1A;flex-shrink:0;">🏃 운동 전문가 코멘트</div>
+//         <div style="padding:6px 12px;font-size:20px;line-height:1.6;color:#333;flex:1;overflow:hidden;">${master.exComment||'(코멘트 없음)'}</div>
+//       </div>
+//       <div style="border:1px solid rgba(155,115,75,0.8);border-radius:7px;overflow:hidden;flex:1;display:flex;flex-direction:column;background:rgba(155,115,75,0.04);">
+//         <div style="background:rgba(155,115,75,0.12);padding:4px 12px;font-size:18px;font-weight:700;color:#3A2A1A;flex-shrink:0;">💼 케어 매니저 코멘트</div>
+//         <div style="padding:6px 12px;font-size:20px;line-height:1.6;color:#333;flex:1;overflow:hidden;">${master.cmComment||'(코멘트 없음)'}</div>
+//       </div>
+//     </div>
+//     <div style="text-align:center;margin-top:6px;font-size:18px;color:#aaa;flex-shrink:0;">CARE HUB IN HANAM · 케어허브 하남</div>
+//   </div>
+
+// </div>`;
+<!-- ==================== PAGE 4: 전문가 코멘트 ===================== -->
+<div style="page-break-before:always;width:100%;min-height:100vh;height:100vh;padding:16px 28px;box-sizing:border-box;font-family:'Noto Sans KR',sans-serif;display:flex;flex-direction:column;">
+
+  <!-- 헤더 -->
+  <div style="border-bottom:2px solid rgba(155,115,75,0.8);padding-bottom:6px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;">
+    <div style="font-size:20px;font-weight:800;color:#1A1A1A;">전문가 코멘트</div>
+    <div style="font-size:18px;color:#aaa;">${c.name} · ${todayStr}</div>
   </div>
 
-</div>`;
+  <div style="display:flex;flex-direction:column;gap:14px;flex:1;">
 
+    <div style="border:1px solid rgba(155,115,75,0.8);border-radius:8px;overflow:hidden;flex:1;background:rgba(155,115,75,0.04);">
+      <div style="background:rgba(155,115,75,0.12);padding:8px 14px;font-size:20px;font-weight:700;">
+        🧠 인지 전문가 코멘트
+      </div>
+      <div style="padding:16px;font-size:20px;line-height:1.8;color:#333;">
+        ${master.cogComment || '(코멘트 없음)'}
+      </div>
+    </div>
+
+    <div style="border:1px solid rgba(155,115,75,0.8);border-radius:8px;overflow:hidden;flex:1;background:rgba(155,115,75,0.04);">
+      <div style="background:rgba(155,115,75,0.12);padding:8px 14px;font-size:20px;font-weight:700;">
+        🏃 운동 전문가 코멘트
+      </div>
+      <div style="padding:16px;font-size:20px;line-height:1.8;color:#333;">
+        ${master.exComment || '(코멘트 없음)'}
+      </div>
+    </div>
+
+    <div style="border:1px solid rgba(155,115,75,0.8);border-radius:8px;overflow:hidden;flex:1;background:rgba(155,115,75,0.04);">
+      <div style="background:rgba(155,115,75,0.12);padding:8px 14px;font-size:20px;font-weight:700;">
+        💼 케어 매니저 코멘트
+      </div>
+      <div style="padding:16px;font-size:20px;line-height:1.8;color:#333;">
+        ${master.cmComment || '(코멘트 없음)'}
+      </div>
+    </div>
+
+  </div>
+
+  <div style="text-align:center;margin-top:10px;font-size:18px;color:#aaa;">
+    CARE HUB IN HANAM · 케어허브 하남
+  </div>
+
+</div>
   },
+  
 
   _printReport: function(master, _unused) {
     // 새 창에서 HTML을 직접 생성해 출력 — 현재 화면에 미리보기 없이 바로 프린트 창만 표시
