@@ -157,7 +157,7 @@ const ClientDetailPage = {
                 {l:'생년월일',  v:c.birthDate||'-'},
                 {l:'성별',      v:c.gender||'-'},
                 {l:'입실호수',  v:c.roomNum||'-', s:'font-weight:700;'},
-                {l:'휴대전화',  v:this._formatPhone(c.phone), s:'font-weight:700;color:var(--color-primary-dark);'},
+                {l:'휴대전화',  v:this._formatPhone(c.phone), s:'font-weight:700;'},
                 {l:'입소 등록일',v:c.firstVisit||'-'},
                 {l:'입소일자',  v:c.admitDate||'-', s:'font-weight:700;'},
                 {l:'종료 예정일',v:c.endDate||'-', s:'font-weight:700;'},
@@ -272,6 +272,12 @@ const ClientDetailPage = {
 
     // 회차 진행현황: 리포트 생성 기준으로 비동기 로드
     this._loadRoundProgress();
+    // 최초 진입 시 가장 최근 평가 회차 자동 선택
+    if (!this._roundSelected) {
+      this.activeRound = Math.min(this.client.doneRounds || 1, this.client.totalRounds || 1);
+      this._roundSelected = true;
+      this.activeDetailTab = 'rounds';
+    }
     this._renderDetailTab();
   },
 
