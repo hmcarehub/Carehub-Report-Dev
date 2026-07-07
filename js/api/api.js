@@ -143,6 +143,17 @@ const API = {
   //   if (!end   || today > end)   return '퇴소';
   //   return '입소중';
   // },
+
+  _parseLocalDate: function(s) {
+  if (!s) return null;
+
+  const [y, m, d] = String(s)
+    .substring(0, 10)
+    .split('-')
+    .map(Number);
+
+  return new Date(y, m - 1, d);
+},
   _calcClientStatus: function(admitDateStr, endDateStr) {
     const today = new Date(); today.setHours(0,0,0,0);
     const admit = admitDateStr ? this._parseLocalDate(admitDateStr) : null;   // ✅
