@@ -50,7 +50,8 @@ const AssessUtils = {
   },
 
   // ── 회차 평가 기간 ───────────────────────────────────────
-  // 1회차: 입소 등록일(firstVisitDate) ~ 입소일자(admitDate)
+  // 1회차: 입소일 30일 전 ~ 입소일자(admitDate)
+  //   (입소 등록일firstVisitDate이 30일 전보다 더 이르면 등록일부터)
   //
   // N회차(N≥2): 28일 단위 사이클, 각 사이클의 21~27일차가 평가 가능 기간
   //   시작(평가 가능): 입소일 + (N-2)*28 + 21일
@@ -69,9 +70,10 @@ const AssessUtils = {
     if (!admit) return null;
     let start, end;
     if (round === 1) {
-      // 1회차: 입소 등록일 ~ 입소일 (등록일 없으면 입소일 당일)
+      // ✅ 1회차: 입소일 30일 전부터 시작 (등록일firstVisitDate이 그보다 더 이르면 등록일 기준)
       const fv = firstVisitDate ? this._parse(firstVisitDate) : null;
-      start = (fv && fv <= admit) ? fv : new Date(admit);
+      const before30 = new Date(admit); before30.setDate(admit.getDate() - 30);
+      start = (fv && fv <= before30) ? fv : before30;
       end   = new Date(admit);
     } else {
       // N회차: (N-2)*28 + 21일 ~ (N-2)*28 + 27일
