@@ -135,10 +135,18 @@ const API = {
     const p = n => String(n).padStart(2,'0');
     return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
   },
+  // _calcClientStatus: function(admitDateStr, endDateStr) {
+  //   const today = new Date(); today.setHours(0,0,0,0);
+  //   const admit = admitDateStr ? new Date(admitDateStr) : null;
+  //   const end   = endDateStr   ? new Date(endDateStr)   : null;
+  //   if (!admit || today < admit) return '입소예정';
+  //   if (!end   || today > end)   return '퇴소';
+  //   return '입소중';
+  // },
   _calcClientStatus: function(admitDateStr, endDateStr) {
     const today = new Date(); today.setHours(0,0,0,0);
-    const admit = admitDateStr ? new Date(admitDateStr) : null;
-    const end   = endDateStr   ? new Date(endDateStr)   : null;
+    const admit = admitDateStr ? parseLocalDate(admitDateStr) : null;   // ✅
+    const end   = endDateStr   ? parseLocalDate(endDateStr)   : null;   // ✅
     if (!admit || today < admit) return '입소예정';
     if (!end   || today > end)   return '퇴소';
     return '입소중';
