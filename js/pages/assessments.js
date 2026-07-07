@@ -556,38 +556,71 @@ const AssessmentsPage = {
     // ── 동연령대 상위 분포도: 이미지1 참고 정규분포 히스토그램 ──
     const percentileBar = (pct) => {
       if (pct==null) return '<div style="font-size:13px;color:var(--color-gray-300);padding:8px;">값 입력 시 표시</div>';
+    
       const p = Math.min(100, Math.max(0, Number(pct)||0));
-      // 9개 막대 높이: 정규분포 형태
+    
       const heights=[22,32,42,54,64,54,42,32,22];
       const barW=14, gap=6, n=heights.length;
       const totalW=n*barW+(n-1)*gap;
       const maxH=Math.max(...heights);
-      // p=100이면 좌측(0번), p=0이면 우측(n-1번)
+    
       const idx=Math.min(n-1,Math.max(0,Math.round((100-p)/100*(n-1))));
       const markerX=idx*(barW+gap)+barW/2;
+    
       const markerColor = p<=33?'#2E7D32':p<=66?'#F57F17':'#C62828';
       const levelLabel  = p<=33?'상위권':p<=66?'중위권':'하위권';
+    
+      const topPad = 16; // ▲ 화살표 공간
+    
       let bars='';
       heights.forEach((h,i)=>{
-        const x=i*(barW+gap), y=maxH-h, active=i===idx;
-        bars+=`<rect x="${x}" y="${y}" width="${barW}" height="${h}" rx="2" fill="${active?'#1565C0':'#D0E4F7'}"/>`;
+        const x=i*(barW+gap);
+        const y=topPad+(maxH-h);
+        const active=i===idx;
+    
+        bars += `
+          <rect
+            x="${x}"
+            y="${y}"
+            width="${barW}"
+            height="${h}"
+            rx="2"
+            fill="${active?'#1565C0':'#D0E4F7'}"
+          />`;
       });
-      return `<div>
-        <div style="text-align:center;margin-bottom:6px;">
-          <span style="font-size:32px;font-weight:900;color:${markerColor};">${p}</span>
-          <span style="font-size:16px;font-weight:700;color:${markerColor};">%</span>
-          <span style="display:inline-block;margin-left:8px;background:${markerColor}22;color:${markerColor};padding:2px 10px;border-radius:8px;font-size:12px;font-weight:700;">${levelLabel}</span>
-        </div>
-        <div style="text-align:center;margin-bottom:4px;font-size:12px;color:#666;">상위 ${p}%예요.</div>
-        <div style="display:flex;justify-content:center;">
-          <svg width="${totalW}" height="${maxH+14}" viewBox="0 0 ${totalW} ${maxH+14}" style="overflow:visible;">
-            <polygon points="${markerX-6},${maxH-heights[idx]-11} ${markerX+6},${maxH-heights[idx]-11} ${markerX},${maxH-heights[idx]-3}" fill="#1565C0"/>
-            ${bars}
-            <text x="${totalW}" y="${maxH+12}" text-anchor="end" font-size="9" fill="#aaa">1%</text>
-            <text x="0" y="${maxH+12}" text-anchor="start" font-size="9" fill="#aaa">100%</text>
-          </svg>
-        </div>
-      </div>`;
+    
+      return `
+        <div>
+          <div style="text-align:center;margin-bottom:6px;">
+            <span style="font-size:32px;font-weight:900;color:${markerColor};">${p}</span>
+            <span style="font-size:16px;font-weight:700;color:${markerColor};">%</span>
+            <span style="display:inline-block;margin-left:8px;background:${markerColor}22;color:${markerColor};padding:2px 10px;border-radius:8px;font-size:12px;font-weight:700;">${levelLabel}</span>
+          </div>
+    
+          <div style="text-align:center;margin-bottom:10px;font-size:12px;color:#666;">
+            상위 ${p}%예요.
+          </div>
+    
+          <div style="display:flex;justify-content:center;padding-top:8px;">
+            <svg
+              width="${totalW}"
+              height="${maxH+topPad+14}"
+              viewBox="0 0 ${totalW} ${maxH+topPad+14}"
+            >
+              <polygon
+                points="${markerX-6},${topPad+(maxH-heights[idx])-11}
+                        ${markerX+6},${topPad+(maxH-heights[idx])-11}
+                        ${markerX},${topPad+(maxH-heights[idx])-3}"
+                fill="#1565C0"
+              />
+    
+              ${bars}
+    
+              <text x="${totalW}" y="${maxH+topPad+12}" text-anchor="end" font-size="9" fill="#aaa">1%</text>
+              <text x="0" y="${maxH+topPad+12}" text-anchor="start" font-size="9" fill="#aaa">100%</text>
+            </svg>
+          </div>
+        </div>`;
     };
 
     const subGradeColor = (score) => {
@@ -738,17 +771,42 @@ const AssessmentsPage = {
             <div class="assess-sub-card">
               <div class="assess-sub-card-header">치매위험요인 (%)</div>
               <div style="padding:14px 16px;">
-                <input type="number" id="f-cog-dem" class="form-control" value="${v.dementiaRisk??''}"
-                  placeholder="예) 12" min="0" max="100" step="1" ${ro}
+                <input type="number" id="f-cog-dem" class="form-control"
+                  value="${v.dementiaRisk??''}"
+                  placeholder="예) 12.5"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  ${ro}
                   style="height:48px;font-size:20px;font-weight:700;text-align:center;margin-bottom:10px;">
+            
                 <div id="viz-dem" style="text-align:center;padding:8px 0;margin-top:20px;">
                   ${(() => {
-                    if (v.dementiaRisk==null) return '<div style="font-size:13px;color:var(--color-gray-300);">값 입력 시 등급 표시</div>';
-                    const p = Math.min(100,Math.max(0,Number(v.dementiaRisk)));
-                    const clr = p>=60?'#C62828':p>=30?'#F57F17':'#2E7D32';
-                    const lvl = p>=60?'높음':p>=30?'주의':'낮음';
-                    return `<div style="font-size:36px;font-weight:900;color:${clr};line-height:1;">${p}<span style="font-size:18px;">%</span></div>
-                    <div style="margin-top:8px;"><span style="background:${clr}22;color:${clr};padding:4px 14px;border-radius:10px;font-size:14px;font-weight:700;">${lvl}</span></div>`;
+                    if (v.dementiaRisk == null || v.dementiaRisk === '') {
+                      return '<div style="font-size:13px;color:var(--color-gray-300);">값 입력 시 등급 표시</div>';
+                    }
+            
+                    const p = Math.min(100, Math.max(0, Number(v.dementiaRisk)));
+                    const display = p.toFixed(1);
+            
+                    const clr = p >= 60 ? '#C62828'
+                              : p >= 30 ? '#F57F17'
+                              : '#2E7D32';
+            
+                    const lvl = p >= 60 ? '높음'
+                              : p >= 30 ? '주의'
+                              : '낮음';
+            
+                    return `
+                      <div style="font-size:36px;font-weight:900;color:${clr};line-height:1;">
+                        ${display}<span style="font-size:18px;">%</span>
+                      </div>
+                      <div style="margin-top:8px;">
+                        <span style="background:${clr}22;color:${clr};padding:4px 14px;border-radius:10px;font-size:14px;font-weight:700;">
+                          ${lvl}
+                        </span>
+                      </div>
+                    `;
                   })()}
                 </div>
               </div>
