@@ -37,10 +37,13 @@ const AssessmentsPage = {
   _visibleTabs: function() { return ['cognitive','movement','metabolism','comment'].filter(c => this._canSeeTab(c)); },
 
   _isRoundActive: function(client, round) {
-    // ✅ 1회차(초기 평가)는 입소일 이전에 진행하므로 입소일 체크 없이 항상 활성화
-    //    (신규 고객 등록 즉시 1회차 평가 가능)
+    // ✅ 1회차(초기 평가): 입소일 30일 전부터 활성화 (입소 후에도 계속 가능)
+    const today = new Date(); today.setHours(0,0,0,0);
     if (round === 1) {
-      return true;
+      if (!client.admitDate) return false;
+      const admit  = new Date(client.admitDate);
+      const from30 = new Date(admit); from30.setDate(admit.getDate() - 30);
+      return today >= from30;
     }
     // N회차: 이전 회차 리포트 완료 여부
     const prevOv = this.overview[client.clientId]?.rounds[round - 1];
@@ -145,7 +148,8 @@ const AssessmentsPage = {
       UI.showLoading();
       const r = await API.getInitialData();
       if (r.status==='success') {
-        this.allClients = (r.data.clients || []).filter(c => c.status === '입소중');
+        // ✅ 초기 평가(1회차)는 입소 30일 전부터 가능하므로, 아직 입소 전인 '입소예정' 고객도 목록에 포함
+        this.allClients = (r.data.clients || []).filter(c => c.status === '입소중' || c.status === '입소예정');
         this.overview   = r.data.overview || {};
       }
     } catch { UI.toast('데이터 로드 실패','error'); }
@@ -1554,7 +1558,8 @@ const AssessmentsPage = {
         UI.toast(res.data.message,'success');
         const ir=await API.getInitialData();
         if (ir.status==='success') {
-          this.allClients=(ir.data.clients||[]).filter(c=>c.status==='입소중');
+          // ✅ 위와 동일하게 '입소예정' 고객도 포함 (초기 평가는 입소 전부터 가능)
+          this.allClients=(ir.data.clients||[]).filter(c=>c.status==='입소중'||c.status==='입소예정');
           this.overview=ir.data.overview||{};
           const updated=this.allClients.find(c=>c.clientId===this.selectedClient.clientId);
           if (updated) this.selectedClient=updated;
