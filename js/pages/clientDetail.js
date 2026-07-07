@@ -1157,14 +1157,7 @@ return `
                    const score=master.cogScore;
                    const gc=cogGrade!=='-'?(cogGrade==='최적'?'#1B5E20':cogGrade==='양호'?'#2E7D32':cogGrade==='개선'?'#F57F17':'#C62828'):'#1565C0';
                    const pct=Math.min(100,Math.max(0,Number(score)||0));
-                    const angle=(pct/100)*180,r=34,cx=44,cy=42;
-                    const rad=angle*Math.PI/180,ex=cx+r*Math.cos(Math.PI-rad),ey=cy-r*Math.sin(rad);
-                    return `<svg width="88" height="56" viewBox="0 0 88 56">
-                      <path d="M 10 42 A 34 34 0 0 1 78 42" fill="none" stroke="#E8E8E8" stroke-width="8" stroke-linecap="round"/>
-                      ${pct>0?`<path d="M 10 42 A 34 34 0 ${angle>180?1:0} 1 ${ex.toFixed(1)} ${ey.toFixed(1)}" fill="none" stroke="${gc}" stroke-width="8" stroke-linecap="round"/>`:''}
-                      <text x="44" y="38" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="800" fill="${gc}">${score!=null?score+'점':'-'}</text>
-                      <text x="44" y="53" text-anchor="middle" font-family="sans-serif" font-size="8" fill="#bbb">0 ──── 100</text>
-                    </svg>`;
+                   
             
                     // 그래프 크기 확대
                     const angle=(pct/100)*180;
