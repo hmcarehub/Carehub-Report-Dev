@@ -145,8 +145,8 @@ const API = {
   // },
   _calcClientStatus: function(admitDateStr, endDateStr) {
     const today = new Date(); today.setHours(0,0,0,0);
-    const admit = admitDateStr ? this.parseLocalDate(admitDateStr) : null;   // ✅
-    const end   = endDateStr   ? this.parseLocalDate(endDateStr)   : null;   // ✅
+    const admit = admitDateStr ? this._parseLocalDate(admitDateStr) : null;   // ✅
+    const end   = endDateStr   ? this._parseLocalDate(endDateStr)   : null;   // ✅
     if (!admit || today < admit) return '입소예정';
     if (!end   || today > end)   return '퇴소';
     return '입소중';
