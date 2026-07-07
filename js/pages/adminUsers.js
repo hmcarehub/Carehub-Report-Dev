@@ -38,12 +38,14 @@ const AdminUsersPage = {
         <div class="card-body" id="register-form-wrap" style="display:none;">
           <div class="form-grid" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr));">
             <div class="form-group">
-              <label class="form-label">로그인 ID <span class="required">*</span></label>
-              <input type="text" id="reg-login-id" class="form-control" placeholder="영문, 숫자 조합">
+              <!-- ✅ login_id = Supabase Auth 의 email 이므로 이메일 형식으로 입력받음 -->
+              <label class="form-label">이메일(로그인 ID) <span class="required">*</span></label>
+              <input type="email" id="reg-login-id" class="form-control" placeholder="example@domain.com">
             </div>
             <div class="form-group">
-              <label class="form-label">비밀번호 <span class="required">*</span></label>
-              <input type="password" id="reg-password" class="form-control" placeholder="6자 이상">
+              <!-- ✅ 비워두면 기본 초기 비밀번호(AppConfig.DEFAULT_PASSWORD)로 Auth 계정이 생성됨 -->
+              <label class="form-label">초기 비밀번호</label>
+              <input type="password" id="reg-password" class="form-control" placeholder="비워두면 기본 비밀번호 사용">
             </div>
             <div class="form-group">
               <label class="form-label">이름 <span class="required">*</span></label>
@@ -162,7 +164,7 @@ const AdminUsersPage = {
 
     const rows = this.users.map(u => `
       <tr>
-        <td style="font-family:monospace;font-size:12px;color:#aaa;">${u.userId}</td>
+        <td style="font-family:monospace;font-size:11px;color:#aaa;" title="${u.authId}">${(u.authId||'').slice(0,8)}…</td>
         <td style="font-weight:600;">${u.loginId}</td>
         <td>${u.name}</td>
         <td>${UI.roleBadge(u.role)}</td>
@@ -171,13 +173,13 @@ const AdminUsersPage = {
         <td style="font-size:12px;color:#aaa;">${UI.formatDate(u.lastLogin)}</td>
         <td>
           <div class="table-actions">
-            <button class="btn btn-warning btn-sm" data-action="reset-pw" data-uid="${u.userId}" data-name="${u.name}" title="비밀번호 초기화">
+            <button class="btn btn-warning btn-sm" data-action="reset-pw" data-uid="${u.authId}" data-name="${u.name}" title="비밀번호 초기화">
               🔑 초기화
             </button>
-            <button class="btn btn-secondary btn-sm" data-action="edit" data-uid="${u.userId}" data-role="${u.role}" data-status="${u.status}" data-name="${u.name}" title="수정">
+            <button class="btn btn-secondary btn-sm" data-action="edit" data-uid="${u.authId}" data-role="${u.role}" data-status="${u.status}" data-name="${u.name}" title="수정">
               ✏️ 수정
             </button>
-            <button class="btn btn-danger btn-sm" data-action="delete" data-uid="${u.userId}" data-name="${u.name}" title="삭제">
+            <button class="btn btn-danger btn-sm" data-action="delete" data-uid="${u.authId}" data-name="${u.name}" title="삭제">
               🗑️
             </button>
           </div>
@@ -189,8 +191,9 @@ const AdminUsersPage = {
       <table class="table">
         <thead>
           <tr>
-            <th>User ID</th>
-            <th>로그인 ID</th>
+            <!-- ✅ 자체 발급 User ID 컬럼 삭제, Auth UUID(auth_id) 를 표시 -->
+            <th>Auth ID</th>
+            <th>이메일(로그인 ID)</th>
             <th>이름</th>
             <th>권한</th>
             <th>상태</th>
@@ -216,17 +219,24 @@ const AdminUsersPage = {
 
   handleCreate: async function() {
     const loginId = document.getElementById('reg-login-id').value.trim();
-    const password = document.getElementById('reg-password').value;
+    const password = document.getElementById('reg-password').value; // ✅ 비워두면 기본 비밀번호 사용 (createUser 에서 처리)
     const name = document.getElementById('reg-name').value.trim();
     const role = document.getElementById('reg-role').value;
     const status = document.getElementById('reg-status').value;
 
-    if (!loginId || !password || !name || !role || !status) {
+    // ✅ 비밀번호는 더 이상 필수 입력이 아님(선택 입력, 미입력 시 기본 비밀번호로 Auth 계정 생성)
+    if (!loginId || !name || !role || !status) {
       UI.toast('모든 항목을 입력해주세요.', 'error');
       return;
     }
 
-    if (password.length < 6) {
+    // ✅ login_id = Supabase Auth 의 email 이므로 이메일 형식 검증
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginId)) {
+      UI.toast('이메일 형식으로 입력해주세요.', 'error');
+      return;
+    }
+
+    if (password && password.length < 6) {
       UI.toast('비밀번호는 6자 이상이어야 합니다.', 'error');
       return;
     }
@@ -254,10 +264,10 @@ const AdminUsersPage = {
     }
   },
 
-  handleResetPassword: async function(userId, name) {
+  handleResetPassword: async function(authId, name) {
     const ok = await UI.confirm({
       title: `${name} 님의 비밀번호를 초기화하시겠습니까?`,
-      message: `초기 비밀번호(carehub1234!)로 재설정됩니다.`,
+      message: `초기 비밀번호(carehub1234!)로 재설정됩니다. (Supabase Auth 비밀번호가 직접 초기화됩니다)`,
       confirmText: '초기화',
       cancelText: '취소',
       type: 'warning'
@@ -267,7 +277,8 @@ const AdminUsersPage = {
 
     try {
       UI.showLoading();
-      const result = await API.resetPassword(userId);
+      // ✅ authId(auth.users.id) 로 admin-reset-password Edge Function 호출
+      const result = await API.resetPassword(authId);
       if (result.status === 'success') {
         UI.toast(result.data.message || '비밀번호가 초기화되었습니다.', 'success');
       } else {
@@ -280,7 +291,7 @@ const AdminUsersPage = {
     }
   },
 
-  handleEdit: function(userId, currentRole, currentStatus, name) {
+  handleEdit: function(authId, currentRole, currentStatus, name) {
     const backdrop = document.createElement('div');
     backdrop.className = 'modal-backdrop';
     backdrop.innerHTML = `
@@ -331,7 +342,8 @@ const AdminUsersPage = {
 
       try {
         UI.showLoading();
-        const result = await API.updateUser(userId, { role, status });
+        // ✅ authId(auth.users.id) 기준으로 users 프로필(role/status) 수정
+        const result = await API.updateUser(authId, { role, status });
 
         if (result.status === 'success') {
           UI.toast('정보가 수정되었습니다.', 'success');
@@ -349,10 +361,10 @@ const AdminUsersPage = {
     };
   },
 
-  handleDelete: async function(userId, name) {
+  handleDelete: async function(authId, name) {
     const ok = await UI.confirm({
       title: '정말 삭제하시겠습니까?',
-      message: `${name} 님의 계정이 영구적으로 삭제됩니다.`,
+      message: `${name} 님의 Supabase Auth 계정과 프로필이 영구적으로 삭제됩니다.`,
       confirmText: '삭제',
       cancelText: '취소',
       type: 'danger'
@@ -362,7 +374,8 @@ const AdminUsersPage = {
 
     try {
       UI.showLoading();
-      const result = await API.deleteUser(userId);
+      // ✅ authId(auth.users.id) 로 admin-delete-user Edge Function 호출 (Auth 계정 삭제 → users 행 cascade 삭제)
+      const result = await API.deleteUser(authId);
 
       if (result.status === 'success') {
         UI.toast(`${name} 님이 삭제되었습니다.`, 'success');
