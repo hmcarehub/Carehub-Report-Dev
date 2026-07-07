@@ -25,14 +25,15 @@
 
       <form id="login-form" autocomplete="off">
         <div class="login-form-group">
-          <label class="login-label" for="login-id">아이디</label>
+          <!-- ✅ login_id = Supabase Auth 의 email 이므로 이메일 형식으로 안내 -->
+          <label class="login-label" for="login-id">이메일</label>
           <input
-            type="text"
+            type="email"
             id="login-id"
             class="login-input"
-            placeholder="아이디를 입력하세요"
+            placeholder="example@domain.com"
             autocomplete="username"
-            maxlength="50"
+            maxlength="100"
           >
         </div>
         <div class="login-form-group">
