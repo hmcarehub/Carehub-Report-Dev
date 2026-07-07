@@ -457,27 +457,34 @@ const ClientsPage = {
     backdrop.querySelector('#cm-close').onclick = close;
     backdrop.querySelector('#cm-cancel').onclick = close;
     backdrop.onclick = e => { if (e.target === backdrop) close(); };
-
+    
+    const parseLocalDate = (s) => {
+      if (!s) return null;
+      const [y, m, d] = String(s).substring(0,10).split('-').map(Number);
+      return new Date(y, m - 1, d);
+    };
     // 자동 계산 미리보기
-    const updatePreview = () => {
+     const updatePreview = () => {
       const admitDate = document.getElementById('cm-admitdate').value;
       const period    = document.getElementById('cm-period').value;
       if (!admitDate || !period) { document.getElementById('cm-preview').style.display='none'; return; }
-
+     
       const days    = AppConfig.PERIOD_DAYS[period] || 0;
-      const admit   = new Date(admitDate);
+      const admit   = parseLocalDate(admitDate);          // ✅ 로컬 자정으로 파싱
       const endD    = new Date(admit);
       endD.setDate(endD.getDate() + days - 1);
       const pad     = n => String(n).padStart(2,'0');
       const endStr  = `${endD.getFullYear()}-${pad(endD.getMonth()+1)}-${pad(endD.getDate())}`;
       const rounds  = AppConfig.PERIOD_ROUNDS[period] ?? 0;
+     
       const today   = new Date(); today.setHours(0,0,0,0);
-      const admitD  = new Date(admitDate);
+      const admitD  = parseLocalDate(admitDate);          // ✅ 로컬 자정으로 파싱 (today와 동일 기준)
+     
       let status;
       if (today < admitD) status = '입소예정';
       else if (today > endD) status = '퇴소';
       else status = '입소중';
-
+     
       document.getElementById('preview-end').textContent    = endStr;
       document.getElementById('preview-rounds').textContent = rounds + '회차';
       document.getElementById('preview-status').textContent = status;
