@@ -1405,32 +1405,74 @@ const ClientDetailPage = {
         </div>
  
         <!-- 2행: 신경계/균형/감각 -->
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;flex:1;align-items:stretch;">
-          ${[
-            {key:'nervousScore',label:'신경계 점수',color:'#6A1B9A',items:nervItems},
-            {key:'balanceScore',label:'통합 균형능력 점수',color:'#00695C',items:balItems},
-            {key:'sensoryScore',label:'감각계 점수',color:'#E65100',items:sensItems}
-          ].map(item=>{
-            const score=master[item.key];
-            const pct=Math.min(100,Math.max(0,Number(score)||0));
-            const r=36,circ=2*Math.PI*r,dash=(pct/100)*circ;
-            return `<div style="padding:7px 8px;background:#F5FBF5;border-radius:6px;border:1px solid #C8E6C9;display:flex;flex-direction:column;align-items:center;overflow:visible;">
-              <div style="font-size:16px;font-weight:900;color:#1A1A1A;margin-bottom:10px;align-self:flex-start;">${item.label}</div>
-              <svg width="88" height="88" viewBox="0 0 88 88" style="overflow:visible;margin-bottom:8px;">
-                <circle cx="44" cy="44" r="${r}" fill="none" stroke="#E8E8E8" stroke-width="10"/>
-                ${pct>0?`<circle cx="44" cy="44" r="${r}" fill="none" stroke="${item.color}" stroke-width="10" stroke-dasharray="${dash.toFixed(1)} ${circ.toFixed(1)}" stroke-dashoffset="${(circ/4).toFixed(1)}" stroke-linecap="round"/>`:''}
-                <text x="44" y="48" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="800" fill="${item.color}">${score!=null?score+'점':'-'}</text>
-              </svg>
-              <div style="display:flex;justify-content:center;">
-                <div style="font-size:12px;color:#444;line-height:1.8;text-align:left;">
-                  ${item.items.map(it=>`<div>• ${it.label}</div>`).join('')}
-                </div>
-              </div>
-            </div>`;
-          }).join('')}
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;flex:1;align-items:stretch;">
+  ${[
+    {key:'nervousScore',label:'신경계 점수',color:'#6A1B9A',items:nervItems},
+    {key:'balanceScore',label:'통합 균형능력 점수',color:'#00695C',items:balItems},
+    {key:'sensoryScore',label:'감각계 점수',color:'#E65100',items:sensItems}
+  ].map(item=>{
+    const score=master[item.key];
+    const pct=Math.min(100,Math.max(0,Number(score)||0));
+
+    // 그래프 크기 축소
+    const r=32;
+    const cx=40;
+    const cy=40;
+    const circ=2*Math.PI*r;
+    const dash=(pct/100)*circ;
+
+    return `
+      <div style="padding:7px 8px;background:#F5FBF5;border-radius:6px;border:1px solid #C8E6C9;display:flex;flex-direction:column;align-items:center;overflow:visible;">
+        <div style="font-size:16px;font-weight:900;color:#1A1A1A;margin-bottom:10px;align-self:flex-start;">
+          ${item.label}
         </div>
-      </div>
-    </div>
+
+        <svg width="80" height="80" viewBox="0 0 80 80" style="overflow:visible;margin-bottom:8px;">
+          <circle
+            cx="${cx}"
+            cy="${cy}"
+            r="${r}"
+            fill="none"
+            stroke="#E8E8E8"
+            stroke-width="9"
+          />
+
+          ${
+            pct>0
+            ? `<circle
+                cx="${cx}"
+                cy="${cy}"
+                r="${r}"
+                fill="none"
+                stroke="${item.color}"
+                stroke-width="9"
+                stroke-dasharray="${dash.toFixed(1)} ${circ.toFixed(1)}"
+                stroke-dashoffset="${(circ/4).toFixed(1)}"
+                stroke-linecap="round"
+              />`
+            : ''
+          }
+
+          <text
+            x="${cx}"
+            y="${cy+4}"
+            text-anchor="middle"
+            font-family="sans-serif"
+            font-size="14"
+            font-weight="800"
+            fill="${item.color}">
+            ${score!=null?score+'점':'-'}
+          </text>
+        </svg>
+
+        <div style="display:flex;justify-content:center;">
+          <div style="font-size:12px;color:#444;line-height:1.8;text-align:left;">
+            ${item.items.map(it=>`<div>• ${it.label}</div>`).join('')}
+          </div>
+        </div>
+      </div>`;
+  }).join('')}
+</div>
  
     <!-- ▣ 대사(생활) 관리 (flex:1) -->
     <div style="border:1.5px solid #FFE0B2;border-radius:8px;overflow:hidden;flex:1;display:flex;flex-direction:column;min-height:0;">
