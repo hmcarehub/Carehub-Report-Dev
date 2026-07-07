@@ -14,6 +14,9 @@ const AppConfig = {
   // ── Supabase 연결 정보 ─────────────────────────────────────
   SUPABASE_URL:  'https://ipfhpplufjdagfadgskb.supabase.co',
   SUPABASE_ANON: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlwZmhwcGx1ZmpkYWdmYWRnc2tiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4NDY0ODAsImV4cCI6MjA5ODQyMjQ4MH0.wOgnMxpVz9wOsf2OPBSix9pNbpl141di03uaplKUBKM',
+  // ✅ 사용자 생성/삭제/비밀번호 초기화는 service_role 권한이 필요해
+  //    브라우저가 아닌 Edge Function 을 통해서만 수행합니다.
+  FUNCTIONS_URL: 'https://ipfhpplufjdagfadgskb.supabase.co/functions/v1',
 
   // ── 테이블명 ───────────────────────────────────────────────
   TABLES: {
@@ -31,10 +34,12 @@ const AppConfig = {
   },
 
   // ── 컬럼명 (수퍼베이스 DB 실제 컬럼명) ─────────────────────
+  // ✅ Supabase Auth 로 로그인 방식을 일원화하면서 users 테이블 구조 변경:
+  //    - user_id, password 컬럼 삭제
+  //    - auth_id(UUID, auth.users.id 참조) 를 새로운 PK 로 사용
   USER_COLS: {
-    USER_ID:    'user_id',
+    AUTH_ID:    'auth_id',
     LOGIN_ID:   'login_id',
-    PASSWORD:   'password',
     NAME:       'name',
     ROLE:       'role',
     STATUS:     'status',
