@@ -303,33 +303,40 @@ const API = {
   // ── 사용자 API ─────────────────────────────────────────────
   // ============================================================
 
-  // ✅ Supabase Auth 연동 로그인
+  // ✅ 로그인은 반드시 Supabase Auth 만 사용 (users.password 완전히 제거)
+  //    로그인 성공 후 auth.uid() 기준으로 users 테이블을 조회하여
+  //    권한(role)/상태(status)를 가져온다.
 login: async function(id, pw) {
   try {
     const { data: authData, error: authError } = await supabaseClient.auth.signInWithPassword({
-      email: id,
+      email: id, // ✅ login_id 자체가 이메일이므로 그대로 사용 (기존의 @ 파싱 로직 제거)
       password: pw
     });
     if (authError) return { status:'error', message:'아이디 또는 비밀번호가 일치하지 않습니다.' };
 
-    // ✅ email에서 @ 앞부분을 login_id로 사용
-    const loginId = id.includes('@') ? id.split('@')[0] : id;
-
     const c = AppConfig.USER_COLS;
+    // ✅ auth.uid() 즉 방금 로그인한 Auth User 의 id 로 프로필 조회
     const rows = await this._get(AppConfig.TABLES.USERS,
-      `${c.LOGIN_ID}=eq.${encodeURIComponent(loginId)}&limit=1`);
-    if (!rows.length) return { status:'error', message:'사용자 정보를 찾을 수 없습니다.' };
+      `${c.AUTH_ID}=eq.${encodeURIComponent(authData.user.id)}&limit=1`);
+    if (!rows.length) {
+      await supabaseClient.auth.signOut(); // 프로필 없는 계정은 로그인 유지시키지 않음
+      return { status:'error', message:'사용자 정보를 찾을 수 없습니다.' };
+    }
     const row = rows[0];
-    if (row[c.STATUS] !== 'ACTIVE') return { status:'error', message:'비활성화된 계정입니다. 관리자에게 문의해주세요.' };
+    if (row[c.STATUS] !== 'ACTIVE') {
+      await supabaseClient.auth.signOut();
+      return { status:'error', message:'비활성화된 계정입니다. 관리자에게 문의해주세요.' };
+    }
 
     const now = this._now();
+    // ✅ user_id 대신 auth_id 기준으로 최근 로그인 시각 갱신
     this._patch(AppConfig.TABLES.USERS,
-      `${c.USER_ID}=eq.${encodeURIComponent(row[c.USER_ID])}`,
+      `${c.AUTH_ID}=eq.${encodeURIComponent(authData.user.id)}`,
       { [c.LAST_LOGIN]: now }).catch(() => {});
 
     return {
       status: 'success', data: {
-        userId:  row[c.USER_ID],
+        authId:  authData.user.id, // ✅ userId → authId (UUID)
         loginId: row[c.LOGIN_ID],
         name:    row[c.NAME],
         role:    row[c.ROLE],
@@ -346,7 +353,8 @@ login: async function(id, pw) {
       const rows = await this._get(AppConfig.TABLES.USERS, `select=*&order=${c.CREATED_AT}.asc`);
       return {
         status:'success', data: { users: rows.map(r => ({
-          userId: r[c.USER_ID], loginId: r[c.LOGIN_ID], name: r[c.NAME],
+          // ✅ userId(자체 발급 ID) → authId(auth.users.id, UUID) 로 교체
+          authId: r[c.AUTH_ID], loginId: r[c.LOGIN_ID], name: r[c.NAME],
           role: r[c.ROLE], status: r[c.STATUS],
           createdAt: r[c.CREATED_AT], lastLogin: r[c.LAST_LOGIN]
         })) }
@@ -354,64 +362,111 @@ login: async function(id, pw) {
     } catch(e) { return { status:'error', message:'사용자 목록 조회 오류: ' + e.message }; }
   },
 
+  // ✅ Supabase 헤더 생성 로직과 별개로, Edge Function 호출 전용 헤더.
+  //    service_role 키는 여기 어디에도 없고, 사용자 자신의 access_token 만 실어 보낸다.
+  //    Edge Function 쪽(verifyAdmin.ts)에서 이 토큰으로 호출자가 ADMIN 인지 다시 검증한다.
+  _functionHeaders: async function() {
+    const { data } = await supabaseClient.auth.getSession();
+    return {
+      'Content-Type': 'application/json',
+      'apikey': AppConfig.SUPABASE_ANON,
+      'Authorization': `Bearer ${data?.session?.access_token || ''}`
+    };
+  },
+
+  // ✅ 사용자 생성: auth.admin.createUser() 는 service_role 권한이 필요해
+  //    클라이언트에서 직접 호출할 수 없으므로 admin-create-user Edge Function 에 위임한다.
+  //    Edge Function 내부에서 "① Auth 계정 생성 → ② users 저장"을 트랜잭션처럼 처리하고,
+  //    ②가 실패하면 ①을 롤백하므로 여기서는 결과만 그대로 전달하면 된다.
   createUser: async function(d) {
     try {
-      const c = AppConfig.USER_COLS;
-      const T = AppConfig.TABLES.USERS;
-      const exists = await this._get(T, `${c.LOGIN_ID}=eq.${encodeURIComponent(d.loginId)}&limit=1`);
-      if (exists.length) return { status:'error', message:'이미 사용 중인 아이디입니다.' };
-      const userId = this._generateId();
-      const now = this._now();
-      await this._post(T, {
-        [c.USER_ID]: userId, [c.LOGIN_ID]: d.loginId,
-        [c.PASSWORD]: d.password, [c.NAME]: d.name,
-        [c.ROLE]: d.role, [c.STATUS]: d.status,
-        [c.CREATED_AT]: now, [c.LAST_LOGIN]: ''
+      const res = await fetch(`${AppConfig.FUNCTIONS_URL}/admin-create-user`, {
+        method: 'POST',
+        headers: await this._functionHeaders(),
+        body: JSON.stringify({
+          email: d.loginId,          // ✅ login_id = 이메일
+          password: d.password || AppConfig.DEFAULT_PASSWORD,
+          name: d.name, role: d.role, status: d.status
+        })
       });
-      return { status:'success', data: { userId, loginId: d.loginId, name: d.name, role: d.role, status: d.status, createdAt: now } };
+      const result = await res.json();
+      if (!res.ok || result.status !== 'success') {
+        return { status:'error', message: result.message || '사용자 등록에 실패했습니다.' };
+      }
+      return result;
     } catch(e) { return { status:'error', message:'사용자 등록 오류: ' + e.message }; }
   },
 
-  updateUser: async function(tid, fields) {
+  // ✅ userId(자체 발급 ID) 대신 authId(auth.users.id) 로 프로필을 수정.
+  //    role/status 는 users 테이블에만 있는 정보이므로 RLS(admin 정책)를 통해 PostgREST 로 직접 수정.
+  updateUser: async function(authId, fields) {
     try {
       const c = AppConfig.USER_COLS;
       const update = {};
       if (fields.role   !== undefined) update[c.ROLE]   = fields.role;
       if (fields.status !== undefined) update[c.STATUS] = fields.status;
-      await this._patch(AppConfig.TABLES.USERS, `${c.USER_ID}=eq.${encodeURIComponent(tid)}`, update);
+      await this._patch(AppConfig.TABLES.USERS, `${c.AUTH_ID}=eq.${encodeURIComponent(authId)}`, update);
       return { status:'success', data: { message:'사용자 정보가 수정되었습니다.' } };
     } catch(e) { return { status:'error', message:'사용자 수정 오류: ' + e.message }; }
   },
 
-  deleteUser: async function(tid) {
+  // ✅ 사용자 삭제도 Auth 계정을 지워야 하므로(그래야 로그인이 실제로 막힘) service_role 이 필요.
+  //    admin-delete-user Edge Function 이 auth.admin.deleteUser() 를 호출하면
+  //    users.auth_id 의 on delete cascade 로 프로필 행도 함께 삭제된다.
+  deleteUser: async function(authId) {
     try {
-      const c = AppConfig.USER_COLS;
-      await this._delete(AppConfig.TABLES.USERS, `${c.USER_ID}=eq.${encodeURIComponent(tid)}`);
-      return { status:'success', data: { message:'사용자가 삭제되었습니다.' } };
+      const res = await fetch(`${AppConfig.FUNCTIONS_URL}/admin-delete-user`, {
+        method: 'POST',
+        headers: await this._functionHeaders(),
+        body: JSON.stringify({ authId })
+      });
+      const result = await res.json();
+      if (!res.ok || result.status !== 'success') {
+        return { status:'error', message: result.message || '사용자 삭제에 실패했습니다.' };
+      }
+      return result;
     } catch(e) { return { status:'error', message:'사용자 삭제 오류: ' + e.message }; }
   },
 
+  // ✅ users.password 를 더 이상 사용하지 않으므로, 현재 비밀번호 확인은
+  //    supabase.auth.signInWithPassword() 로 재인증하는 방식으로 대체하고,
+  //    실제 변경은 supabase.auth.updateUser() 로 Auth 비밀번호 자체를 바꾼다.
   changePassword: async function(cur, nw) {
     try {
-      const user = Auth.getUser();
-      const c = AppConfig.USER_COLS;
-      const T = AppConfig.TABLES.USERS;
-      const rows = await this._get(T, `${c.USER_ID}=eq.${encodeURIComponent(user.userId)}&limit=1`);
-      if (!rows.length) return { status:'error', message:'사용자를 찾을 수 없습니다.' };
-      if (rows[0][c.PASSWORD] !== cur) return { status:'error', message:'현재 비밀번호가 일치하지 않습니다.' };
       if (nw.length < 6) return { status:'error', message:'비밀번호는 6자 이상이어야 합니다.' };
       if (cur === nw)    return { status:'error', message:'새 비밀번호는 현재 비밀번호와 달라야 합니다.' };
-      await this._patch(T, `${c.USER_ID}=eq.${encodeURIComponent(user.userId)}`, { [c.PASSWORD]: nw });
+
+      const user = Auth.getUser();
+      if (!user || !user.loginId) return { status:'error', message:'로그인 정보가 없습니다.' };
+
+      // 현재 비밀번호 검증 (Supabase Auth 에는 별도 "현재 비밀번호 확인 API"가 없어 재로그인으로 검증)
+      const { error: verifyErr } = await supabaseClient.auth.signInWithPassword({
+        email: user.loginId, password: cur
+      });
+      if (verifyErr) return { status:'error', message:'현재 비밀번호가 일치하지 않습니다.' };
+
+      // ✅ 실제 Supabase Auth 비밀번호 변경
+      const { error: updateErr } = await supabaseClient.auth.updateUser({ password: nw });
+      if (updateErr) return { status:'error', message: updateErr.message || '비밀번호 변경에 실패했습니다.' };
+
       return { status:'success', data: { message:'비밀번호가 변경되었습니다.' } };
     } catch(e) { return { status:'error', message:'비밀번호 변경 오류: ' + e.message }; }
   },
 
-  resetPassword: async function(tid) {
+  // ✅ 관리자의 "비밀번호 초기화"도 실제 Auth 비밀번호를 바꿔야 하므로
+  //    service_role 권한이 있는 admin-reset-password Edge Function 에 위임한다.
+  resetPassword: async function(authId) {
     try {
-      const c = AppConfig.USER_COLS;
-      await this._patch(AppConfig.TABLES.USERS, `${c.USER_ID}=eq.${encodeURIComponent(tid)}`,
-        { [c.PASSWORD]: AppConfig.DEFAULT_PASSWORD });
-      return { status:'success', data: { message:`비밀번호가 초기화되었습니다. 초기 비밀번호: ${AppConfig.DEFAULT_PASSWORD}` } };
+      const res = await fetch(`${AppConfig.FUNCTIONS_URL}/admin-reset-password`, {
+        method: 'POST',
+        headers: await this._functionHeaders(),
+        body: JSON.stringify({ authId })
+      });
+      const result = await res.json();
+      if (!res.ok || result.status !== 'success') {
+        return { status:'error', message: result.message || '비밀번호 초기화에 실패했습니다.' };
+      }
+      return { status:'success', data: { message: result.message } };
     } catch(e) { return { status:'error', message:'비밀번호 초기화 오류: ' + e.message }; }
   },
 
