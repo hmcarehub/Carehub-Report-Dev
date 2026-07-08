@@ -232,7 +232,7 @@ const ReportsPage = {
       if (clientRes.status!=='success'||roundRes.status!=='success') { UI.toast('데이터 로드 실패','error'); return; }
       const client     = clientRes.data.client;
       const data       = roundRes.data;
-      const masterList = masterRes.status==='success' ? (masterRes.data.masterList||[]) : [];
+      const masterList = masterRes.status==='success' ? ClientDetailPage._dedupeMasterList(masterRes.data.masterList||[]) : [];
       const weekTitle  = round===1 ? '초기 통합리포트' : `${(round-1)*4}주차 통합리포트`;
       const reportHtml = ClientDetailPage._buildReportHTML.call({client}, data.master, masterList);
       const modalWrap  = document.getElementById('rpt-modal-wrap');
@@ -271,7 +271,7 @@ const ReportsPage = {
       if (clientRes.status!=='success'||roundRes.status!=='success') { UI.toast('데이터 로드 실패','error'); return; }
       const client     = clientRes.data.client;
       const data       = roundRes.data;
-      const masterList = masterRes.status==='success' ? (masterRes.data.masterList||[]) : [];
+      const masterList = masterRes.status==='success' ? ClientDetailPage._dedupeMasterList(masterRes.data.masterList||[]) : [];
       this._doPrint(client, data.master, masterList);
     } catch(e) { UI.hideLoading(); UI.toast('서버 오류','error'); }
   }
