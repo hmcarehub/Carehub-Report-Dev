@@ -457,7 +457,7 @@ const AssessmentsPage = {
       UI.showLoading();
       // 추이용 전체 master 목록 조회
       const masterRes = await API.getClientMasterList(c.clientId);
-      const masterList = masterRes.status==='success' ? (masterRes.data.masterList||[]) : [m];
+      const masterList = masterRes.status==='success' ? ClientDetailPage._dedupeMasterList(masterRes.data.masterList||[]) : [m];
       UI.hideLoading();
 
       const isReported = m?.reportGenerated === true;
@@ -1476,13 +1476,15 @@ const AssessmentsPage = {
     const canSeeCm  = true;
 
     const isReported = this.roundData?.master?.reportGenerated;
+    const COMMENT_MAX = 500;
     const block=(id,label,val,editable,updated,saveable)=>`
       <div class="assess-sub-section">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
           <div class="assess-sub-title" style="margin-bottom:0;">${label}</div>
           
         </div>
-        <textarea id="${id}" class="form-control" rows="10" style="resize:vertical;min-height:200px;" placeholder="${editable?label+' 입력...':'조회 전용'}" ${!editable?'readonly':''}>${val||''}</textarea>
+        <textarea id="${id}" class="form-control" rows="10" maxlength="${COMMENT_MAX}" style="resize:vertical;min-height:200px;" placeholder="${editable?label+' 입력...':'조회 전용'}" ${!editable?'readonly':''}>${val||''}</textarea>
+        <div id="${id}-count" style="text-align:right;font-size:12px;color:var(--color-gray-400);margin-top:4px;">${(val||'').length} / ${COMMENT_MAX}자</div>
         ${saveable&&editable?`<div style="display:flex;justify-content:flex-end;gap:6px;margin-top:6px;">
           ${val?`<button class="btn btn-sm cmt-del-btn" data-field="${id}" style="background:transparent;color:#E53935;border:1px solid #E53935;border-radius:8px;padding:5px 12px;font-size:12px;cursor:pointer;">삭제</button>`:''}
           <button class="btn btn-sm cmt-save-btn" data-field="${id}" style="background:transparent;color:var(--color-primary-dark);border:1.5px solid var(--color-primary-dark);border-radius:8px;padding:5px 14px;font-size:12px;cursor:pointer;">임시저장</button>
@@ -1501,6 +1503,14 @@ const AssessmentsPage = {
       </div>`:''}
     </div>`;
     if (canWrite) {
+      area.querySelectorAll('.assess-sub-section textarea[id^="f-cmt-"]').forEach(ta=>{
+        const counter = document.getElementById(`${ta.id}-count`);
+        if (!counter) return;
+        ta.addEventListener('input', () => {
+          counter.textContent = `${ta.value.length} / ${COMMENT_MAX}자`;
+          counter.style.color = ta.value.length >= COMMENT_MAX ? '#E53935' : 'var(--color-gray-400)';
+        });
+      });
       area.querySelectorAll('.cmt-save-btn').forEach(btn=>{
         btn.addEventListener('click',()=>{
           const field=btn.dataset.field, val=document.getElementById(field)?.value?.trim()||'';
@@ -1638,7 +1648,7 @@ const AssessmentsPage = {
     let masterList = [masterData];
     try {
       const res = await API.getClientMasterList(c.clientId);
-      if (res.status === 'success') masterList = res.data.masterList || [masterData];
+      if (res.status === 'success') masterList = ClientDetailPage._dedupeMasterList(res.data.masterList || [masterData]);
     } catch(e) {}
 
     const wrap = document.createElement('div');
