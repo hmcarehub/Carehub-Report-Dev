@@ -1348,187 +1348,32 @@ const ClientDetailPage = {
         <span style="font-size:16px;font-weight:900;color:white;">🏃 움직임 관리 리포트</span>
       </div>
       <div style="padding:8px 12px;background:white;flex:1;overflow:hidden;display:flex;flex-direction:column;gap:7px;">
- 
+
         <!-- 1행: 심폐기능(2fr) / 신체움직임(1fr) -->
         <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;">
-          <!-- 심폐기능 -->
+          <!-- 심폐기능: AssessVisuals 기반 — 2행2열(1열=값/시각화, 2열=성별·연령대 기준 범례가 두 행에 걸쳐 표시) -->
           <div style="padding:7px;background:#F5FBF5;border-radius:6px;border:1px solid #C8E6C9;">
             <div style="font-size:15px;font-weight:900;color:#1A1A1A;margin-bottom:8px;">
               심폐기능지수 (VO2peak)
             </div>
-          
+
             ${master.cardioScore!=null?`
-            ${(()=>{
-              const isMale = c.gender === '남자';
-          
-              const gradeOrder = [
-                { l:'최하위', c:'#C62828' },
-                { l:'평균이하', c:'#E65100' },
-                { l:'평균', c:'#F57F17' },
-                { l:'평균이상', c:'#388E3C' },
-                { l:'우수', c:'#2E7D32' },
-                { l:'최우수', c:'#1B5E20' }
-              ];
-          
-              const ranges = isMale
-                ? ['25↓','25~28','29~31','32~35','36~39','40↑']
-                : ['19↓','19~21','22~24','25~28','29~32','33↑'];
-          
-              const maxV = isMale ? 44 : 37;
-              const pct = Math.min(100, Math.max(0, Number(master.cardioScore)/maxV*100));
-          
-              const matched = getCardioGrade(master.cardioScore,c.gender,c.birthDate);
-              const matchedG = gradeOrder.find(g=>g.l===matched);
-          
-              const age = c.birthDate
-                ? new Date().getFullYear()-new Date(c.birthDate).getFullYear()
-                : null;
-          
-              const ageText = age
-                ? (age>=66?'66세↑':'60~65세')
-                : '';
-          
-              return `
-                <div style="display:flex;flex-direction:column;gap:10px;">
-          
-                  <!-- ===================== 1행 ===================== -->
-                  <div style="display:flex;align-items:center;gap:20px;">
-          
-                    <!-- 점수 -->
-                    <div style="display:flex;align-items:baseline;white-space:nowrap;">
-                      <span style="
-                          font-size:30px;
-                          font-weight:900;
-                          color:${matchedG?.c||'#2E7D32'};
-                      ">
-                        ${master.cardioScore}
-                      </span>
-          
-                      <span style="
-                          font-size:15px;
-                          color:#999;
-                          margin-left:3px;
-                      ">
-                        ml/kg/min
-                      </span>
-                    </div>
-          
-                    <!-- 상태 -->
-                    <span style="
-                        background:${matchedG?.c||'#888'}22;
-                        color:${matchedG?.c||'#888'};
-                        padding:5px 14px;
-                        border-radius:7px;
-                        font-size:17px;
-                        font-weight:800;
-                        white-space:nowrap;
-                    ">
-                      ${matched}
-                    </span>
-          
-                    <!-- 게이지 -->
-                    <div style="flex:1;">
-          
-                      <div style="position:relative;height:10px;margin-bottom:3px;">
-                        <div style="
-                            position:absolute;
-                            left:calc(${pct}% - 6px);
-                            top:0;
-                            width:0;
-                            height:0;
-                            border-left:6px solid transparent;
-                            border-right:6px solid transparent;
-                            border-top:9px solid ${matchedG?.c||'#666'};
-                        "></div>
-                      </div>
-          
-                      <div style="
-                          height:13px;
-                          border-radius:8px;
-                          overflow:hidden;
-                          background:linear-gradient(
-                              90deg,
-                              #C62828 0%,
-                              #E65100 20%,
-                              #F57F17 40%,
-                              #388E3C 60%,
-                              #2E7D32 80%,
-                              #1B5E20 100%);
-                      ">
-                      </div>
-          
-                    </div>
-          
-                  </div>
-          
-                  <!-- ===================== 2행 ===================== -->
-          
-                  <div style="
-                      border-top:1px solid #E0E0E0;
-                      padding-top:7px;
-                  ">
-          
-                    <div style="
-                        font-size:12px;
-                        color:#666;
-                        margin-bottom:5px;
-                        font-weight:700;
-                    ">
-                      ${ageText} (${c.gender})
-                    </div>
-          
-                    <div style="
-                        display:flex;
-                        flex-wrap:wrap;
-                        gap:12px;
-                        align-items:center;
-                    ">
-          
-                      ${gradeOrder.map((g,i)=>`
-                        <div style="
-                            display:flex;
-                            align-items:center;
-                            gap:4px;
-                            white-space:nowrap;
-                        ">
-          
-                          <span style="
-                              width:7px;
-                              height:7px;
-                              border-radius:50%;
-                              background:${g.c};
-                          "></span>
-          
-                          <span style="
-                              font-size:11px;
-                              color:${g.c};
-                              font-weight:${matched===g.l?'800':'600'};
-                          ">
-                            ${g.l} ${ranges[i]}
-                          </span>
-          
-                        </div>
-                      `).join('')}
-          
-                    </div>
-          
-                  </div>
-          
+              <div style="display:grid;grid-template-columns:2fr 1fr;grid-template-rows:auto 1fr;gap:8px 16px;">
+                <div style="grid-column:1;grid-row:1;display:flex;align-items:center;gap:10px;">
+                  ${AssessVisuals.cardioScoreBadge(master.cardioScore, c.gender, c.birthDate)}
                 </div>
-              `;
-            })()}
-            `:`
-              <div style="
-                padding:20px 0;
-                text-align:center;
-                color:#aaa;
-                font-size:20px;
-              ">
-                -
+                <div style="grid-column:1;grid-row:2;align-self:center;">
+                  ${AssessVisuals.cardioBar(master.cardioScore, c.gender, c.birthDate)}
+                </div>
+                <div style="grid-column:2;grid-row:1 / span 2;border-left:1px solid #E0E0E0;padding-left:14px;display:flex;align-items:center;">
+                  ${AssessVisuals.cardioGradeLegend(master.cardioScore, c.gender, c.birthDate)}
+                </div>
               </div>
+            `:`
+              <div style="padding:20px 0;text-align:center;color:#aaa;font-size:20px;">-</div>
             `}
           </div>
-          <!-- 신체움직임 -->
+          <!-- 신체움직임: 현재 버전 유지 (평가관리 화면에는 별도 시각화 없이 숫자만 표시하므로 그대로 둠) -->
           <div style="padding:7px 7px 20px;background:#F5FBF5;border-radius:6px;border:1px solid #C8E6C9;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;">
             <div style="font-size:15px;font-weight:900;color:#1A1A1A;margin-bottom:4px;">신체 움직임 점수</div>
             <div style="position:relative;width:100%;margin-top:5px;">
@@ -1567,80 +1412,19 @@ const ClientDetailPage = {
           </div>
         </div>
 
-        <!-- 2행: 신경계/균형/감각 -->
+        <!-- 2행: 신경계/균형/감각 — AssessVisuals.fraItemBlock 그대로 사용 (평가관리와 동일 도넛+기준항목 리스트) -->
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;flex:1;align-items:stretch;">
           ${[
             {key:'nervousScore',label:'신경계 점수',color:'#6A1B9A',items:nervItems},
             {key:'balanceScore',label:'통합 균형능력 점수',color:'#00695C',items:balItems},
             {key:'sensoryScore',label:'감각계 점수',color:'#E65100',items:sensItems}
-          ].map(item=>{
-            const score=master[item.key];
-            const pct=Math.min(100,Math.max(0,Number(score)||0));
-            const r=36,circ=2*Math.PI*r,dash=(pct/100)*circ;
-        
-            return `
+          ].map(item=>`
             <div style="padding:7px 8px;background:#F5FBF5;border-radius:6px;border:1px solid #C8E6C9;display:flex;flex-direction:column;align-items:center;overflow:visible;">
-        
               <div style="font-size:15px;font-weight:900;color:#1A1A1A;margin-bottom:10px;align-self:flex-start;">
                 ${item.label}
               </div>
-        
-              <svg width="88" height="88" viewBox="0 0 88 88" style="overflow:visible;margin-bottom:8px;">
-        
-                <!-- 배경 -->
-                <circle
-                  cx="44"
-                  cy="44"
-                  r="${r}"
-                  fill="none"
-                  stroke="#E8E8E8"
-                  stroke-width="10"
-                />
-        
-                <!-- 진행 -->
-                ${
-                  pct>0
-                  ? `<circle
-                        cx="44"
-                        cy="44"
-                        r="${r}"
-                        fill="none"
-                        stroke="${item.color}"
-                        stroke-width="10"
-                        stroke-dasharray="${dash.toFixed(1)} ${circ.toFixed(1)}"
-                        stroke-dashoffset="${(circ/4).toFixed(1)}"
-                        stroke-linecap="round"
-                     />`
-                  : ''
-                }
-        
-                <!-- 중앙 점수 -->
-                <text
-                  x="44"
-                  y="44"
-                  text-anchor="middle"
-                  dominant-baseline="middle"
-                  font-family="sans-serif"
-                  font-weight="800"
-                  fill="${item.color}"
-                >
-                  ${
-                    score!=null
-                    ? `<tspan font-size="30">${score}</tspan><tspan font-size="14">점</tspan>`
-                    : `<tspan font-size="30">-</tspan>`
-                  }
-                </text>
-        
-              </svg>
-        
-              <div style="display:flex;justify-content:center;">
-                <div style="font-size:12px;color:#444;line-height:1.8;text-align:left;">
-                  ${item.items.map(it=>`<div>• ${it.label}</div>`).join('')}
-                </div>
-              </div>
-        
-            </div>`;
-          }).join('')}
+              ${AssessVisuals.fraItemBlock(master[item.key], item.color, item.items)}
+            </div>`).join('')}
         </div>
  
     <!-- ▣ 대사(생활) 관리 (flex:1) -->
@@ -1651,7 +1435,7 @@ const ClientDetailPage = {
       <div style="padding:8px 12px;background:white;flex:1;overflow:hidden;">
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;height:100%;">
 
-    <!-- 체성분 -->
+    <!-- 체성분: 현재 버전 유지 -->
     <div style="padding:7px;background:#FFF8F0;border-radius:6px;border:1px solid #FFE0B2;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;">
       <div style="font-size:15px;font-weight:900;color:#1A1A1A;margin-bottom:4px;">체성분 종합 점수</div>
 
@@ -1671,103 +1455,19 @@ const ClientDetailPage = {
       </div>
     </div>
 
-    <!-- 스트레스 -->
+    <!-- 스트레스: AssessVisuals 기반 — 막대/범례는 평가관리와 동일, 값(점수+배지)만 우측 정렬 -->
     <div style="padding:7px;background:#FFF8F0;border-radius:6px;border:1px solid #FFE0B2;display:flex;flex-direction:column;">
       <div style="font-size:15px;font-weight:900;color:#1A1A1A;margin-bottom:10px;">
         스트레스 점수
       </div>
 
       ${master.stressScore!=null?`
-      ${(()=>{
-        const s = master.stressScore;
-        const sg = getStressGrade(s);
-
-        const rptStressGrades = [
-          {l:'정상',color:'#2E7D32',bg:'#E8F5E9'},
-          {l:'초기',color:'#F57F17',bg:'#FFF8E1'},
-          {l:'진행',color:'#E65100',bg:'#FBE9E7'},
-          {l:'만성',color:'#C62828',bg:'#FFEBEE'}
-        ];
-
-        const rptG =
-          s<35 ? rptStressGrades[0] :
-          s<45 ? rptStressGrades[1] :
-          s<60 ? rptStressGrades[2] :
-                 rptStressGrades[3];
-
-        const pct =
-          s<=35 ? (s/35)*37 :
-          s<=45 ? 37+(s-35)/10*18 :
-          s<=60 ? 55+(s-45)/15*23 :
-                  Math.min(100,78+(s-60)/40*22);
-
-        return `
-        <div style="display:flex;flex-direction:column;flex:1;">
-
-          <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:6px;padding-right:12px;">
-            <span style="font-size:25px;font-weight:900;color:${rptG.color};">
-              ${s}점
-            </span>
-
-            <span style="
-              background:${rptG.bg};
-              color:${rptG.color};
-              padding:3px 10px;
-              border-radius:8px;
-              font-size:16px;
-              font-weight:700;
-            ">
-              ${sg||''}
-            </span>
-          </div>
-
-          <div style="padding:0 20px;">
-
-            <div style="position:relative;margin-bottom:2px;height:12px;">
-              <div style="
-                position:absolute;
-                left:calc(${pct}% - 6px);
-                top:0;
-                width:0;
-                height:0;
-                border-left:6px solid transparent;
-                border-right:6px solid transparent;
-                border-top:10px solid ${rptG.color};
-              "></div>
-            </div>
-
-            <div style="
-              height:22px;
-              border-radius:6px;
-              overflow:hidden;
-              background:linear-gradient(
-                90deg,
-                #4CAF50 0%,
-                #C0CA33 37%,
-                #FFA000 55%,
-                #F44336 78%,
-                #B71C1C 100%
-              );
-            "></div>
-
-            <div style="display:flex;justify-content:space-between;margin-top:3px;">
-              ${rptStressGrades.map(g2=>`
-                <div style="
-                  font-size:10px;
-                  font-weight:700;
-                  color:${g2.l===rptG.l?g2.color:'#aaa'};
-                  text-align:center;
-                  flex:1;
-                ">
-                  ${g2.l}
-                </div>
-              `).join('')}
-            </div>
-
-          </div>
-
-        </div>`;
-      })()}
+        <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:6px;padding-right:12px;">
+          ${AssessVisuals.stressScoreBadge(master.stressScore)}
+        </div>
+        <div style="padding:0 20px;">
+          ${AssessVisuals.stressBar(master.stressScore)}
+        </div>
       `:`
         <div style="font-size:20px;color:#aaa;">-</div>
       `}
