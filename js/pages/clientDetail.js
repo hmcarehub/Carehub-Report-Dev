@@ -8,6 +8,21 @@ const ClientDetailPage = {
   activeDetailTab: 'rounds',
   activeReportRound: null,
 
+  // ── 회차별 최신 리포트 1건만 남기기 (재생성 시 중복 레코드 방지) ──
+  // 동일 round에 여러 건이 존재하면 reportCreatedAt이 가장 최신인 것만 사용
+  _dedupeMasterList: function(masterList) {
+    if (!Array.isArray(masterList)) return [];
+    const byRound = {};
+    masterList.forEach(m => {
+      const existing = byRound[m.round];
+      if (!existing) { byRound[m.round] = m; return; }
+      const t  = new Date(m.reportCreatedAt || 0).getTime();
+      const te = new Date(existing.reportCreatedAt || 0).getTime();
+      if (t >= te) byRound[m.round] = m;
+    });
+    return Object.values(byRound);
+  },
+
   // ── 회차 → 주차 변환 ────────────────────────────────────
   // 1회차=초기, 2회차=4주차, 3회차=8주차, 4회차=12주차 ...
   // 짧은 형식: 탭/리스트용
@@ -481,7 +496,7 @@ const ClientDetailPage = {
         bars += `<rect x="${i*(barW+gap)}" y="${maxH-h}" width="${barW}" height="${h}" rx="2" fill="${i===idx?'#1565C0':'#D6E4F0'}"/>`;
       });
       return `<div style="width:100%;text-align:center;">
-        <div style="font-size:20px;font-weight:700;color:var(--color-gray-600);margin-bottom:4px;">상위 ${p}%예요</div>
+        <div style="font-size:20px;font-weight:700;color:var(--color-gray-600);margin-bottom:10px;">상위 ${p}%예요</div>
         <svg width="${totalW}" height="${maxH+16}" viewBox="0 0 ${totalW} ${maxH+16}" style="overflow:visible;">
           <polygon points="${markerX-6},${maxH-heights[idx]-12} ${markerX+6},${maxH-heights[idx]-12} ${markerX},${maxH-heights[idx]-2}" fill="#1565C0"/>
           ${bars}
@@ -1344,7 +1359,7 @@ const ClientDetailPage = {
                 <div style="flex:1;display:flex;align-items:center;justify-content:center;">
                   ${p!=null?`
                   <div style="display:flex;align-items:center;gap:10px;">
-                    <div style="font-size:30px;font-weight:900;color:${clr};line-height:1;">
+                    <div style="font-size:25px;font-weight:900;color:${clr};line-height:1;">
                       ${p}<span style="font-size:14px;font-weight:600;">%</span>
                     </div>
                     <span style="background:${clr}22;color:${clr};padding:2px 9px;border-radius:6px;font-size:16px;font-weight:700;white-space:nowrap;">
@@ -1405,7 +1420,7 @@ const ClientDetailPage = {
 
                     <!-- 점수 -->
                     <div style="margin-bottom:10px;">
-                      <span style="font-size:30px;font-weight:800;color:${matchedG?.c||'#2E7D32'};">
+                      <span style="font-size:25px;font-weight:800;color:${matchedG?.c||'#2E7D32'};">
                         ${master.cardioScore}
                       </span>
                       <span style="font-size:16px;color:#999;font-weight:400;">
@@ -1501,7 +1516,7 @@ const ClientDetailPage = {
                   align-items:baseline;
                   gap:3px;
                 ">
-                  <span style="font-size:30px;font-weight:900;color:#0288D1;">
+                  <span style="font-size:25px;font-weight:900;color:#0288D1;">
                     ${master.bodyMovementIndex}
                   </span>
                   <span style="font-size:16px;color:#aaa;">
@@ -1515,7 +1530,7 @@ const ClientDetailPage = {
                   position:absolute;
                   right:0;
                   top:-38px;
-                  font-size:30px;
+                  font-size:25px;
                   font-weight:900;
                   color:#0288D1;
                 ">
@@ -1580,7 +1595,7 @@ const ClientDetailPage = {
       <div style="font-size:15px;font-weight:900;color:#1A1A1A;margin-bottom:4px;">체성분 종합 점수</div>
 
       <div style="display:flex;justify-content:flex-end;align-items:baseline;gap:3px;width:100%;padding-right:12px;">
-        <span style="font-size:30px;font-weight:900;color:#2E7D32;">${master.bodyCompScore??'-'}</span>
+        <span style="font-size:25px;font-weight:900;color:#2E7D32;">${master.bodyCompScore??'-'}</span>
         <span style="font-size:16px;color:#aaa;">/ 100점</span>
       </div>
 
@@ -1629,7 +1644,7 @@ const ClientDetailPage = {
         <div style="display:flex;flex-direction:column;flex:1;">
 
           <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:6px;padding-right:12px;">
-            <span style="font-size:30px;font-weight:900;color:${rptG.color};">
+            <span style="font-size:25px;font-weight:900;color:${rptG.color};">
               ${s}점
             </span>
 
