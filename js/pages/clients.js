@@ -75,7 +75,7 @@ const ClientsPage = {
         <!-- 페이지네이션: 하단 중앙 -->
         <div style="padding:14px 20px;border-top:1px solid var(--color-gray-100);display:flex;flex-direction:column;align-items:center;gap:8px;">
           <div id="pagination-btns" style="display:flex;gap:4px;justify-content:center;"></div>
-          <div id="pagination-info" style="font-size:12px;color:var(--color-gray-400);"></div>
+          <div id="pagination-info" style="font-size:13px;color:var(--color-gray-400);"></div>
         </div>
       </div>
     `;
@@ -236,7 +236,7 @@ const ClientsPage = {
         <tr class="clickable" data-id="${c.clientId}">
           <td style="font-weight:600;color:var(--color-gray-600);">${c.roomNum||'-'}</td>
           <td style="font-weight:700;"><span class="client-name-link" data-id="${c.clientId}" style="cursor:pointer;color:var(--color-primary-dark);text-decoration:underline;text-underline-offset:2px;">${c.name}</span></td>
-          <td style="font-size:13px;color:var(--color-gray-500);">${c.clientId}</td>
+          <td style="font-size:14px;color:var(--color-gray-500);">${c.clientId}</td>
           <td>${c.birthDate || '-'}</td>
           <td>${c.gender || '-'}</td>
           <td>${c.admitDate || '-'}</td>
@@ -268,7 +268,7 @@ const ClientsPage = {
     }).join('');
 
     wrap.innerHTML = `
-      <table class="table">
+      <table class="table client-list-table">
         <thead>
           <tr>
             ${cols.map(col => col.key === '_progress'
