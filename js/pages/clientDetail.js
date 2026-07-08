@@ -1290,301 +1290,52 @@ const ClientDetailPage = {
             </div>
           </div>
 
-          <!-- 우: 2×2 그리드 (시공간/기억력/우울/치매) -->
+          <!-- 우: 2×2 그리드 (시공간/기억력/우울/치매) — AssessVisuals(평가화면과 동일 컴포넌트) 사용 -->
           <div style="display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:7px;">
-          
+
           ${[
-            {
-              key:'spatial',
-              label:'시공간능력',
-              gradeColor:cogSubColor,
-              gradeFn:cogSubGrade,
-              grades:[
-                {l:'위험',c:'#C62828',t:'0~33'},
-                {l:'양호',c:'#F57F17',t:'34~66'},
-                {l:'우수',c:'#2E7D32',t:'67~100'}
-              ]
-            },
-            {
-              key:'memory',
-              label:'기억력',
-              gradeColor:cogSubColor,
-              gradeFn:cogSubGrade,
-              grades:[
-                {l:'위험',c:'#C62828',t:'0~33'},
-                {l:'양호',c:'#F57F17',t:'34~66'},
-                {l:'우수',c:'#2E7D32',t:'67~100'}
-              ]
-            }
+            {key:'spatial', label:'시공간능력'},
+            {key:'memory',  label:'기억력'}
           ].map(item=>{
-          
             const score = master[item.key];
-            const clr = item.gradeColor(score);
-            const grade = item.gradeFn(score);
-          
-            const pct = Math.min(100,Math.max(0,Number(score)||0));
-          
-            const r=36;
-            const circ=2*Math.PI*r;
-            const dash=(pct/100)*circ;
-          
+            const color = AssessVisuals.subGradeColor(score);
+            const grade = AssessVisuals.calcCogSubGrade(score);
+            const badge = AssessVisuals.gradeBadge(grade);
             return `
             <div style="padding:7px 12px;background:#F8FBFF;border-radius:7px;border:1px solid #E3F2FD;display:flex;flex-direction:column;">
-          
-              <div style="font-size:15px;font-weight:900;color:#1A1A1A;margin-bottom:10px;">
-                ${item.label}
+              <div style="font-size:15px;font-weight:900;color:#1A1A1A;margin-bottom:10px;">${item.label}</div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+                ${AssessVisuals.conicDonut(score, color, 100, 100, 14)}
+                ${badge?`<div style="margin-top:8px;">${badge}</div>`:''}
+                ${AssessVisuals.subGradeLegendRow()}
               </div>
-          
-              <div style="display:flex;justify-content:center;align-items:center;gap:14px;flex:1;">
-          
-                <!-- 좌측 : 원그래프 + 상태 -->
-                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;">
-          
-                  <svg width="88" height="88" viewBox="0 0 88 88">
-          
-                    <circle
-                      cx="44"
-                      cy="44"
-                      r="${r}"
-                      fill="none"
-                      stroke="#E8E8E8"
-                      stroke-width="10"/>
-          
-                    ${
-                      pct>0
-                      ?`
-                      <circle
-                        cx="44"
-                        cy="44"
-                        r="${r}"
-                        fill="none"
-                        stroke="${clr}"
-                        stroke-width="10"
-                        stroke-dasharray="${dash.toFixed(1)} ${circ.toFixed(1)}"
-                        stroke-dashoffset="${(circ/4).toFixed(1)}"
-                        stroke-linecap="round"/>
-                      `
-                      :''
-                    }
-          
-                    <text
-                      x="44"
-                      y="50"
-                      text-anchor="middle"
-                      dominant-baseline="middle"
-                      font-family="sans-serif"
-                      fill="${clr}">
-                      ${
-                        score!=null
-                        ?`
-                        <tspan font-size="30" font-weight="800">${score}</tspan>
-                        <tspan font-size="14" font-weight="600">점</tspan>
-                        `
-                        :`<tspan font-size="30">-</tspan>`
-                      }
-                    </text>
-          
-                  </svg>
-          
-                  ${
-                    grade
-                    ?`
-                    <div style="margin-top:8px;">
-                      <span style="
-                        background:${grade.b};
-                        color:${grade.c};
-                        padding:3px 10px;
-                        border-radius:6px;
-                        font-size:16px;
-                        font-weight:700;">
-                        ${grade.l}
-                      </span>
-                    </div>
-                    `
-                    :''
-                  }
-          
-                </div>
-          
-                <!-- 우측 : 범례 -->
-                <div style="display:flex;flex-direction:column;justify-content:center;gap:6px;">
-          
-                  ${
-                    item.grades.map(g=>`
-                    <div style="display:flex;align-items:center;gap:4px;">
-                      <span style="
-                        width:7px;
-                        height:7px;
-                        border-radius:50%;
-                        background:${g.c};
-                        flex-shrink:0;">
-                      </span>
-          
-                      <span style="
-                        font-size:10px;
-                        color:${g.c};
-                        font-weight:700;
-                        white-space:nowrap;">
-                        ${g.l} ${g.t}
-                      </span>
-                    </div>
-                    `).join('')
-                  }
-          
-                </div>
-          
-              </div>
-          
-            </div>
-            `;
-          
+            </div>`;
           }).join('')}
 
             <!-- 우울점수 -->
             ${(()=>{
               const score = master.depression;
-              const dg = getDepressionGrade(score);
-            
-              const pct = score != null ? Math.min(100,(Number(score)/60)*100) : 0;
-            
-              const r = 36;
-              const circ = 2 * Math.PI * r;
-              const dash = (pct/100) * circ;
-              const clr = dg?.c || '#7B1FA2';
-            
+              const grade = AssessVisuals.calcDepressionGrade(score);
+              const color = grade?.color || '#7B1FA2';
+              const badge = AssessVisuals.gradeBadge(grade);
               return `
               <div style="padding:7px 12px;background:#F8FBFF;border-radius:7px;border:1px solid #E3F2FD;display:flex;flex-direction:column;">
-            
-                <div style="font-size:15px;font-weight:900;color:#1A1A1A;margin-bottom:10px;">
-                  우울점수
-                </div>
-            
-                <div style="display:flex;justify-content:center;align-items:center;gap:14px;flex:1;">
-            
-                  <!-- 좌측 : 원그래프 + 상태 -->
-                  <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;">
-            
-                    <svg width="88" height="88" viewBox="0 0 88 88">
-            
-                      <circle
-                        cx="44"
-                        cy="44"
-                        r="${r}"
-                        fill="none"
-                        stroke="#E8E8E8"
-                        stroke-width="10"/>
-            
-                      ${
-                        pct>0
-                        ?`
-                        <circle
-                          cx="44"
-                          cy="44"
-                          r="${r}"
-                          fill="none"
-                          stroke="${clr}"
-                          stroke-width="10"
-                          stroke-dasharray="${dash.toFixed(1)} ${circ.toFixed(1)}"
-                          stroke-dashoffset="${(circ/4).toFixed(1)}"
-                          stroke-linecap="round"/>
-                        `
-                        :''
-                      }
-            
-                      <text
-                        x="44"
-                        y="50"
-                        text-anchor="middle"
-                        dominant-baseline="middle"
-                        font-family="sans-serif"
-                        fill="${clr}">
-                        ${
-                          score!=null
-                          ?`
-                            <tspan font-size="30" font-weight="800">${score}</tspan>
-                            <tspan font-size="14" font-weight="600">점</tspan>
-                          `
-                          :`<tspan font-size="30">-</tspan>`
-                        }
-                      </text>
-            
-                    </svg>
-            
-                    ${
-                      dg
-                      ?`
-                      <div style="margin-top:8px;">
-                        <span style="
-                          background:${dg.b};
-                          color:${dg.c};
-                          padding:3px 10px;
-                          border-radius:6px;
-                          font-size:16px;
-                          font-weight:700;">
-                          ${dg.l}
-                        </span>
-                      </div>
-                      `
-                      :''
-                    }
-            
-                  </div>
-            
-                  <!-- 우측 : 범례 -->
-                  <div style="display:flex;flex-direction:column;justify-content:center;gap:6px;">
-            
-                    ${[
-                      {l:'경도',c:'#2E7D32',t:'0~20'},
-                      {l:'중등도',c:'#F57F17',t:'21~24'},
-                      {l:'높은수준',c:'#C62828',t:'25~60'}
-                    ].map(g=>`
-                      <div style="display:flex;align-items:center;gap:4px;">
-                        <span style="
-                          width:7px;
-                          height:7px;
-                          border-radius:50%;
-                          background:${g.c};
-                          flex-shrink:0;">
-                        </span>
-            
-                        <span style="
-                          font-size:10px;
-                          color:${g.c};
-                          font-weight:700;
-                          white-space:nowrap;">
-                          ${g.l} ${g.t}
-                        </span>
-                      </div>
-                    `).join('')}
-            
-                  </div>
-            
-                </div>
-            
-              </div>
-              `;
-            })()}
-
-            <!-- 치매위험요인: 숫자만 표기 -->
-            ${(()=>{
-              const p=master.dementiaRisk!=null?Math.min(100,master.dementiaRisk):null;
-              const clr=p==null?'#888':p>=60?'#C62828':p>=30?'#F57F17':'#2E7D32';
-              const lvl=p==null?'-':p>=60?'높음':p>=30?'주의':'낮음';
-              return `<div style="padding:7px 12px;background:#F8FBFF;border-radius:7px;border:1px solid #E3F2FD;display:flex;flex-direction:column;align-items:center;justify-content:center;">
-                <div style="font-size:15px;font-weight:900;color:#1A1A1A;margin-bottom:10px;align-self:flex-start;">치매위험요인</div>
-                <div style="flex:1;display:flex;align-items:center;justify-content:center;">
-                  ${p!=null?`
-                  <div style="display:flex;align-items:center;gap:10px;">
-                    <div style="font-size:30px;font-weight:900;color:${clr};line-height:1;">
-                      ${p}<span style="font-size:14px;font-weight:600;">%</span>
-                    </div>
-                    <span style="background:${clr}22;color:${clr};padding:2px 9px;border-radius:6px;font-size:16px;font-weight:700;white-space:nowrap;">
-                      ${lvl}
-                    </span>
-                  </div>`:'<div style="font-size:20px;color:#aaa;">-</div>'}
+                <div style="font-size:15px;font-weight:900;color:#1A1A1A;margin-bottom:10px;">우울점수</div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+                  ${AssessVisuals.conicDonut(score, color, 60, 90, 12)}
+                  ${badge?`<div style="margin-top:8px;">${badge}</div>`:''}
+                  ${AssessVisuals.depressionLegendRow()}
                 </div>
               </div>`;
             })()}
+
+            <!-- 치매위험요인 -->
+            <div style="padding:7px 12px;background:#F8FBFF;border-radius:7px;border:1px solid #E3F2FD;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+              <div style="font-size:15px;font-weight:900;color:#1A1A1A;margin-bottom:10px;align-self:flex-start;">치매위험요인</div>
+              <div style="flex:1;display:flex;align-items:center;justify-content:center;">
+                ${AssessVisuals.dementiaDisplay(master.dementiaRisk)}
+              </div>
+            </div>
 
           </div>
         </div>
