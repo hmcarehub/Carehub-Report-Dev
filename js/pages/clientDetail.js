@@ -1483,6 +1483,9 @@ const ClientDetailPage = {
                 </div>
               `;
             })()}
+            `:`
+              <div style="padding:20px 0;text-align:center;color:#aaa;font-size:20px;">-</div>
+            `}
           </div>
           <!-- 신체움직임 -->
           <div style="padding:7px 7px 20px;background:#F5FBF5;border-radius:6px;border:1px solid #C8E6C9;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;">
