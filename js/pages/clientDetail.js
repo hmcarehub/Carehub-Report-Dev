@@ -1860,7 +1860,7 @@ const ClientDetailPage = {
   </div>
 
 </div>
-  
+  `;
   },
 
   _printReport: function(master, _unused) {
