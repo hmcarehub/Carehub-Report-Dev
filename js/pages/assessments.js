@@ -1026,14 +1026,6 @@ const AssessmentsPage = {
     const sensItems = StandardsCache.get('inbodyFra_sensory') || [{label:'감각계 평가'},{label:'체성감각 평가'},{label:'시각 평가'},{label:'전정감각 평가'}];
 
     const donut=(score,color='#1565C0')=> AssessVisuals.conicDonut(score,color,100,90,12);
-      <div style="text-align:center;min-width:120px;">
-        ${donut(score,color)}
-        <div style="font-size:13px;font-weight:700;color:${color};margin-top:4px;">${label}</div>
-        <div style="font-size:11px;color:var(--color-gray-400);margin-top:4px;text-align:left;padding:0 4px;">
-          ${items.map(it=>`<div style="padding:1px 0;">• ${it.label}</div>`).join('')}
-        </div>
-      </div>`;
-
     const fraCol = (id, label, score, color, items) => `
       <div style="padding:12px 14px;border-right:1px solid var(--color-gray-100);display:flex;flex-direction:column;align-items:center;">
         <div style="font-size:12px;font-weight:700;color:var(--color-gray-600);margin-bottom:6px;text-align:center;">${label}</div>
