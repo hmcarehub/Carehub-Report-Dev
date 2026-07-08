@@ -8,21 +8,6 @@ const ClientDetailPage = {
   activeDetailTab: 'rounds',
   activeReportRound: null,
 
-  // ── 회차별 최신 리포트 1건만 남기기 (재생성 시 중복 레코드 방지) ──
-  // 동일 round에 여러 건이 존재하면 reportCreatedAt이 가장 최신인 것만 사용
-  _dedupeMasterList: function(masterList) {
-    if (!Array.isArray(masterList)) return [];
-    const byRound = {};
-    masterList.forEach(m => {
-      const existing = byRound[m.round];
-      if (!existing) { byRound[m.round] = m; return; }
-      const t  = new Date(m.reportCreatedAt || 0).getTime();
-      const te = new Date(existing.reportCreatedAt || 0).getTime();
-      if (t >= te) byRound[m.round] = m;
-    });
-    return Object.values(byRound);
-  },
-
   // ── 회차 → 주차 변환 ────────────────────────────────────
   // 1회차=초기, 2회차=4주차, 3회차=8주차, 4회차=12주차 ...
   // 짧은 형식: 탭/리스트용
@@ -104,7 +89,7 @@ const ClientDetailPage = {
       this.client = res.data.client;
       // masterList 캐시 미리 설정 → _loadRoundProgress에서 재요청 없음
       if (masterRes?.status === 'success') {
-        this._masterListCache = this._dedupeMasterList(masterRes.data.masterList || []);
+        this._masterListCache = masterRes.data.masterList || [];
       }
       this._renderDetail(container);
     } catch(e) {
@@ -177,20 +162,20 @@ const ClientDetailPage = {
               ${[
                 {l:'생년월일',  v:c.birthDate||'-'},
                 {l:'성별',      v:c.gender||'-'},
-                {l:'입실호수',  v:c.roomNum||'-'},
-                {l:'휴대전화',  v:this._formatPhone(c.phone)},
+                {l:'입실호수',  v:c.roomNum||'-', s:'font-weight:700;'},
+                {l:'휴대전화',  v:this._formatPhone(c.phone), s:'font-weight:700;'},
                 {l:'입소 등록일',v:c.firstVisit||'-'},
-                {l:'입소일자',  v:c.admitDate||'-'},
-                {l:'종료 예정일',v:c.endDate||'-'},
+                {l:'입소일자',  v:c.admitDate||'-', s:'font-weight:700;'},
+                {l:'종료 예정일',v:c.endDate||'-', s:'font-weight:700;'},
                 {l:'입소기간',  v:c.admitPeriod||'-'},
               ].map(f=>`<div class="detail-info-item" style="padding:6px 10px;">
-                <div class="detail-info-label" style="font-size:16px;font-weight:400;margin-bottom:1px;">${f.l}</div>
-                <div class="detail-info-value" style="font-size:17px;font-weight:400;${f.s||''}">${f.v}</div>
+                <div class="detail-info-label" style="font-size:18px;margin-bottom:1px;">${f.l}</div>
+                <div class="detail-info-value" style="font-size:18px;${f.s||''}">${f.v}</div>
               </div>`).join('')}
             </div>
             <div class="detail-info-item" style="padding:5px 10px;border-top:1px solid var(--color-gray-100);flex:1;display:flex;flex-direction:column;">
-              <div class="detail-info-label" style="font-size:16px;font-weight:400;margin-bottom:1px;">비고</div>
-              <div class="detail-info-value" style="font-size:17px;font-weight:400;color:var(--color-gray-600);white-space:pre-wrap;flex:1;">${c.note || '-'}</div>
+              <div class="detail-info-label" style="font-size:18px;margin-bottom:1px;">비고</div>
+              <div class="detail-info-value" style="font-size:18px;color:var(--color-gray-600);white-space:pre-wrap;flex:1;">${c.note || '-'}</div>
             </div>
           </div>
         </div>
@@ -272,7 +257,7 @@ const ClientDetailPage = {
           this.activeDetailTab = 'report';
         } else {
           this.activeRound = Number(btn.dataset.round);
-          this.activeDetailTab = 'rounds';
+          if (this.activeDetailTab === 'report') this.activeDetailTab = 'rounds';
           this._roundSelected = true;
         }
         container.querySelectorAll('[data-main-tab]').forEach(b => b.classList.remove('active'));
@@ -326,7 +311,7 @@ const ClientDetailPage = {
       // render()에서 병렬 로드된 캐시 사용 → 추가 왕복 없음
       if (!this._masterListCache) {
         const res = await API.getClientMasterList(c.clientId);
-        this._masterListCache = this._dedupeMasterList((res.status==='success' ? res.data.masterList : []) || []);
+        this._masterListCache = (res.status==='success' ? res.data.masterList : []) || [];
       }
       const masterList = this._masterListCache;
       this._updateRoundStatusBadge();
@@ -496,7 +481,7 @@ const ClientDetailPage = {
         bars += `<rect x="${i*(barW+gap)}" y="${maxH-h}" width="${barW}" height="${h}" rx="2" fill="${i===idx?'#1565C0':'#D6E4F0'}"/>`;
       });
       return `<div style="width:100%;text-align:center;">
-        <div style="font-size:20px;font-weight:700;color:var(--color-gray-600);margin-bottom:14px;">상위 ${p}%예요</div>
+        <div style="font-size:20px;font-weight:700;color:var(--color-gray-600);margin-bottom:4px;">상위 ${p}%예요</div>
         <svg width="${totalW}" height="${maxH+16}" viewBox="0 0 ${totalW} ${maxH+16}" style="overflow:visible;">
           <polygon points="${markerX-6},${maxH-heights[idx]-12} ${markerX+6},${maxH-heights[idx]-12} ${markerX},${maxH-heights[idx]-2}" fill="#1565C0"/>
           ${bars}
@@ -565,7 +550,7 @@ const ClientDetailPage = {
     // ── 평가항목 카드 ──
     const itemCard = (label, vizHtml, gradeBadge) => `
       <div style="flex:1 1 180px;min-width:160px;display:flex;flex-direction:column;align-items:center;padding:18px 14px;border-radius:10px;background:#ffffff;border:1px solid #e5e7eb;box-sizing:border-box;">
-        <div style="font-size:18px;font-weight:700;color:var(--color-gray-600);margin-bottom:14px;align-self:flex-start;">${label}</div>
+        <div style="font-size:20px;font-weight:700;color:var(--color-gray-600);margin-bottom:14px;align-self:flex-start;">${label}</div>
         <div style="flex:1;display:flex;align-items:center;justify-content:center;width:100%;">${vizHtml || '<span style="font-size:20px;color:var(--color-gray-300);">데이터 없음</span>'}</div>
         ${gradeBadge ? `<div style="margin-top:12px;">${gradeBadge}</div>` : ''}
       </div>`;
@@ -659,8 +644,8 @@ const ClientDetailPage = {
     try {
       UI.showLoading();
       // 캐시에서 우선 로드
-      const masterList = this._masterListCache || this._dedupeMasterList(await API.getClientMasterList(this.client.clientId).then(r=>r.data?.masterList||[]));
-      const trendMasters = masterList.filter(m=>m.reportGenerated && m.round<=this.activeRound).sort((a,b)=>a.round-b.round);
+      const masterList = this._masterListCache || (await API.getClientMasterList(this.client.clientId).then(r=>r.data?.masterList||[]));
+      const trendMasters = masterList.filter(m=>m.reportGenerated).sort((a,b)=>a.round-b.round);
       if (!trendMasters.length) {
         el.innerHTML = `<div class="empty-state" style="padding:36px;"><div class="empty-state-icon">📈</div><div class="empty-state-text">리포트가 생성된 평가가 없습니다</div></div>`;
         return;
@@ -703,12 +688,13 @@ const ClientDetailPage = {
       </div>`;
 
       el.innerHTML=`<div style="padding:14px 16px;">
-        <!-- 1행: 인지 -->
-        <div style="margin-bottom:10px;">${secT('🧠','인지','#1565C0',row([{f:'cogScore',l:'인지점수',u:'점'},{f:'depression',l:'우울점수',u:'점'}]))}</div>
+        <!-- 1행: 인지 + 대사 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+          <div>${secT('🧠','인지','#1565C0',row([{f:'cogScore',l:'인지점수',u:'점'},{f:'depression',l:'우울점수',u:'점'}]))}</div>
+          <div>${secT('💊','대사','#E65100',row([{f:'bodyCompScore',l:'체성분점수',u:'점'},{f:'stressScore',l:'스트레스점수',u:'점'}]))}</div>
+        </div>
         <!-- 2행: 움직임 -->
-        ${secT('🏃','움직임','#2E7D32',row([{f:'cardioScore',l:'심폐기능지수',u:'점'},{f:'bodyMovementIndex',l:'신체움직임',u:'점'},{f:'balanceScore',l:'통합균형능력',u:'점'}]))}
-        <!-- 3행: 대사 -->
-        <div style="margin-top:10px;">${secT('💊','대사','#E65100',row([{f:'bodyCompScore',l:'체성분점수',u:'점'},{f:'stressScore',l:'스트레스점수',u:'점'}]))}</div>
+        ${secT('🏃','움직임','#2E7D32',row([{f:'cardioScore',l:'심폐기능지수'},{f:'bodyMovementIndex',l:'신체움직임',u:'점'},{f:'balanceScore',l:'통합균형능력',u:'점'}]))}
       </div>`;
     } catch(e) {
       el.innerHTML=`<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">${e.message||'오류'}</div></div>`;
@@ -720,7 +706,7 @@ const ClientDetailPage = {
     try {
       UI.showLoading();
       // 캐시에서 우선 로드
-      const masterList = this._masterListCache || this._dedupeMasterList(await API.getClientMasterList(this.client.clientId).then(r=>r.data?.masterList||[]));
+      const masterList = this._masterListCache || (await API.getClientMasterList(this.client.clientId).then(r=>r.data?.masterList||[]));
       const completed  = masterList.filter(m => m.reportGenerated).sort((a,b)=>b.round-a.round);
 
       if (!completed.length) {
@@ -748,7 +734,7 @@ const ClientDetailPage = {
           const round = Number(btn.dataset.round);
           const m = completed.find(x=>x.round===round);
           if (!m) return;
-          const masterListFull = this._masterListCache || this._dedupeMasterList((await API.getClientMasterList(c.clientId).catch(()=>null))?.data?.masterList || [m]);
+          const masterListFull = this._masterListCache || (await API.getClientMasterList(c.clientId).catch(()=>null))?.data?.masterList || [m];
           const html = this._buildReportHTML(m, masterListFull);
           const wrap = document.createElement('div');
           wrap.className='modal-backdrop';
@@ -777,7 +763,7 @@ const ClientDetailPage = {
           const round = Number(btn.dataset.round);
           const m = completed.find(x=>x.round===round);
           if (!m) return;
-          const masterListFull = this._masterListCache || this._dedupeMasterList((await API.getClientMasterList(c.clientId).catch(()=>null))?.data?.masterList || [m]);
+          const masterListFull = this._masterListCache || (await API.getClientMasterList(c.clientId).catch(()=>null))?.data?.masterList || [m];
           const tempDiv=document.createElement('div');
           tempDiv.innerHTML=this._buildReportHTML(m, masterListFull);
           this._printReport(m, tempDiv);
@@ -867,7 +853,7 @@ const ClientDetailPage = {
     let masterList = [masterData];
     try {
       const res = await API.getClientMasterList(c.clientId);
-      if (res.status === 'success') masterList = this._dedupeMasterList(res.data.masterList || [masterData]);
+      if (res.status === 'success') masterList = res.data.masterList || [masterData];
     } catch(e) {}
     const reportHtml = this._buildReportHTML(masterData, masterList);
     const wrap = document.createElement('div');
@@ -1142,7 +1128,7 @@ const ClientDetailPage = {
   <!-- 헤더 -->
   <div style="border-bottom:2px solid #B8934A;padding-bottom:5px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
     <div style="font-size:20px;font-weight:800;color:#1A1A1A;">${weekEvalLabel(master.round)} 평가 결과</div>
-    <div style="font-size:18px;color:#aaa;">${c.name} · ${todayStr}</div>
+    <div style="font-size:14px;color:#aaa;">${c.name} · ${todayStr}</div>
   </div>
 
   <!-- 세 영역: 인지(3):움직임(2):대사(1) -->
@@ -1159,76 +1145,95 @@ const ClientDetailPage = {
           <!-- 좌: 인지점수+동연령대 (flex column, 1:1 비율, 타이틀 좌측상단 고정) -->
           <div style="padding:7px;background:#F8FBFF;border-radius:7px;border:1px solid #E3F2FD;display:flex;flex-direction:column;gap:0;">
 
-            <!-- 인지점수 영역 (flex:1) -->
-            <!-- 인지점수 영역 (flex:1) -->
             <div style="flex:1;display:flex;flex-direction:column;">
-              <div style="font-size:18px;font-weight:900;color:#1A1A1A;margin-bottom:6px;text-align:left;">인지점수</div>
+              <div style="font-size:15px;font-weight:900;color:#1A1A1A;margin-bottom:6px;text-align:left;">인지점수</div>
               <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
-                <div style="display:flex;justify-content:center;">
-                  ${(()=>{
-                    const score=master.cogScore;
-                    const gc=cogGrade!=='-'?(cogGrade==='최적'?'#1B5E20':cogGrade==='양호'?'#2E7D32':cogGrade==='개선'?'#F57F17':'#C62828'):'#1565C0';
-                    const pct=Math.min(100,Math.max(0,Number(score)||0));
-            
-                    // 그래프 크기 확대
-                    const angle=(pct/100)*180;
-                    const r=40;
-                    const cx=50;
-                    const cy=48;
-            
-                    const rad=angle*Math.PI/180;
-                    const ex=cx+r*Math.cos(Math.PI-rad);
-                    const ey=cy-r*Math.sin(rad);
-            
-                    return `
-                      <svg width="100" height="66" viewBox="0 0 100 66">
-                        <!-- 배경 -->
-                        <path
-                          d="M 10 48 A 40 40 0 0 1 90 48"
-                          fill="none"
-                          stroke="#E8E8E8"
-                          stroke-width="9"
-                          stroke-linecap="round"
-                        />
-            
-                        <!-- 진행 -->
-                        ${
-                          pct>0
-                          ? `<path
-                                d="M 10 48 A 40 40 0 ${angle>180?1:0} 1 ${ex.toFixed(1)} ${ey.toFixed(1)}"
-                                fill="none"
-                                stroke="${gc}"
-                                stroke-width="9"
-                                stroke-linecap="round"
-                             />`
-                          : ''
-                        }
-            
-                        <!-- 점수 -->
-                        <text
-                          x="50"
-                          y="42"
-                          text-anchor="middle"
-                          font-family="sans-serif"
-                          font-size="16"
-                          font-weight="800"
-                          fill="${gc}">
-                          ${score!=null?score+'점':'-'}
-                        </text>
-            
-                        <!-- 범위 -->
-                        <text
-                          x="50"
-                          y="60"
-                          text-anchor="middle"
-                          font-family="sans-serif"
-                          font-size="9"
-                          fill="#bbb">
-                          0 ───── 100
-                        </text>
-                      </svg>
-                    `;
-                  })()}
+                <div style="display:flex;align-items:center;justify-content:center;gap:14px;">
+                  <div style="display:flex;justify-content:center;">
+                    ${(()=>{
+                      const score=master.cogScore;
+                      const gc=cogGrade!=='-'?(cogGrade==='최적'?'#1B5E20':cogGrade==='양호'?'#2E7D32':cogGrade==='개선'?'#F57F17':'#C62828'):'#1565C0';
+                      const pct=Math.min(100,Math.max(0,Number(score)||0));
+              
+                      // 그래프 크기 확대
+                      const angle=(pct/100)*180;
+                      const r=50;
+                      const cx=62;
+                      const cy=60;
+              
+                      const rad=angle*Math.PI/180;
+                      const ex=cx+r*Math.cos(Math.PI-rad);
+                      const ey=cy-r*Math.sin(rad);
+              
+                      return `
+                        <svg width="125" height="83" viewBox="0 0 125 83">
+                          <!-- 배경 -->
+                          <path
+                            d="M 12 60 A 50 50 0 0 1 112 60"
+                            fill="none"
+                            stroke="#E8E8E8"
+                            stroke-width="11"
+                            stroke-linecap="round"
+                          />
+              
+                          <!-- 진행 -->
+                          ${
+                            pct>0
+                            ? `<path
+                                  d="M 12 60 A 50 50 0 ${angle>180?1:0} 1 ${ex.toFixed(1)} ${ey.toFixed(1)}"
+                                  fill="none"
+                                  stroke="${gc}"
+                                  stroke-width="11"
+                                  stroke-linecap="round"
+                               />`
+                            : ''
+                          }
+              
+                          <!-- 점수 -->
+                          <text
+                            x="62"
+                            y="53"
+                            text-anchor="middle"
+                            font-family="sans-serif"
+                            font-size="20"
+                            font-weight="800"
+                            fill="${gc}">
+                            ${score!=null?`<tspan font-size="30">${score}</tspan><tspan font-size="14">점</tspan>`:`<tspan font-size="30">-</tspan>`}
+                          </text>
+                      
+                          <!-- 범위 -->
+                          <text
+                            x="62"
+                            y="76"
+                            text-anchor="middle"
+                            font-family="sans-serif"
+                            font-size="11"
+                            fill="#bbb">
+                            0 ───── 100
+                          </text>
+                        </svg>
+                      `;
+                    })()}
+                  </div>
+ 
+                  <!-- 범례 (우측 4행 1열) -->
+                  <div style="display:flex;flex-direction:column;gap:5px;">
+                    ${
+                      [
+                        {l:'최적',c:'#1B5E20',t:'90↑'},
+                        {l:'양호',c:'#2E7D32',t:'80~89'},
+                        {l:'개선',c:'#F57F17',t:'65~79'},
+                        {l:'주의',c:'#C62828',t:'~64'}
+                      ].map(g=>`
+                        <div style="display:flex;align-items:center;gap:4px;">
+                          <span style="width:7px;height:7px;border-radius:50%;background:${g.c};flex-shrink:0;"></span>
+                          <span style="font-size:10px;color:${g.c};font-weight:700;white-space:nowrap;">
+                            ${g.l} ${g.t}
+                          </span>
+                        </div>
+                      `).join('')
+                    }
+                  </div>
                 </div>
             
                 <!-- 상태값 배지 -->
@@ -1240,39 +1245,20 @@ const ClientDetailPage = {
                         color:${cogGrade==='최적'?'#1B5E20':cogGrade==='양호'?'#2E7D32':cogGrade==='개선'?'#F57F17':'#C62828'};
                         padding:2px 8px;
                         border-radius:6px;
-                        font-size:18px;
+                        font-size:16px;
                         font-weight:700;">
                         ${cogGrade}
                       </span>
                     </div>`
                   : ''
                 }
-            
-                <!-- 범례 -->
-                <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:6px;">
-                  ${
-                    [
-                      {l:'최적',c:'#1B5E20',t:'90↑'},
-                      {l:'양호',c:'#2E7D32',t:'80~89'},
-                      {l:'개선',c:'#F57F17',t:'65~79'},
-                      {l:'주의',c:'#C62828',t:'~64'}
-                    ].map(g=>`
-                      <div style="display:flex;align-items:center;gap:2px;">
-                        <span style="width:6px;height:6px;border-radius:50%;background:${g.c};flex-shrink:0;"></span>
-                        <span style="font-size:8px;color:${g.c};font-weight:700;">
-                          ${g.l} ${g.t}
-                        </span>
-                      </div>
-                    `).join('')
-                  }
-                </div>
               </div>
             </div>
             <div style="border-top:1px solid #E3F2FD;margin:4px 0;"></div>
 
             <!-- 동연령대 영역 (flex:1, 타이틀 좌측상단 고정) -->
             <div style="flex:1;display:flex;flex-direction:column;">
-              <div style="font-size:18px;font-weight:900;color:#1A1A1A;margin-bottom:6px;text-align:left;">동연령대 상위 분포도</div>
+              <div style="font-size:15px;font-weight:900;color:#1A1A1A;margin-bottom:6px;text-align:left;">동연령대 상위 분포도</div>
               <div style="flex:1;display:flex;align-items:center;justify-content:center;">
                 ${(()=>{
                   if (master.agePercentile==null) return '<div style="font-size:18px;color:#aaa;">-</div>';
@@ -1289,12 +1275,12 @@ const ClientDetailPage = {
                     bars+=`<rect x="${x}" y="${y}" width="${barW}" height="${h}" rx="1.5" fill="${active?'#1565C0':'#D6E4F0'}"/>`;
                   });
                   return `<div style="text-align:center;">
-                    <div style="font-size:18px;color:#666;margin-bottom:10px;">상위 ${p}%예요</div>
+                    <div style="font-size:14px;color:#666;margin-bottom:2px;">상위 ${p}%예요</div>
                     <svg width="${totalW}" height="${maxH+10}" viewBox="0 0 ${totalW} ${maxH+10}" style="overflow:visible;">
                       <polygon points="${markerX-4},${maxH-heights[idx]-8} ${markerX+4},${maxH-heights[idx]-8} ${markerX},${maxH-heights[idx]-2}" fill="#1565C0"/>
                       ${bars}
                     </svg>
-                    <div style="display:flex;justify-content:space-between;font-size:7px;color:#aaa;margin-top:2px;width:${totalW}px;"><span>100%</span><span>1%</span></div>
+                    <div style="display:flex;justify-content:space-between;font-size:11px;color:#aaa;margin-top:2px;width:${totalW}px;"><span>100%</span><span>1%</span></div>
                   </div>`;
                 })()}
               </div>
@@ -1312,17 +1298,17 @@ const ClientDetailPage = {
               const pct=Math.min(100,Math.max(0,Number(score)||0));
               const r=36,circ=2*Math.PI*r,dash=(pct/100)*circ;
               return `<div style="padding:7px 12px;background:#F8FBFF;border-radius:7px;border:1px solid #E3F2FD;display:flex;flex-direction:column;align-items:center;">
-                <div style="font-size:18px;font-weight:900;color:#1A1A1A;margin-bottom:10px;align-self:flex-start;">${item.label}</div>
+                <div style="font-size:15px;font-weight:900;color:#1A1A1A;margin-bottom:10px;align-self:flex-start;">${item.label}</div>
                 <div style="display:flex;align-items:center;gap:8px;">
                   <svg width="88" height="88" viewBox="0 0 88 88" style="flex-shrink:0;">
                     <circle cx="44" cy="44" r="${r}" fill="none" stroke="#E8E8E8" stroke-width="10"/>
                     ${pct>0?`<circle cx="44" cy="44" r="${r}" fill="none" stroke="${clr}" stroke-width="10" stroke-dasharray="${dash.toFixed(1)} ${circ.toFixed(1)}" stroke-dashoffset="${(circ/4).toFixed(1)}" stroke-linecap="round"/>`:''}
-                    <text x="44" y="48" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="800" fill="${clr}">${score!=null?score+'점':'-'}</text>
+                    <text x="44" y="48" text-anchor="middle" font-family="sans-serif" font-size="20" font-weight="800" fill="${clr}">${score!=null?`<tspan font-size="30">${score}</tspan><tspan font-size="14">점</tspan>`:`<tspan font-size="30">-</tspan>`}</text>
                   </svg>
-                  ${item.gradeFn(score)?`<span style="background:${item.gradeFn(score).b};color:${item.gradeFn(score).c};padding:3px 8px;border-radius:6px;font-size:18px;font-weight:700;">${item.gradeFn(score).l}</span>`:''}
+                  ${item.gradeFn(score)?`<span style="background:${item.gradeFn(score).b};color:${item.gradeFn(score).c};padding:3px 8px;border-radius:6px;font-size:16px;font-weight:700;">${item.gradeFn(score).l}</span>`:''}
                 </div>
                 <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;justify-content:center;">
-                  ${item.grades.map(g=>`<div style="display:flex;align-items:center;gap:3px;"><span style="width:6px;height:6px;border-radius:50%;background:${g.c};flex-shrink:0;"></span><span style="font-size:8px;color:${g.c};font-weight:600;">${g.l} ${g.t}</span></div>`).join('')}
+                  ${item.grades.map(g=>`<div style="display:flex;align-items:center;gap:3px;"><span style="width:6px;height:6px;border-radius:50%;background:${g.c};flex-shrink:0;"></span><span style="font-size:10px;color:${g.c};font-weight:600;">${g.l} ${g.t}</span></div>`).join('')}
                 </div>
               </div>`;
             }).join('')}
@@ -1333,17 +1319,17 @@ const ClientDetailPage = {
               const pct=score!=null?Math.min(100,(Number(score)/60)*100):0;
               const r=36,circ=2*Math.PI*r,dash=(pct/100)*circ, clr=dg?.c||'#7B1FA2';
               return `<div style="padding:7px 12px;background:#F8FBFF;border-radius:7px;border:1px solid #E3F2FD;display:flex;flex-direction:column;align-items:center;">
-                <div style="font-size:18px;font-weight:900;color:#1A1A1A;margin-bottom:10px;align-self:flex-start;">우울점수</div>
+                <div style="font-size:15px;font-weight:900;color:#1A1A1A;margin-bottom:10px;align-self:flex-start;">우울점수</div>
                 <div style="display:flex;align-items:center;gap:8px;">
                   <svg width="88" height="88" viewBox="0 0 88 88" style="flex-shrink:0;">
                     <circle cx="44" cy="44" r="${r}" fill="none" stroke="#E8E8E8" stroke-width="10"/>
                     ${pct>0?`<circle cx="44" cy="44" r="${r}" fill="none" stroke="${clr}" stroke-width="10" stroke-dasharray="${dash.toFixed(1)} ${circ.toFixed(1)}" stroke-dashoffset="${(circ/4).toFixed(1)}" stroke-linecap="round"/>`:''}
-                    <text x="44" y="48" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="800" fill="${clr}">${score!=null?score+'점':'-'}</text>
+                    <text x="44" y="48" text-anchor="middle" font-family="sans-serif" font-size="20" font-weight="800" fill="${clr}">${score!=null?`<tspan font-size="30">${score}</tspan><tspan font-size="14">점</tspan>`:`<tspan font-size="30">-</tspan>`}</text>
                   </svg>
-                  ${dg?`<span style="background:${dg.b};color:${dg.c};padding:3px 8px;border-radius:6px;font-size:18px;font-weight:700;">${dg.l}</span>`:''}
+                  ${dg?`<span style="background:${dg.b};color:${dg.c};padding:3px 8px;border-radius:6px;font-size:16px;font-weight:700;">${dg.l}</span>`:''}
                 </div>
                 <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;justify-content:center;">
-                  ${[{l:'경도',c:'#2E7D32',t:'0~20'},{l:'중등도',c:'#F57F17',t:'21~24'},{l:'높은수준',c:'#C62828',t:'25~60'}].map(g=>`<div style="display:flex;align-items:center;gap:3px;"><span style="width:6px;height:6px;border-radius:50%;background:${g.c};flex-shrink:0;"></span><span style="font-size:8px;color:${g.c};font-weight:600;">${g.l} ${g.t}</span></div>`).join('')}
+                  ${[{l:'경도',c:'#2E7D32',t:'0~20'},{l:'중등도',c:'#F57F17',t:'21~24'},{l:'높은수준',c:'#C62828',t:'25~60'}].map(g=>`<div style="display:flex;align-items:center;gap:3px;"><span style="width:6px;height:6px;border-radius:50%;background:${g.c};flex-shrink:0;"></span><span style="font-size:10px;color:${g.c};font-weight:600;">${g.l} ${g.t}</span></div>`).join('')}
                 </div>
               </div>`;
             })()}
@@ -1354,11 +1340,17 @@ const ClientDetailPage = {
               const clr=p==null?'#888':p>=60?'#C62828':p>=30?'#F57F17':'#2E7D32';
               const lvl=p==null?'-':p>=60?'높음':p>=30?'주의':'낮음';
               return `<div style="padding:7px 12px;background:#F8FBFF;border-radius:7px;border:1px solid #E3F2FD;display:flex;flex-direction:column;align-items:center;justify-content:center;">
-                <div style="font-size:18px;font-weight:900;color:#1A1A1A;margin-bottom:10px;align-self:flex-start;">치매위험요인</div>
-                <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+                <div style="font-size:15px;font-weight:900;color:#1A1A1A;margin-bottom:10px;align-self:flex-start;">치매위험요인</div>
+                <div style="flex:1;display:flex;align-items:center;justify-content:center;">
                   ${p!=null?`
-                  <div style="font-size:30px;font-weight:900;color:${clr};line-height:1;">${p}<span style="font-size:14px;font-weight:600;">%</span></div>
-                  <div style="margin-top:6px;"><span style="background:${clr}22;color:${clr};padding:2px 9px;border-radius:6px;font-size:18px;font-weight:700;">${lvl}</span></div>`:'<div style="font-size:20px;color:#aaa;">-</div>'}
+                  <div style="display:flex;align-items:center;gap:10px;">
+                    <div style="font-size:30px;font-weight:900;color:${clr};line-height:1;">
+                      ${p}<span style="font-size:14px;font-weight:600;">%</span>
+                    </div>
+                    <span style="background:${clr}22;color:${clr};padding:2px 9px;border-radius:6px;font-size:16px;font-weight:700;white-space:nowrap;">
+                      ${lvl}
+                    </span>
+                  </div>`:'<div style="font-size:20px;color:#aaa;">-</div>'}
                 </div>
               </div>`;
             })()}
@@ -1379,42 +1371,155 @@ const ClientDetailPage = {
         <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;">
           <!-- 심폐기능 -->
           <div style="padding:7px;background:#F5FBF5;border-radius:6px;border:1px solid #C8E6C9;">
-            <div style="font-size:18px;font-weight:900;color:#1A1A1A;margin-bottom:4px;">심폐기능지수 (VO2peak)</div>
+            <div style="font-size:15px;font-weight:900;color:#1A1A1A;margin-bottom:4px;">심폐기능지수 (VO2peak)</div>
             ${master.cardioScore!=null?`
             ${(()=>{
-              const isMale=c.gender==='남자';
-              const gradeOrder=[{l:'최하위',c:'#C62828',min:0},{l:'평균이하',c:'#E65100',min:isMale?25:19},{l:'평균',c:'#F57F17',min:isMale?29:22},{l:'평균이상',c:'#388E3C',min:isMale?32:25},{l:'우수',c:'#2E7D32',min:isMale?36:29},{l:'최우수',c:'#1B5E20',min:isMale?40:33}];
-              const maxV=isMale?44:37;
-              const pct=Math.min(100,Math.max(0,(Number(master.cardioScore))/(maxV)*100));
-              const matched=getCardioGrade(master.cardioScore,c.gender,c.birthDate);
-              const matchedG=gradeOrder.find(g=>g.l===matched);
-              return `<div style="display:flex;align-items:center;gap:7px;margin-bottom:4px;">
-                <span style="font-size:18px;font-weight:800;color:${matchedG?.c||'#2E7D32'};">${master.cardioScore}<span style="font-size:18px;color:#aaa;font-weight:400;"> ml/kg/min</span></span>
-                <span style="background:${matchedG?.c||'#888'}22;color:${matchedG?.c||'#888'};padding:2px 6px;border-radius:5px;font-size:18px;font-weight:700;">${matched||''}</span>
-              </div>
-              <div style="padding:0 20px;">
-                <div style="position:relative;height:10px;margin-bottom:1px;">
-                  <div style="position:absolute;left:calc(${pct}% - 5px);top:0;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:8px solid ${matchedG?.c||'#555'};"></div>
+              const isMale = c.gender === '남자';
+
+              const gradeOrder = [
+                { l:'최하위', c:'#C62828', min:0 },
+                { l:'평균이하', c:'#E65100', min:isMale?25:19 },
+                { l:'평균', c:'#F57F17', min:isMale?29:22 },
+                { l:'평균이상', c:'#388E3C', min:isMale?32:25 },
+                { l:'우수', c:'#2E7D32', min:isMale?36:29 },
+                { l:'최우수', c:'#1B5E20', min:isMale?40:33 }
+              ];
+
+              const maxV = isMale ? 44 : 37;
+              const pct = Math.min(100, Math.max(0, Number(master.cardioScore) / maxV * 100));
+
+              const matched = getCardioGrade(master.cardioScore, c.gender, c.birthDate);
+              const matchedG = gradeOrder.find(g => g.l === matched);
+
+              const ageText = c.birthDate
+                ? (new Date().getFullYear() - new Date(c.birthDate).getFullYear() <= 65
+                    ? '60~65세'
+                    : '66세↑')
+                : '';
+
+              return `
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:24px;">
+
+                  <!-- 좌측 -->
+                  <div style="flex:1;display:flex;flex-direction:column;">
+
+                    <!-- 점수 -->
+                    <div style="margin-bottom:10px;">
+                      <span style="font-size:30px;font-weight:800;color:${matchedG?.c||'#2E7D32'};">
+                        ${master.cardioScore}
+                      </span>
+                      <span style="font-size:16px;color:#999;font-weight:400;">
+                        ml/kg/min
+                      </span>
+                    </div>
+
+                    <!-- 게이지 -->
+                    <div style="width:55%;">
+
+                      <div style="position:relative;height:10px;margin-bottom:2px;">
+                        <div style="
+                          position:absolute;
+                          left:calc(${pct}% - 5px);
+                          top:0;
+                          width:0;
+                          height:0;
+                          border-left:5px solid transparent;
+                          border-right:5px solid transparent;
+                          border-top:8px solid ${matchedG?.c||'#555'};
+                        "></div>
+                      </div>
+
+                      <div style="
+                        height:12px;
+                        border-radius:6px;
+                        overflow:hidden;
+                        background:linear-gradient(
+                          90deg,
+                          #C62828 0%,
+                          #E65100 20%,
+                          #F57F17 40%,
+                          #388E3C 60%,
+                          #2E7D32 80%,
+                          #1B5E20 100%
+                        );
+                      "></div>
+
+                    </div>
+
+                  </div>
+
+                  <!-- 우측 -->
+                  <div style="
+                    width:120px;
+                    display:flex;
+                    flex-direction:column;
+                    justify-content:center;
+                    align-items:center;
+                  ">
+
+                    <span style="
+                      background:${matchedG?.c||'#888'}22;
+                      color:${matchedG?.c||'#888'};
+                      padding:4px 12px;
+                      border-radius:6px;
+                      font-size:18px;
+                      font-weight:700;
+                      white-space:nowrap;
+                    ">
+                      ${matched}
+                    </span>
+
+                    <span style="
+                      margin-top:6px;
+                      font-size:12px;
+                      color:#666;
+                      white-space:nowrap;
+                    ">
+                      ${ageText} (${c.gender||''})
+                    </span>
+
+                  </div>
+
                 </div>
-                <div style="height:12px;border-radius:4px;overflow:hidden;background:linear-gradient(90deg,#C62828 0%,#E65100 20%,#F57F17 40%,#388E3C 60%,#2E7D32 80%,#1B5E20 100%);"></div>
-                <div style="display:flex;justify-content:space-between;margin-top:2px;">
-                  ${gradeOrder.map(g=>`<div style="font-size:7px;font-weight:700;color:${g.l===matched?g.c:'#ccc'};text-align:center;flex:1;">${g.l}</div>`).join('')}
-                </div>
-              </div>
-              <div style="margin-top:5px;border-top:1px solid #E8F5E9;padding-top:4px;">
-                <div style="font-size:8px;font-weight:700;color:#555;margin-bottom:2px;">${c.birthDate?(new Date().getFullYear()-new Date(c.birthDate).getFullYear()<=65?'60~65세':'66세↑'):''}(${c.gender||''}) 기준</div>
-                <div style="display:flex;gap:5px;flex-wrap:wrap;">
-                  ${(isMale?[{l:'최우수',c:'#1B5E20',t:'40↑'},{l:'우수',c:'#2E7D32',t:'36~39'},{l:'평균이상',c:'#388E3C',t:'32~35'},{l:'평균',c:'#F57F17',t:'29~31'},{l:'평균이하',c:'#E65100',t:'25~28'},{l:'최하위',c:'#C62828',t:'25↓'}]:[{l:'최우수',c:'#1B5E20',t:'33↑'},{l:'우수',c:'#2E7D32',t:'29~32'},{l:'평균이상',c:'#388E3C',t:'25~28'},{l:'평균',c:'#F57F17',t:'22~24'},{l:'평균이하',c:'#E65100',t:'19~21'},{l:'최하위',c:'#C62828',t:'19↓'}])
-                    .map(g=>`<div style="display:flex;align-items:center;gap:2px;"><span style="width:5px;height:5px;border-radius:50%;background:${g.c};"></span><span style="font-size:7px;color:${g.c};font-weight:600;white-space:nowrap;">${g.l} ${g.t}</span></div>`).join('')}
-                </div>
-              </div>`;
-            })()}`:`<div style="font-size:14px;font-weight:800;color:#2E7D32;">${master.cardioScore??'-'}</div>`}
+              `;
+            })()}
           </div>
           <!-- 신체움직임 -->
           <div style="padding:7px 7px 20px;background:#F5FBF5;border-radius:6px;border:1px solid #C8E6C9;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;">
-            <div style="font-size:18px;font-weight:900;color:#1A1A1A;margin-bottom:4px;">신체 움직임 점수</div>
-            <div style="display:flex;align-items:baseline;gap:3px;"><span style="font-size:26px;font-weight:900;color:#0288D1;">${master.bodyMovementIndex??'-'}</span><span style="font-size:18px;color:#aaa;">/ 100점</span></div>
-            ${master.bodyMovementIndex!=null?`<div style="width:100%;margin-top:5px;">${scoreBar(master.bodyMovementIndex,'#0288D1')}</div>`:''}
+            <div style="font-size:15px;font-weight:900;color:#1A1A1A;margin-bottom:4px;">신체 움직임 점수</div>
+            <div style="position:relative;width:100%;margin-top:5px;">
+
+              ${master.bodyMovementIndex!=null?`
+                <div style="
+                  position:absolute;
+                  right:0;
+                  top:-38px;
+                  display:flex;
+                  align-items:baseline;
+                  gap:3px;
+                ">
+                  <span style="font-size:30px;font-weight:900;color:#0288D1;">
+                    ${master.bodyMovementIndex}
+                  </span>
+                  <span style="font-size:16px;color:#aaa;">
+                    / 100점
+                  </span>
+                </div>
+
+                ${scoreBar(master.bodyMovementIndex,'#0288D1')}
+              `:`
+                <div style="
+                  position:absolute;
+                  right:0;
+                  top:-38px;
+                  font-size:30px;
+                  font-weight:900;
+                  color:#0288D1;
+                ">
+                  -
+                </div>
+              `}
+            </div>
           </div>
         </div>
  
@@ -1429,11 +1534,24 @@ const ClientDetailPage = {
             const pct=Math.min(100,Math.max(0,Number(score)||0));
             const r=36,circ=2*Math.PI*r,dash=(pct/100)*circ;
             return `<div style="padding:7px 8px;background:#F5FBF5;border-radius:6px;border:1px solid #C8E6C9;display:flex;flex-direction:column;align-items:center;overflow:visible;">
-              <div style="font-size:18px;font-weight:900;color:#1A1A1A;margin-bottom:10px;align-self:flex-start;">${item.label}</div>
+              <div style="font-size:15px;font-weight:900;color:#1A1A1A;margin-bottom:10px;align-self:flex-start;">${item.label}</div>
               <svg width="88" height="88" viewBox="0 0 88 88" style="overflow:visible;margin-bottom:8px;">
                 <circle cx="44" cy="44" r="${r}" fill="none" stroke="#E8E8E8" stroke-width="10"/>
                 ${pct>0?`<circle cx="44" cy="44" r="${r}" fill="none" stroke="${item.color}" stroke-width="10" stroke-dasharray="${dash.toFixed(1)} ${circ.toFixed(1)}" stroke-dashoffset="${(circ/4).toFixed(1)}" stroke-linecap="round"/>`:''}
-                <text x="44" y="48" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="800" fill="${item.color}">${score!=null?score+'점':'-'}</text>
+                <text
+                  x="44"
+                  y="48"
+                  text-anchor="middle"
+                  font-family="sans-serif"
+                  font-weight="800"
+                  fill="${item.color}"
+                >
+                  ${
+                    score!=null
+                      ? `<tspan font-size="30">${score}</tspan><tspan font-size="14">점</tspan>`
+                      : `<tspan font-size="30">-</tspan>`
+                  }
+                </text>
               </svg>
               <div style="display:flex;justify-content:center;">
                 <div style="font-size:12px;color:#444;line-height:1.8;text-align:left;">
@@ -1452,47 +1570,132 @@ const ClientDetailPage = {
         <span style="font-size:16px;font-weight:900;color:white;">💊 대사(생활) 관리 리포트</span>
       </div>
       <div style="padding:8px 12px;background:white;flex:1;overflow:hidden;">
-        <div style="display:grid;grid-template-columns:1fr 2fr;gap:8px;height:100%;">
-          <!-- 체성분 -->
-          <div style="padding:7px;background:#FFF8F0;border-radius:6px;border:1px solid #FFE0B2;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;">
-            <div style="font-size:18px;font-weight:900;color:#1A1A1A;margin-bottom:4px;">체성분 종합 점수</div>
-            <div style="display:flex;align-items:baseline;gap:3px;"><span style="font-size:26px;font-weight:900;color:#2E7D32;">${master.bodyCompScore??'-'}</span><span style="font-size:18px;color:#aaa;">/ 100점</span></div>
-            ${master.bodyCompScore!=null?`<div style="width:100%;margin-top:5px;">${scoreBar(master.bodyCompScore,'#2E7D32')}</div>`:''}
-            <div style="font-size:8px;color:#aaa;margin-top:3px;text-align:center;">※ 근육이 매우 많을 경우 100점을 넘을 수 있습니다.</div>
-          </div>
-          <!-- 스트레스 (이미지2 참고: 부드러운 그라데이션 + 마커) -->
-          <div style="padding:7px;background:#FFF8F0;border-radius:6px;border:1px solid #FFE0B2;display:flex;flex-direction:column;">
-            <div style="font-size:18px;font-weight:900;color:#1A1A1A;margin-bottom:10px;">스트레스 점수</div>
-            ${master.stressScore!=null?`
-            ${(()=>{
-              const s = master.stressScore;
-              const sg = getStressGrade(s);
-              const rptStressGrades = [
-                {l:'정상',color:'#2E7D32',bg:'#E8F5E9'},
-                {l:'초기',color:'#F57F17',bg:'#FFF8E1'},
-                {l:'진행',color:'#E65100',bg:'#FBE9E7'},
-                {l:'만성',color:'#C62828',bg:'#FFEBEE'}
-              ];
-              const rptG = s<35?rptStressGrades[0]:s<45?rptStressGrades[1]:s<60?rptStressGrades[2]:rptStressGrades[3];
-              const pct = s<=35?(s/35)*37 : s<=45?37+(s-35)/10*18 : s<=60?55+(s-45)/15*23 : Math.min(100,78+(s-60)/40*22);
-              return `<div style="display:flex;flex-direction:column;flex:1;">
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-                  <span style="font-size:28px;font-weight:900;color:${rptG.color};">${s}점</span>
-                  <span style="background:${rptG.bg};color:${rptG.color};padding:3px 10px;border-radius:8px;font-size:20px;font-weight:700;">${sg||''}</span>
-                </div>
-                <div style="padding:0 20px;">
-                  <div style="position:relative;margin-bottom:2px;height:12px;">
-                    <div style="position:absolute;left:calc(${pct}% - 6px);top:0;width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:10px solid ${rptG.color};"></div>
-                  </div>
-                  <div style="height:22px;border-radius:6px;overflow:hidden;background:linear-gradient(90deg,#4CAF50 0%,#C0CA33 37%,#FFA000 55%,#F44336 78%,#B71C1C 100%);"></div>
-                  <div style="display:flex;justify-content:space-between;margin-top:3px;">
-                    ${rptStressGrades.map(g2=>`<div style="font-size:8.5px;font-weight:700;color:${g2.l===rptG.l?g2.color:'#aaa'};text-align:center;flex:1;">${g2.l}</div>`).join('')}
-                  </div>
-                </div>
-              </div>`;
-            })()}`:`<div style="font-size:20px;color:#aaa;">-</div>`}
-          </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;height:100%;">
+
+    <!-- 체성분 -->
+    <div style="padding:7px;background:#FFF8F0;border-radius:6px;border:1px solid #FFE0B2;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;">
+      <div style="font-size:15px;font-weight:900;color:#1A1A1A;margin-bottom:4px;">체성분 종합 점수</div>
+
+      <div style="display:flex;justify-content:flex-end;align-items:baseline;gap:3px;width:100%;padding-right:12px;">
+        <span style="font-size:30px;font-weight:900;color:#2E7D32;">${master.bodyCompScore??'-'}</span>
+        <span style="font-size:16px;color:#aaa;">/ 100점</span>
+      </div>
+
+      ${master.bodyCompScore!=null?`
+        <div style="width:100%;margin-top:5px;">
+          ${scoreBar(master.bodyCompScore,'#2E7D32')}
         </div>
+      `:''}
+
+      <div style="font-size:10px;color:#aaa;margin-top:3px;text-align:center;">
+        ※ 근육이 매우 많을 경우 100점을 넘을 수 있습니다.
+      </div>
+    </div>
+
+    <!-- 스트레스 -->
+    <div style="padding:7px;background:#FFF8F0;border-radius:6px;border:1px solid #FFE0B2;display:flex;flex-direction:column;">
+      <div style="font-size:15px;font-weight:900;color:#1A1A1A;margin-bottom:10px;">
+        스트레스 점수
+      </div>
+
+      ${master.stressScore!=null?`
+      ${(()=>{
+        const s = master.stressScore;
+        const sg = getStressGrade(s);
+
+        const rptStressGrades = [
+          {l:'정상',color:'#2E7D32',bg:'#E8F5E9'},
+          {l:'초기',color:'#F57F17',bg:'#FFF8E1'},
+          {l:'진행',color:'#E65100',bg:'#FBE9E7'},
+          {l:'만성',color:'#C62828',bg:'#FFEBEE'}
+        ];
+
+        const rptG =
+          s<35 ? rptStressGrades[0] :
+          s<45 ? rptStressGrades[1] :
+          s<60 ? rptStressGrades[2] :
+                 rptStressGrades[3];
+
+        const pct =
+          s<=35 ? (s/35)*37 :
+          s<=45 ? 37+(s-35)/10*18 :
+          s<=60 ? 55+(s-45)/15*23 :
+                  Math.min(100,78+(s-60)/40*22);
+
+        return `
+        <div style="display:flex;flex-direction:column;flex:1;">
+
+          <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:6px;padding-right:12px;">
+            <span style="font-size:30px;font-weight:900;color:${rptG.color};">
+              ${s}점
+            </span>
+
+            <span style="
+              background:${rptG.bg};
+              color:${rptG.color};
+              padding:3px 10px;
+              border-radius:8px;
+              font-size:16px;
+              font-weight:700;
+            ">
+              ${sg||''}
+            </span>
+          </div>
+
+          <div style="padding:0 20px;">
+
+            <div style="position:relative;margin-bottom:2px;height:12px;">
+              <div style="
+                position:absolute;
+                left:calc(${pct}% - 6px);
+                top:0;
+                width:0;
+                height:0;
+                border-left:6px solid transparent;
+                border-right:6px solid transparent;
+                border-top:10px solid ${rptG.color};
+              "></div>
+            </div>
+
+            <div style="
+              height:22px;
+              border-radius:6px;
+              overflow:hidden;
+              background:linear-gradient(
+                90deg,
+                #4CAF50 0%,
+                #C0CA33 37%,
+                #FFA000 55%,
+                #F44336 78%,
+                #B71C1C 100%
+              );
+            "></div>
+
+            <div style="display:flex;justify-content:space-between;margin-top:3px;">
+              ${rptStressGrades.map(g2=>`
+                <div style="
+                  font-size:10px;
+                  font-weight:700;
+                  color:${g2.l===rptG.l?g2.color:'#aaa'};
+                  text-align:center;
+                  flex:1;
+                ">
+                  ${g2.l}
+                </div>
+              `).join('')}
+            </div>
+
+          </div>
+
+        </div>`;
+      })()}
+      `:`
+        <div style="font-size:20px;color:#aaa;">-</div>
+      `}
+    </div>
+
+  </div>
+</div>
       </div>
     </div>
  
@@ -1505,7 +1708,7 @@ const ClientDetailPage = {
   <!-- 헤더 -->
   <div style="border-bottom:2px solid rgba(155,115,75,0.8);padding-bottom:6px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
     <div style="font-size:20px;font-weight:800;color:#1A1A1A;">기간별 지표 변화</div>
-    <div style="font-size:16px;color:#aaa;">${c.name} · ${todayStr}</div>
+    <div style="font-size:14px;color:#aaa;">${c.name} · ${todayStr}</div>
   </div>
 
   <!-- 추이 그래프 영역 -->
@@ -1547,7 +1750,7 @@ const ClientDetailPage = {
       const trendIcon  = diff==null?'':diff>0?'▲':diff<0?'▼':'－';
       const trendWord  = diff==null?'':diff>0?'상승':diff<0?'하락':'변화없음';
       const diffBadge  = diff==null?'':
-        `<span style="display:inline-block;background:${trendBg};color:${trendColor};font-size:15px;font-weight:800;padding:3px 12px;border-radius:20px;">${trendIcon} ${Math.abs(diff)}${unit} ${trendWord}</span>`;
+        `<span style="display:inline-block;background:${trendBg};color:${trendColor};font-size:13px;font-weight:800;padding:3px 12px;border-radius:20px;">${trendIcon} ${Math.abs(diff)}${unit} ${trendWord}</span>`;
 
       // ── SVG: 선/영역만 그림 (텍스트·마커는 비율왜곡 방지 위해 HTML로 분리) ──
       let pathD='', areaD='', svgGraph='';
@@ -1570,18 +1773,18 @@ const ClientDetailPage = {
         const isLatest = i===pts.length-1;
 
         if (isLatest) {
-          htmlOverlay += `<div style="position:absolute;left:${xPct}%;top:${yPct}%;transform:translate(-50%,-50%);font-size:18px;line-height:1;color:#F59E0B;text-shadow:0 0 2px rgba(217,119,6,0.6);">★</div>`;
-          htmlOverlay += `<span style="position:absolute;left:${xPct}%;top:${yPct}%;transform:translate(-50%,calc(-100% - 12px));font-size:18px;font-weight:800;color:${LC};white-space:nowrap;">${p.v}${unit}</span>`;
+          htmlOverlay += `<div style="position:absolute;left:${xPct}%;top:${yPct}%;transform:translate(-50%,-50%);font-size:16px;line-height:1;color:#F59E0B;text-shadow:0 0 2px rgba(217,119,6,0.6);">★</div>`;
+          htmlOverlay += `<span style="position:absolute;left:${xPct}%;top:${yPct}%;transform:translate(-50%,calc(-100% - 12px));font-size:16px;font-weight:800;color:${LC};white-space:nowrap;">${p.v}${unit}</span>`;
         } else {
           htmlOverlay += `<div style="position:absolute;left:${xPct}%;top:${yPct}%;width:7px;height:7px;border-radius:50%;background:${LC};border:1.5px solid white;transform:translate(-50%,-50%);"></div>`;
-          htmlOverlay += `<span style="position:absolute;left:${xPct}%;top:${yPct}%;transform:translate(-50%,calc(-100% - 8px));font-size:17px;font-weight:500;color:#999;white-space:nowrap;">${p.v}${unit}</span>`;
+          htmlOverlay += `<span style="position:absolute;left:${xPct}%;top:${yPct}%;transform:translate(-50%,calc(-100% - 8px));font-size:14px;font-weight:500;color:#999;white-space:nowrap;">${p.v}${unit}</span>`;
         }
         const wLbl = p.round===1 ? '초기' : `${(p.round-1)*4}주`;
         htmlOverlay += `<span style="position:absolute;left:${xPct}%;bottom:2px;transform:translateX(-50%);font-size:12px;color:#bbb;">${wLbl}</span>`;
       });
 
       return `<div style="display:flex;flex-direction:column;flex:1;min-width:0;padding:10px 20px 8px;border:1px solid ${BR};border-radius:8px;box-sizing:border-box;background:rgba(155,115,75,0.03);">
-        <div style="font-size:19px;font-weight:700;color:#3A2A1A;white-space:nowrap;">${label}</div>
+        <div style="font-size:15px;font-weight:700;color:#3A2A1A;white-space:nowrap;">${label}</div>
         <div style="margin-top:4px;margin-bottom:4px;">${diffBadge}</div>
         <div style="flex:1;min-height:0;position:relative;">
           <svg width="100%" height="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="display:block;">${svgGraph}</svg>
@@ -1597,14 +1800,14 @@ const ClientDetailPage = {
 
     const sec = (label,color,items) => `
       <div style="display:flex;flex-direction:column;flex:1;min-height:0;">
-        <div style="font-size:18px;font-weight:800;color:${color};letter-spacing:0.04em;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid rgba(155,115,75,0.2);flex-shrink:0;">${label}</div>
+        <div style="font-size:16px;font-weight:800;color:${color};letter-spacing:0.04em;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid rgba(155,115,75,0.2);flex-shrink:0;">${label}</div>
         ${row(items)}
       </div>`;
 
     return `
       <div style="height:100%;display:flex;flex-direction:column;gap:18px;padding:10px 0 6px;">
         ${sec('🧠 인지','#6B4E35',[{field:'cogScore',label:'인지점수',unit:'점'},{field:'depression',label:'우울점수',unit:'점'}])}
-        ${sec('🏃 움직임','#6B4E35',[{field:'cardioScore',label:'심폐기능지수',unit:'점'},{field:'bodyMovementIndex',label:'신체움직임',unit:'점'},{field:'balanceScore',label:'통합균형능력',unit:'점'}])}
+        ${sec('🏃 움직임','#6B4E35',[{field:'cardioScore',label:'심폐기능지수',unit:''},{field:'bodyMovementIndex',label:'신체움직임',unit:'점'},{field:'balanceScore',label:'통합균형능력',unit:'점'}])}
         ${sec('💊 대사','#6B4E35',[{field:'bodyCompScore',label:'체성분점수',unit:'점'},{field:'stressScore',label:'스트레스점수',unit:'점'}])}
       </div>`;
   })()}
@@ -1618,7 +1821,7 @@ const ClientDetailPage = {
   <!-- 헤더 -->
   <div style="border-bottom:2px solid rgba(155,115,75,0.8);padding-bottom:6px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;">
     <div style="font-size:20px;font-weight:800;color:#1A1A1A;">전문가 코멘트</div>
-    <div style="font-size:18px;color:#aaa;">${c.name} · ${todayStr}</div>
+    <div style="font-size:14px;color:#aaa;">${c.name} · ${todayStr}</div>
   </div>
 
   <div style="display:flex;flex-direction:column;gap:14px;flex:1;">
@@ -1652,7 +1855,7 @@ const ClientDetailPage = {
 
   </div>
 
-  <div style="text-align:center;margin-top:10px;font-size:18px;color:#aaa;">
+  <div style="text-align:center;margin-top:10px;font-size:12px;color:#aaa;">
     CARE HUB IN HANAM · 케어허브 하남
   </div>
 
