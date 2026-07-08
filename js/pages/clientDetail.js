@@ -2030,6 +2030,10 @@ const ClientDetailPage = {
   </div>
 </div>
 
+</div>
+<!-- ⬆ PAGE 2 최상위 컨테이너를 닫는 태그 (기존에 누락되어 3·4페이지가
+     PAGE 2 내부로 중첩되면서 인쇄 시 사라지던 버그를 수정) -->
+
 <!-- ===================== PAGE 3: 추이 ===================== -->
 <div style="width:100%;min-height:100vh;height:100vh;padding:16px 28px;box-sizing:border-box;page-break-after:always;font-family:'Noto Sans KR',sans-serif;display:flex;flex-direction:column;gap:0;">
 
@@ -2215,10 +2219,11 @@ const ClientDetailPage = {
         @media print {
           body { print-color-adjust:exact; -webkit-print-color-adjust:exact; }
           #report-print-area > div {
-            page-break-inside:avoid;
-            break-inside:avoid;
-            width:100%;
+            page-break-before:always; page-break-after:always;
+            page-break-inside:avoid; width:100%; height:100vh; overflow:hidden; display:block;
           }
+          #report-print-area > div:first-child { page-break-before:avoid; }
+          #report-print-area > div:last-child  { page-break-after:avoid; }
           svg text { font-family:'Noto Sans KR','Malgun Gothic',sans-serif; }
         }
         svg text { font-family:'Noto Sans KR','Malgun Gothic',sans-serif; }
