@@ -50,43 +50,11 @@ const AssessmentsPage = {
     return !!(prevOv?.reportGenerated);
   },
 
-  // 인지점수 등급 (기존 인지지수 기준 유지 - 리포트용)
-  _calcCogIndex: function(score) {
-    if (score===null||score===undefined||score===''||isNaN(score)) return null;
-    const n = Number(score);
-    if (n>=90) return {label:'최적',color:'#1B5E20',bg:'#E8F5E9'};
-    if (n>=80) return {label:'양호',color:'#2E7D32',bg:'#C8E6C9'};
-    if (n>=65) return {label:'개선',color:'#F57F17',bg:'#FFF8E1'};
-    return {label:'주의',color:'#C62828',bg:'#FFEBEE'};
-  },
-
-  // 시공간능력·기억력·신경계·균형·감각계 등급 (0~33:주의, 34~66:관심, 67~100:양호)
-  _calcCogSubGrade: function(score) {
-    if (score===null||score===undefined||score===''||isNaN(score)) return null;
-    const n = Number(score);
-    if (n >= 67) return {label:'양호', color:'#2E7D32', bg:'#E8F5E9'};
-    if (n >= 34) return {label:'관심', color:'#F57F17', bg:'#FFF8E1'};
-    return {label:'주의', color:'#C62828', bg:'#FFEBEE'};
-  },
-
-  _calcStressIndex: function(score) {
-    if (score===null||score===undefined||score===''||isNaN(score)) return null;
-    const n = Number(score);
-    if (n < 35)  return {label:'정상',color:'#2E7D32',bg:'#E8F5E9'};
-    if (n < 45)  return {label:'초기',color:'#F57F17',bg:'#FFF8E1'};
-    if (n < 60)  return {label:'진행',color:'#E65100',bg:'#FBE9E7'};
-    return {label:'만성',color:'#C62828',bg:'#FFEBEE'};
-  },
-
-  _calcCardioIndex: function(score, gender, birthDate) {
-    if (!score||!gender||!birthDate) return null;
-    const age = new Date().getFullYear() - new Date(birthDate).getFullYear();
-    const g = age<=65?'60-65':'66+';
-    const tbl = gender==='남자' ? AppConfig.VO2PEAK_MALE[g] : AppConfig.VO2PEAK_FEMALE[g];
-    if (!tbl) return null;
-    const found = tbl.find(r => Number(score)>=r.min && Number(score)<=r.max);
-    return found ? found.label : null;
-  },
+  // 등급 계산은 AssessVisuals(공통 컴포넌트)에 위임 — ClientDetail과 100% 동일 로직 보장
+  _calcCogIndex:      function(score) { return AssessVisuals.calcCogIndex(score); },
+  _calcCogSubGrade:   function(score) { return AssessVisuals.calcCogSubGrade(score); },
+  _calcStressIndex:   function(score) { return AssessVisuals.calcStressIndex(score); },
+  _calcCardioIndex:   function(score, gender, birthDate) { return AssessVisuals.calcCardioIndex(score, gender, birthDate); },
 
   _getClientProgress: function(clientId) {
     const ov = this.overview[clientId];
@@ -520,123 +488,19 @@ const AssessmentsPage = {
     const today = AssessUtils._fmt(new Date());
     const hasData = !!d; // ✅ 데이터 유무 플래그
 
-    // 차트 SVG 생성 함수들 — 데이터 없으면 빈 placeholder 반환
+   // 차트 SVG 생성 함수들 — 데이터 없으면 빈 placeholder 반환
     const emptyViz = (msg='점수 입력 시 표시') =>
       `<div style="height:90px;display:flex;align-items:center;justify-content:center;color:var(--color-gray-300);font-size:12px;">${msg}</div>`;
 
-    const gaugeHalf = (score, color='#1565C0', max=100) => {
-      if (!hasData && score==null) return emptyViz();
-      // 반원 게이지 (기본 0~100, max 파라미터로 조정 가능)
-      const pct = Math.min(100, Math.max(0, (Number(score)||0) / max * 100));
-      const angle = (pct / 100) * 180;
-      const rad = angle * Math.PI / 180;
-      const r = 70, cx = 90, cy = 90;
-      const endX = cx + r * Math.cos(Math.PI - rad);
-      const endY = cy - r * Math.sin(rad);
-      const scoreText = score!=null ? score+'점' : '-';
-      return `<svg width="180" height="110" viewBox="0 0 180 110">
-        <path d="M 20 90 A 70 70 0 0 1 160 90" fill="none" stroke="#E0E0E0" stroke-width="16" stroke-linecap="round"/>
-        ${pct>0?`<path d="M 20 90 A 70 70 0 ${angle>180?1:0} 1 ${endX.toFixed(1)} ${endY.toFixed(1)}" fill="none" stroke="${color}" stroke-width="16" stroke-linecap="round"/>`:''}
-        <text x="90" y="82" text-anchor="middle" font-size="24" font-weight="800" fill="${color}">${scoreText}</text>
-        <text x="90" y="104" text-anchor="middle" font-size="10" fill="#bbb">0 ────── ${max}</text>
-      </svg>`;
-    };
-
-    // 공통 메서드 this._conicDonut 참조
-    const conicDonut = (score, color, max, size, thickness) => {
-      if (!hasData && score==null) return emptyViz();
-      return this._conicDonut(score, color, max, size, thickness);
-    };
-    const gaugeCircle = (score, color, max) => {
-      if (!hasData && score==null) return emptyViz();
-      return this._conicDonut(score, color||'#2E7D32', max||100, 100, 14);
-    };
-
-    // 동연령대: 100%→0%, 마커에 값 크게, 기준 그래프 하단 2줄
-    // ── 동연령대 상위 분포도: 이미지1 참고 정규분포 히스토그램 ──
-    const percentileBar = (pct) => {
-      if (pct==null) return '<div style="font-size:13px;color:var(--color-gray-300);padding:8px;">값 입력 시 표시</div>';
-    
-      const p = Math.min(100, Math.max(0, Number(pct)||0));
-    
-      const heights=[22,32,42,54,64,54,42,32,22];
-      const barW=14, gap=6, n=heights.length;
-      const totalW=n*barW+(n-1)*gap;
-      const maxH=Math.max(...heights);
-    
-      const idx=Math.min(n-1,Math.max(0,Math.round((100-p)/100*(n-1))));
-      const markerX=idx*(barW+gap)+barW/2;
-    
-      const markerColor = p<=33?'#2E7D32':p<=66?'#F57F17':'#C62828';
-      const levelLabel  = p<=33?'상위권':p<=66?'중위권':'하위권';
-    
-      const topPad = 16; // ▲ 화살표 공간
-    
-      let bars='';
-      heights.forEach((h,i)=>{
-        const x=i*(barW+gap);
-        const y=topPad+(maxH-h);
-        const active=i===idx;
-    
-        bars += `
-          <rect
-            x="${x}"
-            y="${y}"
-            width="${barW}"
-            height="${h}"
-            rx="2"
-            fill="${active?'#1565C0':'#D0E4F7'}"
-          />`;
-      });
-    
-      return `
-        <div>
-          <div style="text-align:center;margin-bottom:6px;">
-            <span style="font-size:32px;font-weight:900;color:${markerColor};">${p}</span>
-            <span style="font-size:16px;font-weight:700;color:${markerColor};">%</span>
-            <span style="display:inline-block;margin-left:8px;background:${markerColor}22;color:${markerColor};padding:2px 10px;border-radius:8px;font-size:12px;font-weight:700;">${levelLabel}</span>
-          </div>
-    
-          <div style="text-align:center;margin-bottom:10px;font-size:12px;color:#666;">
-            상위 ${p}%예요.
-          </div>
-    
-          <div style="display:flex;justify-content:center;padding-top:8px;">
-            <svg
-              width="${totalW}"
-              height="${maxH+topPad+14}"
-              viewBox="0 0 ${totalW} ${maxH+topPad+14}"
-            >
-              <polygon
-                points="${markerX-6},${topPad+(maxH-heights[idx])-11}
-                        ${markerX+6},${topPad+(maxH-heights[idx])-11}
-                        ${markerX},${topPad+(maxH-heights[idx])-3}"
-                fill="#1565C0"
-              />
-    
-              ${bars}
-    
-              <text x="${totalW}" y="${maxH+topPad+12}" text-anchor="end" font-size="9" fill="#aaa">1%</text>
-              <text x="0" y="${maxH+topPad+12}" text-anchor="start" font-size="9" fill="#aaa">100%</text>
-            </svg>
-          </div>
-        </div>`;
-    };
-
-    const subGradeColor = (score) => {
-      if (score==null||score==='') return '#888';
-      const n=Number(score);
-      if (n>=67) return '#2E7D32';
-      if (n>=34) return '#F57F17';
-      return '#C62828';
-    };
-
-    const gradeLegend = () => `
-      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
-        <span style="background:#FFEBEE;color:#C62828;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">주의 0~33</span>
-        <span style="background:#FFF8E1;color:#F57F17;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">관심 34~66</span>
-        <span style="background:#E8F5E9;color:#2E7D32;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">양호 67~100</span>
-      </div>`;
+    // ⬇ 모두 AssessVisuals(공통 컴포넌트)로 위임 — ClientDetail과 동일 함수 사용
+    const gaugeHalf     = (score, color='#1565C0', max=100) =>
+      (!hasData && score==null) ? emptyViz() : AssessVisuals.semiGauge(score, color, max);
+    const conicDonut    = (score, color, max, size, thickness) =>
+      (!hasData && score==null) ? emptyViz() : AssessVisuals.conicDonut(score, color, max, size, thickness);
+    const gaugeCircle   = (score, color, max) =>
+      (!hasData && score==null) ? emptyViz() : AssessVisuals.conicDonut(score, color||'#2E7D32', max||100, 100, 14);
+    const percentileBar = (pct) => AssessVisuals.percentileDistribution(pct);
+    const subGradeColor = (score) => AssessVisuals.subGradeColor(score); 
 
     area.innerHTML = `
       <div style="padding-bottom:80px;">
@@ -918,13 +782,7 @@ const AssessmentsPage = {
     }
   },
 
-  _calcDepressionGrade: function(score) {
-    if (score==null||isNaN(score)) return null;
-    const n=Number(score);
-    if (n<=20) return {label:'경도 수준', color:'#2E7D32', bg:'#E8F5E9'};
-    if (n<=24) return {label:'중등도 수준', color:'#F57F17', bg:'#FFF8E1'};
-    return {label:'높은 수준', color:'#C62828', bg:'#FFEBEE'};
-  },
+  _calcDepressionGrade: function(score) { return AssessVisuals.calcDepressionGrade(score); },
 
   _gn: function(id) {
     const v = document.getElementById(id)?.value?.trim();
@@ -1036,38 +894,9 @@ const AssessmentsPage = {
     const age=c?.birthDate?new Date().getFullYear()-new Date(c.birthDate).getFullYear():null;
     const ageGroup=age?(age<=65?'60~65세':'66세 이상'):'-';
     const isMale=c?.gender==='남자';
-    // 구간형 게이지: 등급 목록 + 현재 위치 강조
-    const grades=isMale?
-      [{l:'최우수',min:40,color:'#1B5E20'},{l:'우수',min:36,color:'#2E7D32'},{l:'평균이상',min:32,color:'#388E3C'},
-       {l:'평균',min:29,color:'#F57F17'},{l:'평균이하',min:25,color:'#E65100'},{l:'최하위',min:0,color:'#C62828'}]:
-      [{l:'최우수',min:33,color:'#1B5E20'},{l:'우수',min:29,color:'#2E7D32'},{l:'평균이상',min:25,color:'#388E3C'},
-       {l:'평균',min:22,color:'#F57F17'},{l:'평균이하',min:19,color:'#E65100'},{l:'최하위',min:0,color:'#C62828'}];
-    const currentGrade = cardioIdx ? grades.find(g=>g.l===cardioIdx.replace(' (Superior)','').replace(' (Excellent)','').replace(' (Good)','').replace(' (Fair)','').replace(' (Poor)','').replace(' (Very Poor)','')) : null;
-    // 이미지와 동일: 최하위(빨강 왼쪽) → 최우수(초록 오른쪽), 삼각형 마커
-    const gradesOrdered = [...grades].reverse(); // 최하위→최우수 순
-    const maxV = isMale?44:37, minV=0;
-    const segGauge = (score) => {
-      const pct = score!=null ? Math.min(100,Math.max(0,(Number(score)-minV)/(maxV-minV)*100)) : null;
-      const matchedGrade = cardioIdx ? gradesOrdered.find(g=>cardioIdx.includes(g.l)) : null;
-      return `<div style="margin-top:4px;">
-        <!-- 점수 + 등급 한 줄 -->
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-          <span style="font-size:28px;font-weight:900;color:${matchedGrade?.color||'#888'};">${score!=null?score:'-'}</span>
-          ${matchedGrade?`<span style="background:${matchedGrade.color}22;color:${matchedGrade.color};padding:3px 10px;border-radius:8px;font-size:13px;font-weight:700;">${matchedGrade.l}</span>`:''}
-        </div>
-        <!-- 삼각형 마커 -->
-        ${pct!=null?`<div style="position:relative;margin-bottom:2px;height:12px;">
-          <div style="position:absolute;left:calc(${pct}% - 6px);top:0;width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:10px solid ${matchedGrade?.color||'#555'};"></div>
-        </div>`:'<div style="height:12px;"></div>'}
-        <!-- 그라데이션 바 (최하위 좌→최우수 우) -->
-        <div style="height:22px;border-radius:6px;overflow:hidden;background:linear-gradient(90deg,#C62828 0%,#E65100 20%,#F57F17 40%,#388E3C 60%,#2E7D32 80%,#1B5E20 100%);">
-        </div>
-        <!-- 등급 레이블 -->
-        <div style="display:flex;justify-content:space-between;margin-top:3px;">
-          ${gradesOrdered.map(g=>`<div style="font-size:8.5px;font-weight:700;color:${g.l===matchedGrade?.l?g.color:'#aaa'};text-align:center;flex:1;">${g.l}</div>`).join('')}
-        </div>
-      </div>`;
-    };
+    // 구간형 게이지는 AssessVisuals로 위임 — ClientDetail과 동일 마크업 보장
+    const segGauge = (score) => AssessVisuals.cardioSegGauge(score, c?.gender, c?.birthDate);
+    
     area.innerHTML=`<div class="assess-sub-card">
       <div class="assess-sub-card-header">에르고미터 (심폐기능) ${d?``:'<span class="assess-empty-badge">미입력</span>'}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;">
@@ -1196,8 +1025,7 @@ const AssessmentsPage = {
     const balItems  = StandardsCache.get('inbodyFra_balance') || [{label:'통합 균형 능력 평가'},{label:'빠르게 무게중심 옮기기 평가'},{label:'과녁 따라 무게중심 옮기기 평가'}];
     const sensItems = StandardsCache.get('inbodyFra_sensory') || [{label:'감각계 평가'},{label:'체성감각 평가'},{label:'시각 평가'},{label:'전정감각 평가'}];
 
-    const donut=(score,color='#1565C0')=>this._conicDonut(score,color,100,90,12);
-    const fraDonut=(score,label,color,items)=>`
+    const donut=(score,color='#1565C0')=> AssessVisuals.conicDonut(score,color,100,90,12);
       <div style="text-align:center;min-width:120px;">
         ${donut(score,color)}
         <div style="font-size:13px;font-weight:700;color:${color};margin-top:4px;">${label}</div>
@@ -1389,31 +1217,9 @@ const AssessmentsPage = {
       if (score==null||isNaN(score)) return null;
       return stressGrades.find(g=>Number(score)<=g.max)||stressGrades[3];
     };
-    // ── 스트레스 시각화: 심폐기능지수와 동일한 스타일 (CSS div 방식) ──
-    const segStress=(score)=>{
-      const g=getGrade(score);
-      const n=Number(score);
-      // 마커 위치: 0~35→0~37%, 35~45→37~55%, 45~60→55~78%, 60+→78~100%
-      const pct=score==null?null:
-        n<=35?(n/35)*37:
-        n<=45?37+(n-35)/10*18:
-        n<=60?55+(n-45)/15*23:
-        Math.min(100, 78+(n-60)/40*22);
-      return `<div style="margin-top:4px;">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-          <span style="font-size:28px;font-weight:900;color:${g?.color||'#888'};">${score!=null?score:'-'}</span>
-          ${g?`<span style="background:${g.bg};color:${g.color};padding:3px 10px;border-radius:8px;font-size:13px;font-weight:700;">${g.l}</span>`:''}
-        </div>
-        ${pct!=null?`<div style="position:relative;margin-bottom:2px;height:12px;">
-          <div style="position:absolute;left:calc(${pct}% - 6px);top:0;width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:10px solid ${g?.color||'#555'};"></div>
-        </div>`:'<div style="height:12px;"></div>'}
-        <div style="height:22px;border-radius:6px;overflow:hidden;background:linear-gradient(90deg,#4CAF50 0%,#C0CA33 37%,#FFA000 55%,#F44336 78%,#B71C1C 100%);">
-        </div>
-        <div style="display:flex;justify-content:space-between;margin-top:3px;">
-          ${stressGrades.map(g2=>`<div style="font-size:8.5px;font-weight:700;color:${g2.l===g?.l?g2.color:'#aaa'};text-align:center;flex:1;">${g2.l}</div>`).join('')}
-        </div>
-      </div>`;
-    };
+    // ── 스트레스 시각화는 AssessVisuals로 위임 ──
+    const segStress=(score)=> AssessVisuals.stressSegGauge(score);
+    
     const si=this._calcStressIndex(v.stressScore);
     area.innerHTML=`<div class="assess-sub-card">
       <div class="assess-sub-card-header">스트레스 ${d?``:'<span class="assess-empty-badge">미입력</span>'}</div>
@@ -1798,20 +1604,6 @@ const AssessmentsPage = {
 
   // ── 공통 conic-gradient 도넛 차트 ─────────────────────────
   _conicDonut: function(score, color, max, size, thickness) {
-    size = size || 100; thickness = thickness || 14;
-    var s = (score === null || score === undefined || score === '') ? null : Number(score);
-    var inner = size - thickness * 2;
-    if (s === null) {
-      return '<div style="width:'+size+'px;height:'+size+'px;border-radius:50%;background:conic-gradient(#E8E8E8 0% 100%);display:flex;align-items:center;justify-content:center;">' +
-        '<div style="width:'+inner+'px;height:'+inner+'px;border-radius:50%;background:white;display:flex;align-items:center;justify-content:center;">' +
-        '<span style="font-size:'+(size<90?13:15)+'px;font-weight:800;color:#ccc;">-</span></div></div>';
-    }
-    var pct = Math.min(100, Math.max(0, s / max * 100));
-    var deg = pct * 3.6;
-    var txt = s + '점';
-    var fs  = txt.length >= 5 ? Math.round(size*0.13) : Math.round(size*0.17);
-    return '<div style="width:'+size+'px;height:'+size+'px;border-radius:50%;background:conic-gradient('+color+' 0deg '+deg.toFixed(2)+'deg,#E8E8E8 '+deg.toFixed(2)+'deg 360deg);display:flex;align-items:center;justify-content:center;">' +
-      '<div style="width:'+inner+'px;height:'+inner+'px;border-radius:50%;background:white;display:flex;align-items:center;justify-content:center;">' +
-      '<span style="font-size:'+fs+'px;font-weight:800;color:'+color+';">'+txt+'</span></div></div>';
+    return AssessVisuals.conicDonut(score, color, max, size, thickness);
   }
 };
