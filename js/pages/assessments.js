@@ -1464,84 +1464,201 @@ const AssessmentsPage = {
   // ── 코멘트 (항목별 독립 저장) ────────────────────────────
   _renderComment: function(area) {
     if (!area) return;
-    const role=this._role(), canWrite=this._canWrite('comment');
-    const d=this.roundData?.comment||null, v=d||{};
-    // 코멘트 쓰기: 각 역할 자기 입력란만
-    const canCog=['ADMIN','CARE_MANAGER','COGNITIVE_SPECIALIST'].includes(role);
-    const canEx =['ADMIN','CARE_MANAGER','EXERCISE_SPECIALIST'].includes(role);
-    const canCm =['ADMIN','CARE_MANAGER'].includes(role);
-    // 코멘트 조회: 전체 역할 모두 볼 수 있음
+  
+    const role = this._role(), canWrite = this._canWrite('comment');
+    const d = this.roundData?.comment || null, v = d || {};
+  
+    // 코멘트 쓰기
+    const canCog = ['ADMIN','CARE_MANAGER','COGNITIVE_SPECIALIST'].includes(role);
+    const canEx  = ['ADMIN','CARE_MANAGER','EXERCISE_SPECIALIST'].includes(role);
+    const canCm  = ['ADMIN','CARE_MANAGER'].includes(role);
+  
+    // 코멘트 조회
     const canSeeCog = true;
     const canSeeEx  = true;
     const canSeeCm  = true;
-
-    const isReported = this.roundData?.master?.reportGenerated;
+  
     const COMMENT_MAX = 500;
-    const block=(id,label,val,editable,updated,saveable)=>`
+  
+    // 공백(띄어쓰기, 줄바꿈, 탭) 제외 글자수 계산
+    const getCommentLength = text => (text || '').replace(/\s/g, '').length;
+  
+    const block = (id, label, val, editable, updated, saveable) => `
       <div class="assess-sub-section">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
           <div class="assess-sub-title" style="margin-bottom:0;">${label}</div>
-          
         </div>
-        <textarea id="${id}" class="form-control" rows="10" maxlength="${COMMENT_MAX}" style="resize:vertical;min-height:200px;" placeholder="${editable?label+' 입력...':'조회 전용'}" ${!editable?'readonly':''}>${val||''}</textarea>
-        <div id="${id}-count" style="text-align:right;font-size:12px;color:var(--color-gray-400);margin-top:4px;">${(val||'').length} / ${COMMENT_MAX}자</div>
-        ${saveable&&editable?`<div style="display:flex;justify-content:flex-end;gap:6px;margin-top:6px;">
-          ${val?`<button class="btn btn-sm cmt-del-btn" data-field="${id}" style="background:transparent;color:#E53935;border:1px solid #E53935;border-radius:8px;padding:5px 12px;font-size:12px;cursor:pointer;">삭제</button>`:''}
-          <button class="btn btn-sm cmt-save-btn" data-field="${id}" style="background:transparent;color:var(--color-primary-dark);border:1.5px solid var(--color-primary-dark);border-radius:8px;padding:5px 14px;font-size:12px;cursor:pointer;">임시저장</button>
-        </div>`:''}
-      </div>`;
-    area.innerHTML=`<div class="assess-form-card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-        <div style="font-size:17px;font-weight:800;">💬 코멘트</div>
-        
+  
+        <textarea
+          id="${id}"
+          class="form-control"
+          rows="10"
+          style="resize:vertical;min-height:200px;"
+          placeholder="${editable ? label + ' 입력...' : '조회 전용'}"
+          ${!editable ? 'readonly' : ''}
+        >${val || ''}</textarea>
+  
+        <div id="${id}-count"
+             style="text-align:right;font-size:12px;color:var(--color-gray-400);margin-top:4px;">
+          ${getCommentLength(val)} / ${COMMENT_MAX}자 (공백 제외)
+        </div>
+  
+        ${
+          saveable && editable
+          ? `
+          <div style="display:flex;justify-content:flex-end;gap:6px;margin-top:6px;">
+            ${
+              val
+              ? `<button class="btn btn-sm cmt-del-btn"
+                    data-field="${id}"
+                    style="background:transparent;color:#E53935;border:1px solid #E53935;border-radius:8px;padding:5px 12px;font-size:12px;cursor:pointer;">
+                  삭제
+                </button>`
+              : ''
+            }
+  
+            <button class="btn btn-sm cmt-save-btn"
+                    data-field="${id}"
+                    style="background:transparent;color:var(--color-primary-dark);border:1.5px solid var(--color-primary-dark);border-radius:8px;padding:5px 14px;font-size:12px;cursor:pointer;">
+              임시저장
+            </button>
+          </div>
+          `
+          : ''
+        }
       </div>
-      ${canSeeCog ? block('f-cmt-cog','🧠 인지 전문가 코멘트',v.cogComment,canCog,v.cogUpdated,canCog) : ''}
-      ${canSeeEx  ? block('f-cmt-ex', '🏃 운동 전문가 코멘트',v.exComment, canEx, v.exUpdated, canEx)   : ''}
-      ${canSeeCm  ? block('f-cmt-cm', '💼 케어 매니저 코멘트', v.cmComment, canCm, v.cmUpdated, canCm)  : ''}
-      ${canWrite?`<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid var(--color-gray-100);">
-        <button style="background:transparent;color:var(--color-primary-dark);border:1.5px solid var(--color-primary-dark);border-radius:8px;padding:8px 22px;font-size:13px;font-weight:700;cursor:pointer;" id="assess-save-btn">전체 임시저장</button>
-      </div>`:''}
-    </div>`;
+    `;
+  
+    area.innerHTML = `
+      <div class="assess-form-card">
+  
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+          <div style="font-size:17px;font-weight:800;">💬 코멘트</div>
+        </div>
+  
+        ${canSeeCog ? block('f-cmt-cog','🧠 인지 전문가 코멘트',v.cogComment,canCog,v.cogUpdated,canCog) : ''}
+        ${canSeeEx  ? block('f-cmt-ex','🏃 운동 전문가 코멘트',v.exComment,canEx,v.exUpdated,canEx) : ''}
+        ${canSeeCm  ? block('f-cmt-cm','💼 케어 매니저 코멘트',v.cmComment,canCm,v.cmUpdated,canCm) : ''}
+  
+        ${
+          canWrite
+          ? `
+          <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid var(--color-gray-100);">
+            <button
+              id="assess-save-btn"
+              style="background:transparent;color:var(--color-primary-dark);border:1.5px solid var(--color-primary-dark);border-radius:8px;padding:8px 22px;font-size:13px;font-weight:700;cursor:pointer;">
+              전체 임시저장
+            </button>
+          </div>
+          `
+          : ''
+        }
+  
+      </div>
+    `;
+  
     if (canWrite) {
-      area.querySelectorAll('.assess-sub-section textarea[id^="f-cmt-"]').forEach(ta=>{
+  
+      area.querySelectorAll('.assess-sub-section textarea[id^="f-cmt-"]').forEach(ta => {
+  
         const counter = document.getElementById(`${ta.id}-count`);
         if (!counter) return;
+  
         ta.addEventListener('input', () => {
-          counter.textContent = `${ta.value.length} / ${COMMENT_MAX}자`;
-          counter.style.color = ta.value.length >= COMMENT_MAX ? '#E53935' : 'var(--color-gray-400)';
+  
+          let value = ta.value;
+          let count = getCommentLength(value);
+  
+          // 공백 제외 500자 제한
+          while (count > COMMENT_MAX) {
+            value = value.slice(0, -1);
+            count = getCommentLength(value);
+          }
+  
+          if (value !== ta.value) {
+            ta.value = value;
+          }
+  
+          counter.textContent = `${count} / ${COMMENT_MAX}자 (공백 제외)`;
+          counter.style.color =
+            count >= COMMENT_MAX
+              ? '#E53935'
+              : 'var(--color-gray-400)';
+        });
+  
+      });
+  
+      area.querySelectorAll('.cmt-save-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+  
+          const field = btn.dataset.field;
+          const val = document.getElementById(field)?.value?.trim() || '';
+  
+          const data = {};
+  
+          if (field === 'f-cmt-cog') data.cogComment = val;
+          if (field === 'f-cmt-ex')  data.exComment  = val;
+          if (field === 'f-cmt-cm')  data.cmComment  = val;
+  
+          this._callSave(() =>
+            API.saveComment(this.selectedClient.clientId, this.activeRound, data)
+          );
+  
         });
       });
-      area.querySelectorAll('.cmt-save-btn').forEach(btn=>{
-        btn.addEventListener('click',()=>{
-          const field=btn.dataset.field, val=document.getElementById(field)?.value?.trim()||'';
-          const data={};
-          if (field==='f-cmt-cog') data.cogComment=val;
-          if (field==='f-cmt-ex')  data.exComment=val;
-          if (field==='f-cmt-cm')  data.cmComment=val;
-          this._callSave(()=>API.saveComment(this.selectedClient.clientId,this.activeRound,data));
-        });
-      });
-      area.querySelectorAll('.cmt-del-btn').forEach(btn=>{
-        btn.addEventListener('click',async ()=>{
-          const field=btn.dataset.field;
-          const ok=await UI.confirm({title:'코멘트를 삭제하시겠습니까?',message:'해당 코멘트가 삭제됩니다.',confirmText:'삭제',cancelText:'취소',type:'danger'});
+  
+      area.querySelectorAll('.cmt-del-btn').forEach(btn => {
+  
+        btn.addEventListener('click', async () => {
+  
+          const field = btn.dataset.field;
+  
+          const ok = await UI.confirm({
+            title:'코멘트를 삭제하시겠습니까?',
+            message:'해당 코멘트가 삭제됩니다.',
+            confirmText:'삭제',
+            cancelText:'취소',
+            type:'danger'
+          });
+  
           if (!ok) return;
-          const data={};
-          if (field==='f-cmt-cog') data.cogComment='';
-          if (field==='f-cmt-ex')  data.exComment='';
-          if (field==='f-cmt-cm')  data.cmComment='';
-          this._callSave(()=>API.saveComment(this.selectedClient.clientId,this.activeRound,data));
+  
+          const data = {};
+  
+          if (field === 'f-cmt-cog') data.cogComment = '';
+          if (field === 'f-cmt-ex')  data.exComment  = '';
+          if (field === 'f-cmt-cm')  data.cmComment  = '';
+  
+          this._callSave(() =>
+            API.saveComment(this.selectedClient.clientId, this.activeRound, data)
+          );
+  
         });
+  
       });
-      document.getElementById('assess-save-btn')?.addEventListener('click',()=>this._saveComment());
+  
+      document.getElementById('assess-save-btn')
+        ?.addEventListener('click', () => this._saveComment());
     }
   },
+  
   _saveComment: async function() {
-    const role=this._role(), data={};
-    if (['ADMIN','CARE_MANAGER','COGNITIVE_SPECIALIST'].includes(role)) data.cogComment=document.getElementById('f-cmt-cog')?.value?.trim()||'';
-    if (['ADMIN','CARE_MANAGER','EXERCISE_SPECIALIST'].includes(role))  data.exComment =document.getElementById('f-cmt-ex')?.value?.trim() ||'';
-    if (['ADMIN','CARE_MANAGER'].includes(role))                         data.cmComment =document.getElementById('f-cmt-cm')?.value?.trim() ||'';
-    await this._callSave(()=>API.saveComment(this.selectedClient.clientId,this.activeRound,data));
+  
+    const role = this._role();
+    const data = {};
+  
+    if (['ADMIN','CARE_MANAGER','COGNITIVE_SPECIALIST'].includes(role))
+      data.cogComment = document.getElementById('f-cmt-cog')?.value?.trim() || '';
+  
+    if (['ADMIN','CARE_MANAGER','EXERCISE_SPECIALIST'].includes(role))
+      data.exComment = document.getElementById('f-cmt-ex')?.value?.trim() || '';
+  
+    if (['ADMIN','CARE_MANAGER'].includes(role))
+      data.cmComment = document.getElementById('f-cmt-cm')?.value?.trim() || '';
+  
+    await this._callSave(() =>
+      API.saveComment(this.selectedClient.clientId, this.activeRound, data)
+    );
   },
 
   // ── 공통 버튼 ────────────────────────────────────────────
