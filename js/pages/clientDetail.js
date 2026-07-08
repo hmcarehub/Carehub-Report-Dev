@@ -1161,142 +1161,258 @@ const ClientDetailPage = {
           <div style="padding:7px;background:#F8FBFF;border-radius:7px;border:1px solid #E3F2FD;display:flex;flex-direction:column;gap:0;">
 
             <div style="flex:1;display:flex;flex-direction:column;">
-              <div style="font-size:15px;font-weight:900;color:#1A1A1A;margin-bottom:6px;text-align:left;">인지점수</div>
-              <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
-                <div style="display:flex;align-items:center;justify-content:center;gap:14px;">
-                  <div style="display:flex;justify-content:center;">
-                    ${(()=>{
-                      const score=master.cogScore;
-                      const gc=cogGrade!=='-'?(cogGrade==='최적'?'#1B5E20':cogGrade==='양호'?'#2E7D32':cogGrade==='개선'?'#F57F17':'#C62828'):'#1565C0';
-                      const pct=Math.min(100,Math.max(0,Number(score)||0));
-              
-                      // 그래프 크기 확대
-                      const angle=(pct/100)*180;
-                      const r=50;
-                      const cx=62;
-                      const cy=60;
-              
-                      const rad=angle*Math.PI/180;
-                      const ex=cx+r*Math.cos(Math.PI-rad);
-                      const ey=cy-r*Math.sin(rad);
-              
-                      return `
-                        <svg width="125" height="83" viewBox="0 0 125 83">
-                          <!-- 배경 -->
-                          <path
-                            d="M 12 60 A 50 50 0 0 1 112 60"
-                            fill="none"
-                            stroke="#E8E8E8"
-                            stroke-width="11"
-                            stroke-linecap="round"
-                          />
-              
-                          <!-- 진행 -->
-                          ${
-                            pct>0
+              <div style="font-size:15px;font-weight:900;color:#1A1A1A;margin-bottom:6px;text-align:left;">
+                인지점수
+              </div>
+            
+              <div style="flex:1;display:flex;justify-content:center;align-items:center;gap:18px;">
+            
+                <!-- 좌측 : 원그래프 + 상태값 -->
+                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;">
+            
+                  ${(()=>{
+                    const score = master.cogScore;
+                    const gc =
+                      cogGrade !== '-'
+                        ? (
+                            cogGrade === '최적' ? '#1B5E20' :
+                            cogGrade === '양호' ? '#2E7D32' :
+                            cogGrade === '개선' ? '#F57F17' :
+                            '#C62828'
+                          )
+                        : '#1565C0';
+            
+                    const pct = Math.min(100, Math.max(0, Number(score) || 0));
+            
+                    const angle = (pct / 100) * 180;
+                    const r = 50;
+                    const cx = 62;
+                    const cy = 60;
+            
+                    const rad = angle * Math.PI / 180;
+                    const ex = cx + r * Math.cos(Math.PI - rad);
+                    const ey = cy - r * Math.sin(rad);
+            
+                    return `
+                      <svg width="125" height="83" viewBox="0 0 125 83">
+            
+                        <!-- 배경 -->
+                        <path
+                          d="M 12 60 A 50 50 0 0 1 112 60"
+                          fill="none"
+                          stroke="#E8E8E8"
+                          stroke-width="11"
+                          stroke-linecap="round"
+                        />
+            
+                        <!-- 진행 -->
+                        ${
+                          pct > 0
                             ? `<path
-                                  d="M 12 60 A 50 50 0 ${angle>180?1:0} 1 ${ex.toFixed(1)} ${ey.toFixed(1)}"
-                                  fill="none"
-                                  stroke="${gc}"
-                                  stroke-width="11"
-                                  stroke-linecap="round"
-                               />`
+                                d="M 12 60 A 50 50 0 ${angle > 180 ? 1 : 0} 1 ${ex.toFixed(1)} ${ey.toFixed(1)}"
+                                fill="none"
+                                stroke="${gc}"
+                                stroke-width="11"
+                                stroke-linecap="round"
+                              />`
                             : ''
+                        }
+            
+                        <!-- 점수 -->
+                        <text
+                          x="62"
+                          y="53"
+                          text-anchor="middle"
+                          font-family="sans-serif"
+                          fill="${gc}">
+                          ${
+                            score != null
+                              ? `<tspan font-size="30" font-weight="800">${score}</tspan><tspan font-size="14" font-weight="600">점</tspan>`
+                              : `<tspan font-size="30" font-weight="800">-</tspan>`
                           }
-              
-                          <!-- 점수 -->
-                          <text
-                            x="62"
-                            y="53"
-                            text-anchor="middle"
-                            font-family="sans-serif"
-                            font-size="20"
-                            font-weight="800"
-                            fill="${gc}">
-                            ${score!=null?`<tspan font-size="30">${score}</tspan><tspan font-size="14">점</tspan>`:`<tspan font-size="30">-</tspan>`}
-                          </text>
-                      
-                          <!-- 범위 -->
-                          <text
-                            x="62"
-                            y="76"
-                            text-anchor="middle"
-                            font-family="sans-serif"
-                            font-size="11"
-                            fill="#bbb">
-                            0 ───── 100
-                          </text>
-                        </svg>
-                      `;
-                    })()}
-                  </div>
- 
-                  <!-- 범례 (우측 4행 1열) -->
-                  <div style="display:flex;flex-direction:column;gap:5px;">
-                    ${
-                      [
-                        {l:'최적',c:'#1B5E20',t:'90↑'},
-                        {l:'양호',c:'#2E7D32',t:'80~89'},
-                        {l:'개선',c:'#F57F17',t:'65~79'},
-                        {l:'주의',c:'#C62828',t:'~64'}
-                      ].map(g=>`
-                        <div style="display:flex;align-items:center;gap:4px;">
-                          <span style="width:7px;height:7px;border-radius:50%;background:${g.c};flex-shrink:0;"></span>
-                          <span style="font-size:10px;color:${g.c};font-weight:700;white-space:nowrap;">
-                            ${g.l} ${g.t}
+                        </text>
+            
+                        <!-- 범위 -->
+                        <text
+                          x="62"
+                          y="76"
+                          text-anchor="middle"
+                          font-family="sans-serif"
+                          font-size="11"
+                          fill="#bbb">
+                          0 ───── 100
+                        </text>
+            
+                      </svg>
+                    `;
+                  })()}
+            
+                  ${
+                    cogGrade !== '-'
+                      ? `<div style="margin-top:8px;">
+                          <span
+                            style="
+                              display:inline-block;
+                              background:${
+                                cogGrade==='최적'
+                                  ? '#E8F5E9'
+                                  : cogGrade==='양호'
+                                    ? '#C8E6C9'
+                                    : cogGrade==='개선'
+                                      ? '#FFF8E1'
+                                      : '#FFEBEE'
+                              };
+                              color:${
+                                cogGrade==='최적'
+                                  ? '#1B5E20'
+                                  : cogGrade==='양호'
+                                    ? '#2E7D32'
+                                    : cogGrade==='개선'
+                                      ? '#F57F17'
+                                      : '#C62828'
+                              };
+                              padding:3px 12px;
+                              border-radius:7px;
+                              font-size:16px;
+                              font-weight:700;">
+                            ${cogGrade}
                           </span>
-                        </div>
-                      `).join('')
-                    }
-                  </div>
+                        </div>`
+                      : ''
+                  }
+            
                 </div>
             
-                <!-- 상태값 배지 -->
-                ${
-                  cogGrade!=='-'
-                  ? `<div style="text-align:center;margin-top:6px;">
-                      <span style="
-                        background:${cogGrade==='최적'?'#E8F5E9':cogGrade==='양호'?'#C8E6C9':cogGrade==='개선'?'#FFF8E1':'#FFEBEE'};
-                        color:${cogGrade==='최적'?'#1B5E20':cogGrade==='양호'?'#2E7D32':cogGrade==='개선'?'#F57F17':'#C62828'};
-                        padding:2px 8px;
-                        border-radius:6px;
-                        font-size:16px;
-                        font-weight:700;">
-                        ${cogGrade}
-                      </span>
-                    </div>`
-                  : ''
-                }
+                <!-- 우측 : 범례 -->
+                <div style="display:flex;flex-direction:column;justify-content:center;gap:6px;">
+            
+                  ${
+                    [
+                      {l:'최적',c:'#1B5E20',t:'90↑'},
+                      {l:'양호',c:'#2E7D32',t:'80~89'},
+                      {l:'개선',c:'#F57F17',t:'65~79'},
+                      {l:'주의',c:'#C62828',t:'~64'}
+                    ].map(g=>`
+                      <div style="display:flex;align-items:center;gap:5px;">
+                        <span
+                          style="
+                            width:8px;
+                            height:8px;
+                            border-radius:50%;
+                            background:${g.c};
+                            flex-shrink:0;">
+                        </span>
+            
+                        <span
+                          style="
+                            font-size:10px;
+                            color:${g.c};
+                            font-weight:700;
+                            white-space:nowrap;">
+                          ${g.l} ${g.t}
+                        </span>
+                      </div>
+                    `).join('')
+                  }
+            
+                </div>
+            
               </div>
             </div>
+            
             <div style="border-top:1px solid #E3F2FD;margin:4px 0;"></div>
 
             <!-- 동연령대 영역 (flex:1, 타이틀 좌측상단 고정) -->
             <div style="flex:1;display:flex;flex-direction:column;">
-              <div style="font-size:15px;font-weight:900;color:#1A1A1A;margin-bottom:6px;text-align:left;">동연령대 상위 분포도</div>
+              <div style="font-size:15px;font-weight:900;color:#1A1A1A;margin-bottom:20px;text-align:left;">
+                동연령대 상위 분포도
+              </div>
+            
               <div style="flex:1;display:flex;align-items:center;justify-content:center;">
                 ${(()=>{
-                  if (master.agePercentile==null) return '<div style="font-size:18px;color:#aaa;">-</div>';
+                  if(master.agePercentile==null){
+                    return '<div style="font-size:18px;color:#aaa;">-</div>';
+                  }
+            
                   const p = master.agePercentile;
-                  const heights=[16,24,32,40,46,40,32,24,16];
-                  const barW=7, gap=3, n=heights.length;
+            
+                  // 그래프 전체 확대
+                  const heights=[28,42,58,72,82,72,58,42,28];
+                  const barW=12;
+                  const gap=5;
+            
+                  const n=heights.length;
                   const totalW=n*barW+(n-1)*gap;
-                  const idx=Math.min(n-1,Math.max(0,Math.round((100-p)/100*(n-1))));
+            
+                  const idx=Math.min(
+                    n-1,
+                    Math.max(0,Math.round((100-p)/100*(n-1)))
+                  );
+            
                   const markerX=idx*(barW+gap)+barW/2;
                   const maxH=Math.max(...heights);
+            
                   let bars='';
+            
                   heights.forEach((h,i)=>{
-                    const x=i*(barW+gap), y=maxH-h, active=i===idx;
-                    bars+=`<rect x="${x}" y="${y}" width="${barW}" height="${h}" rx="1.5" fill="${active?'#1565C0':'#D6E4F0'}"/>`;
+                    const x=i*(barW+gap);
+                    const y=maxH-h;
+                    const active=i===idx;
+            
+                    bars+=`
+                      <rect
+                        x="${x}"
+                        y="${y}"
+                        width="${barW}"
+                        height="${h}"
+                        rx="3"
+                        fill="${active?'#1565C0':'#D6E4F0'}"
+                      />
+                    `;
                   });
-                  return `<div style="text-align:center;">
-                    <div style="font-size:14px;color:#666;margin-bottom:2px;">상위 ${p}%예요</div>
-                    <svg width="${totalW}" height="${maxH+10}" viewBox="0 0 ${totalW} ${maxH+10}" style="overflow:visible;">
-                      <polygon points="${markerX-4},${maxH-heights[idx]-8} ${markerX+4},${maxH-heights[idx]-8} ${markerX},${maxH-heights[idx]-2}" fill="#1565C0"/>
-                      ${bars}
-                    </svg>
-                    <div style="display:flex;justify-content:space-between;font-size:11px;color:#aaa;margin-top:2px;width:${totalW}px;"><span>100%</span><span>1%</span></div>
-                  </div>`;
+            
+                  return `
+                    <div style="text-align:center;">
+            
+                      <div style="
+                        font-size:16px;
+                        font-weight:700;
+                        color:#555;
+                        margin-bottom:8px;">
+                        상위 <span style="color:#1565C0;">${p}%</span>예요
+                      </div>
+            
+                      <svg
+                        width="${totalW}"
+                        height="${maxH+18}"
+                        viewBox="0 0 ${totalW} ${maxH+18}"
+                        style="overflow:visible;">
+            
+                        <polygon
+                          points="
+                            ${markerX-6},${maxH-heights[idx]-12}
+                            ${markerX+6},${maxH-heights[idx]-12}
+                            ${markerX},${maxH-heights[idx]-3}
+                          "
+                          fill="#1565C0"/>
+            
+                        ${bars}
+            
+                      </svg>
+            
+                      <div style="
+                        display:flex;
+                        justify-content:space-between;
+                        font-size:12px;
+                        color:#999;
+                        margin-top:6px;
+                        width:${totalW}px;">
+                        <span>100%</span>
+                        <span>1%</span>
+                      </div>
+            
+                    </div>
+                  `;
                 })()}
               </div>
             </div>
@@ -1304,49 +1420,277 @@ const ClientDetailPage = {
 
           <!-- 우: 2×2 그리드 (시공간/기억력/우울/치매) -->
           <div style="display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:7px;">
-
-            ${[
-              {key:'spatial', label:'시공간능력', gradeColor:cogSubColor, gradeFn:cogSubGrade, grades:[{l:'위험',c:'#C62828',t:'0~33'},{l:'양호',c:'#F57F17',t:'34~66'},{l:'우수',c:'#2E7D32',t:'67~100'}]},
-              {key:'memory',  label:'기억력',     gradeColor:cogSubColor, gradeFn:cogSubGrade, grades:[{l:'위험',c:'#C62828',t:'0~33'},{l:'양호',c:'#F57F17',t:'34~66'},{l:'우수',c:'#2E7D32',t:'67~100'}]}
-            ].map(item=>{
-              const score=master[item.key], clr=item.gradeColor(score);
-              const pct=Math.min(100,Math.max(0,Number(score)||0));
-              const r=36,circ=2*Math.PI*r,dash=(pct/100)*circ;
-              return `<div style="padding:7px 12px;background:#F8FBFF;border-radius:7px;border:1px solid #E3F2FD;display:flex;flex-direction:column;align-items:center;">
-                <div style="font-size:15px;font-weight:900;color:#1A1A1A;margin-bottom:10px;align-self:flex-start;">${item.label}</div>
-                <div style="display:flex;align-items:center;gap:8px;">
-                  <svg width="88" height="88" viewBox="0 0 88 88" style="flex-shrink:0;">
-                    <circle cx="44" cy="44" r="${r}" fill="none" stroke="#E8E8E8" stroke-width="10"/>
-                    ${pct>0?`<circle cx="44" cy="44" r="${r}" fill="none" stroke="${clr}" stroke-width="10" stroke-dasharray="${dash.toFixed(1)} ${circ.toFixed(1)}" stroke-dashoffset="${(circ/4).toFixed(1)}" stroke-linecap="round"/>`:''}
-                    <text x="44" y="48" text-anchor="middle" font-family="sans-serif" font-size="20" font-weight="800" fill="${clr}">${score!=null?`<tspan font-size="30">${score}</tspan><tspan font-size="14">점</tspan>`:`<tspan font-size="30">-</tspan>`}</text>
+          
+          ${[
+            {
+              key:'spatial',
+              label:'시공간능력',
+              gradeColor:cogSubColor,
+              gradeFn:cogSubGrade,
+              grades:[
+                {l:'위험',c:'#C62828',t:'0~33'},
+                {l:'양호',c:'#F57F17',t:'34~66'},
+                {l:'우수',c:'#2E7D32',t:'67~100'}
+              ]
+            },
+            {
+              key:'memory',
+              label:'기억력',
+              gradeColor:cogSubColor,
+              gradeFn:cogSubGrade,
+              grades:[
+                {l:'위험',c:'#C62828',t:'0~33'},
+                {l:'양호',c:'#F57F17',t:'34~66'},
+                {l:'우수',c:'#2E7D32',t:'67~100'}
+              ]
+            }
+          ].map(item=>{
+          
+            const score = master[item.key];
+            const clr = item.gradeColor(score);
+            const grade = item.gradeFn(score);
+          
+            const pct = Math.min(100,Math.max(0,Number(score)||0));
+          
+            const r=36;
+            const circ=2*Math.PI*r;
+            const dash=(pct/100)*circ;
+          
+            return `
+            <div style="padding:7px 12px;background:#F8FBFF;border-radius:7px;border:1px solid #E3F2FD;display:flex;flex-direction:column;">
+          
+              <div style="font-size:15px;font-weight:900;color:#1A1A1A;margin-bottom:10px;">
+                ${item.label}
+              </div>
+          
+              <div style="display:flex;justify-content:center;align-items:center;gap:14px;flex:1;">
+          
+                <!-- 좌측 : 원그래프 + 상태 -->
+                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;">
+          
+                  <svg width="88" height="88" viewBox="0 0 88 88">
+          
+                    <circle
+                      cx="44"
+                      cy="44"
+                      r="${r}"
+                      fill="none"
+                      stroke="#E8E8E8"
+                      stroke-width="10"/>
+          
+                    ${
+                      pct>0
+                      ?`
+                      <circle
+                        cx="44"
+                        cy="44"
+                        r="${r}"
+                        fill="none"
+                        stroke="${clr}"
+                        stroke-width="10"
+                        stroke-dasharray="${dash.toFixed(1)} ${circ.toFixed(1)}"
+                        stroke-dashoffset="${(circ/4).toFixed(1)}"
+                        stroke-linecap="round"/>
+                      `
+                      :''
+                    }
+          
+                    <text
+                      x="44"
+                      y="50"
+                      text-anchor="middle"
+                      dominant-baseline="middle"
+                      font-family="sans-serif"
+                      fill="${clr}">
+                      ${
+                        score!=null
+                        ?`
+                        <tspan font-size="30" font-weight="800">${score}</tspan>
+                        <tspan font-size="14" font-weight="600">점</tspan>
+                        `
+                        :`<tspan font-size="30">-</tspan>`
+                      }
+                    </text>
+          
                   </svg>
-                  ${item.gradeFn(score)?`<span style="background:${item.gradeFn(score).b};color:${item.gradeFn(score).c};padding:3px 8px;border-radius:6px;font-size:16px;font-weight:700;">${item.gradeFn(score).l}</span>`:''}
+          
+                  ${
+                    grade
+                    ?`
+                    <div style="margin-top:8px;">
+                      <span style="
+                        background:${grade.b};
+                        color:${grade.c};
+                        padding:3px 10px;
+                        border-radius:6px;
+                        font-size:16px;
+                        font-weight:700;">
+                        ${grade.l}
+                      </span>
+                    </div>
+                    `
+                    :''
+                  }
+          
                 </div>
-                <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;justify-content:center;">
-                  ${item.grades.map(g=>`<div style="display:flex;align-items:center;gap:3px;"><span style="width:6px;height:6px;border-radius:50%;background:${g.c};flex-shrink:0;"></span><span style="font-size:10px;color:${g.c};font-weight:600;">${g.l} ${g.t}</span></div>`).join('')}
+          
+                <!-- 우측 : 범례 -->
+                <div style="display:flex;flex-direction:column;justify-content:center;gap:6px;">
+          
+                  ${
+                    item.grades.map(g=>`
+                    <div style="display:flex;align-items:center;gap:4px;">
+                      <span style="
+                        width:7px;
+                        height:7px;
+                        border-radius:50%;
+                        background:${g.c};
+                        flex-shrink:0;">
+                      </span>
+          
+                      <span style="
+                        font-size:10px;
+                        color:${g.c};
+                        font-weight:700;
+                        white-space:nowrap;">
+                        ${g.l} ${g.t}
+                      </span>
+                    </div>
+                    `).join('')
+                  }
+          
                 </div>
-              </div>`;
-            }).join('')}
+          
+              </div>
+          
+            </div>
+            `;
+          
+          }).join('')}
 
             <!-- 우울점수 -->
             ${(()=>{
-              const score=master.depression, dg=getDepressionGrade(score);
-              const pct=score!=null?Math.min(100,(Number(score)/60)*100):0;
-              const r=36,circ=2*Math.PI*r,dash=(pct/100)*circ, clr=dg?.c||'#7B1FA2';
-              return `<div style="padding:7px 12px;background:#F8FBFF;border-radius:7px;border:1px solid #E3F2FD;display:flex;flex-direction:column;align-items:center;">
-                <div style="font-size:15px;font-weight:900;color:#1A1A1A;margin-bottom:10px;align-self:flex-start;">우울점수</div>
-                <div style="display:flex;align-items:center;gap:8px;">
-                  <svg width="88" height="88" viewBox="0 0 88 88" style="flex-shrink:0;">
-                    <circle cx="44" cy="44" r="${r}" fill="none" stroke="#E8E8E8" stroke-width="10"/>
-                    ${pct>0?`<circle cx="44" cy="44" r="${r}" fill="none" stroke="${clr}" stroke-width="10" stroke-dasharray="${dash.toFixed(1)} ${circ.toFixed(1)}" stroke-dashoffset="${(circ/4).toFixed(1)}" stroke-linecap="round"/>`:''}
-                    <text x="44" y="48" text-anchor="middle" font-family="sans-serif" font-size="20" font-weight="800" fill="${clr}">${score!=null?`<tspan font-size="30">${score}</tspan><tspan font-size="14">점</tspan>`:`<tspan font-size="30">-</tspan>`}</text>
-                  </svg>
-                  ${dg?`<span style="background:${dg.b};color:${dg.c};padding:3px 8px;border-radius:6px;font-size:16px;font-weight:700;">${dg.l}</span>`:''}
+              const score = master.depression;
+              const dg = getDepressionGrade(score);
+            
+              const pct = score != null ? Math.min(100,(Number(score)/60)*100) : 0;
+            
+              const r = 36;
+              const circ = 2 * Math.PI * r;
+              const dash = (pct/100) * circ;
+              const clr = dg?.c || '#7B1FA2';
+            
+              return `
+              <div style="padding:7px 12px;background:#F8FBFF;border-radius:7px;border:1px solid #E3F2FD;display:flex;flex-direction:column;">
+            
+                <div style="font-size:15px;font-weight:900;color:#1A1A1A;margin-bottom:10px;">
+                  우울점수
                 </div>
-                <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;justify-content:center;">
-                  ${[{l:'경도',c:'#2E7D32',t:'0~20'},{l:'중등도',c:'#F57F17',t:'21~24'},{l:'높은수준',c:'#C62828',t:'25~60'}].map(g=>`<div style="display:flex;align-items:center;gap:3px;"><span style="width:6px;height:6px;border-radius:50%;background:${g.c};flex-shrink:0;"></span><span style="font-size:10px;color:${g.c};font-weight:600;">${g.l} ${g.t}</span></div>`).join('')}
+            
+                <div style="display:flex;justify-content:center;align-items:center;gap:14px;flex:1;">
+            
+                  <!-- 좌측 : 원그래프 + 상태 -->
+                  <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;">
+            
+                    <svg width="88" height="88" viewBox="0 0 88 88">
+            
+                      <circle
+                        cx="44"
+                        cy="44"
+                        r="${r}"
+                        fill="none"
+                        stroke="#E8E8E8"
+                        stroke-width="10"/>
+            
+                      ${
+                        pct>0
+                        ?`
+                        <circle
+                          cx="44"
+                          cy="44"
+                          r="${r}"
+                          fill="none"
+                          stroke="${clr}"
+                          stroke-width="10"
+                          stroke-dasharray="${dash.toFixed(1)} ${circ.toFixed(1)}"
+                          stroke-dashoffset="${(circ/4).toFixed(1)}"
+                          stroke-linecap="round"/>
+                        `
+                        :''
+                      }
+            
+                      <text
+                        x="44"
+                        y="50"
+                        text-anchor="middle"
+                        dominant-baseline="middle"
+                        font-family="sans-serif"
+                        fill="${clr}">
+                        ${
+                          score!=null
+                          ?`
+                            <tspan font-size="30" font-weight="800">${score}</tspan>
+                            <tspan font-size="14" font-weight="600">점</tspan>
+                          `
+                          :`<tspan font-size="30">-</tspan>`
+                        }
+                      </text>
+            
+                    </svg>
+            
+                    ${
+                      dg
+                      ?`
+                      <div style="margin-top:8px;">
+                        <span style="
+                          background:${dg.b};
+                          color:${dg.c};
+                          padding:3px 10px;
+                          border-radius:6px;
+                          font-size:16px;
+                          font-weight:700;">
+                          ${dg.l}
+                        </span>
+                      </div>
+                      `
+                      :''
+                    }
+            
+                  </div>
+            
+                  <!-- 우측 : 범례 -->
+                  <div style="display:flex;flex-direction:column;justify-content:center;gap:6px;">
+            
+                    ${[
+                      {l:'경도',c:'#2E7D32',t:'0~20'},
+                      {l:'중등도',c:'#F57F17',t:'21~24'},
+                      {l:'높은수준',c:'#C62828',t:'25~60'}
+                    ].map(g=>`
+                      <div style="display:flex;align-items:center;gap:4px;">
+                        <span style="
+                          width:7px;
+                          height:7px;
+                          border-radius:50%;
+                          background:${g.c};
+                          flex-shrink:0;">
+                        </span>
+            
+                        <span style="
+                          font-size:10px;
+                          color:${g.c};
+                          font-weight:700;
+                          white-space:nowrap;">
+                          ${g.l} ${g.t}
+                        </span>
+                      </div>
+                    `).join('')}
+            
+                  </div>
+            
                 </div>
-              </div>`;
+            
+              </div>
+              `;
             })()}
 
             <!-- 치매위험요인: 숫자만 표기 -->
@@ -1359,7 +1703,7 @@ const ClientDetailPage = {
                 <div style="flex:1;display:flex;align-items:center;justify-content:center;">
                   ${p!=null?`
                   <div style="display:flex;align-items:center;gap:10px;">
-                    <div style="font-size:25px;font-weight:900;color:${clr};line-height:1;">
+                    <div style="font-size:30px;font-weight:900;color:${clr};line-height:1;">
                       ${p}<span style="font-size:14px;font-weight:600;">%</span>
                     </div>
                     <span style="background:${clr}22;color:${clr};padding:2px 9px;border-radius:6px;font-size:16px;font-weight:700;white-space:nowrap;">
@@ -1386,120 +1730,179 @@ const ClientDetailPage = {
         <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;">
           <!-- 심폐기능 -->
           <div style="padding:7px;background:#F5FBF5;border-radius:6px;border:1px solid #C8E6C9;">
-            <div style="font-size:15px;font-weight:900;color:#1A1A1A;margin-bottom:4px;">심폐기능지수 (VO2peak)</div>
+            <div style="font-size:15px;font-weight:900;color:#1A1A1A;margin-bottom:8px;">
+              심폐기능지수 (VO2peak)
+            </div>
+          
             ${master.cardioScore!=null?`
             ${(()=>{
               const isMale = c.gender === '남자';
-
+          
               const gradeOrder = [
-                { l:'최하위', c:'#C62828', min:0 },
-                { l:'평균이하', c:'#E65100', min:isMale?25:19 },
-                { l:'평균', c:'#F57F17', min:isMale?29:22 },
-                { l:'평균이상', c:'#388E3C', min:isMale?32:25 },
-                { l:'우수', c:'#2E7D32', min:isMale?36:29 },
-                { l:'최우수', c:'#1B5E20', min:isMale?40:33 }
+                { l:'최하위', c:'#C62828' },
+                { l:'평균이하', c:'#E65100' },
+                { l:'평균', c:'#F57F17' },
+                { l:'평균이상', c:'#388E3C' },
+                { l:'우수', c:'#2E7D32' },
+                { l:'최우수', c:'#1B5E20' }
               ];
-
+          
+              const ranges = isMale
+                ? ['25↓','25~28','29~31','32~35','36~39','40↑']
+                : ['19↓','19~21','22~24','25~28','29~32','33↑'];
+          
               const maxV = isMale ? 44 : 37;
-              const pct = Math.min(100, Math.max(0, Number(master.cardioScore) / maxV * 100));
-
-              const matched = getCardioGrade(master.cardioScore, c.gender, c.birthDate);
-              const matchedG = gradeOrder.find(g => g.l === matched);
-
-              const ageText = c.birthDate
-                ? (new Date().getFullYear() - new Date(c.birthDate).getFullYear() <= 65
-                    ? '60~65세'
-                    : '66세↑')
+              const pct = Math.min(100, Math.max(0, Number(master.cardioScore)/maxV*100));
+          
+              const matched = getCardioGrade(master.cardioScore,c.gender,c.birthDate);
+              const matchedG = gradeOrder.find(g=>g.l===matched);
+          
+              const age = c.birthDate
+                ? new Date().getFullYear()-new Date(c.birthDate).getFullYear()
+                : null;
+          
+              const ageText = age
+                ? (age>=66?'66세↑':'60~65세')
                 : '';
-
+          
               return `
-                <div style="display:flex;align-items:center;justify-content:space-between;gap:24px;">
-
-                  <!-- 좌측 -->
-                  <div style="flex:1;display:flex;flex-direction:column;">
-
+                <div style="display:flex;flex-direction:column;gap:10px;">
+          
+                  <!-- ===================== 1행 ===================== -->
+                  <div style="display:flex;align-items:center;gap:20px;">
+          
                     <!-- 점수 -->
-                    <div style="margin-bottom:10px;">
-                      <span style="font-size:25px;font-weight:800;color:${matchedG?.c||'#2E7D32'};">
+                    <div style="display:flex;align-items:baseline;white-space:nowrap;">
+                      <span style="
+                          font-size:30px;
+                          font-weight:900;
+                          color:${matchedG?.c||'#2E7D32'};
+                      ">
                         ${master.cardioScore}
                       </span>
-                      <span style="font-size:16px;color:#999;font-weight:400;">
+          
+                      <span style="
+                          font-size:15px;
+                          color:#999;
+                          margin-left:3px;
+                      ">
                         ml/kg/min
                       </span>
                     </div>
-
-                    <!-- 게이지 -->
-                    <div style="width:55%;">
-
-                      <div style="position:relative;height:10px;margin-bottom:2px;">
-                        <div style="
-                          position:absolute;
-                          left:calc(${pct}% - 5px);
-                          top:0;
-                          width:0;
-                          height:0;
-                          border-left:5px solid transparent;
-                          border-right:5px solid transparent;
-                          border-top:8px solid ${matchedG?.c||'#555'};
-                        "></div>
-                      </div>
-
-                      <div style="
-                        height:12px;
-                        border-radius:6px;
-                        overflow:hidden;
-                        background:linear-gradient(
-                          90deg,
-                          #C62828 0%,
-                          #E65100 20%,
-                          #F57F17 40%,
-                          #388E3C 60%,
-                          #2E7D32 80%,
-                          #1B5E20 100%
-                        );
-                      "></div>
-
-                    </div>
-
-                  </div>
-
-                  <!-- 우측 -->
-                  <div style="
-                    width:120px;
-                    display:flex;
-                    flex-direction:column;
-                    justify-content:center;
-                    align-items:center;
-                  ">
-
+          
+                    <!-- 상태 -->
                     <span style="
-                      background:${matchedG?.c||'#888'}22;
-                      color:${matchedG?.c||'#888'};
-                      padding:4px 12px;
-                      border-radius:6px;
-                      font-size:18px;
-                      font-weight:700;
-                      white-space:nowrap;
+                        background:${matchedG?.c||'#888'}22;
+                        color:${matchedG?.c||'#888'};
+                        padding:5px 14px;
+                        border-radius:7px;
+                        font-size:17px;
+                        font-weight:800;
+                        white-space:nowrap;
                     ">
                       ${matched}
                     </span>
-
-                    <span style="
-                      margin-top:6px;
-                      font-size:12px;
-                      color:#666;
-                      white-space:nowrap;
-                    ">
-                      ${ageText} (${c.gender||''})
-                    </span>
-
+          
+                    <!-- 게이지 -->
+                    <div style="flex:1;">
+          
+                      <div style="position:relative;height:10px;margin-bottom:3px;">
+                        <div style="
+                            position:absolute;
+                            left:calc(${pct}% - 6px);
+                            top:0;
+                            width:0;
+                            height:0;
+                            border-left:6px solid transparent;
+                            border-right:6px solid transparent;
+                            border-top:9px solid ${matchedG?.c||'#666'};
+                        "></div>
+                      </div>
+          
+                      <div style="
+                          height:13px;
+                          border-radius:8px;
+                          overflow:hidden;
+                          background:linear-gradient(
+                              90deg,
+                              #C62828 0%,
+                              #E65100 20%,
+                              #F57F17 40%,
+                              #388E3C 60%,
+                              #2E7D32 80%,
+                              #1B5E20 100%);
+                      ">
+                      </div>
+          
+                    </div>
+          
                   </div>
-
+          
+                  <!-- ===================== 2행 ===================== -->
+          
+                  <div style="
+                      border-top:1px solid #E0E0E0;
+                      padding-top:7px;
+                  ">
+          
+                    <div style="
+                        font-size:12px;
+                        color:#666;
+                        margin-bottom:5px;
+                        font-weight:700;
+                    ">
+                      ${ageText} (${c.gender})
+                    </div>
+          
+                    <div style="
+                        display:flex;
+                        flex-wrap:wrap;
+                        gap:12px;
+                        align-items:center;
+                    ">
+          
+                      ${gradeOrder.map((g,i)=>`
+                        <div style="
+                            display:flex;
+                            align-items:center;
+                            gap:4px;
+                            white-space:nowrap;
+                        ">
+          
+                          <span style="
+                              width:7px;
+                              height:7px;
+                              border-radius:50%;
+                              background:${g.c};
+                          "></span>
+          
+                          <span style="
+                              font-size:11px;
+                              color:${g.c};
+                              font-weight:${matched===g.l?'800':'600'};
+                          ">
+                            ${g.l} ${ranges[i]}
+                          </span>
+          
+                        </div>
+                      `).join('')}
+          
+                    </div>
+          
+                  </div>
+          
                 </div>
               `;
             })()}
             `:`
-              <div style="padding:20px 0;text-align:center;color:#aaa;font-size:20px;">-</div>
+              <div style="
+                padding:20px 0;
+                text-align:center;
+                color:#aaa;
+                font-size:20px;
+              ">
+                -
+              </div>
             `}
           </div>
           <!-- 신체움직임 -->
@@ -1540,7 +1943,7 @@ const ClientDetailPage = {
             </div>
           </div>
         </div>
- 
+
         <!-- 2행: 신경계/균형/감각 -->
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;flex:1;align-items:stretch;">
           ${[
@@ -1551,36 +1954,71 @@ const ClientDetailPage = {
             const score=master[item.key];
             const pct=Math.min(100,Math.max(0,Number(score)||0));
             const r=36,circ=2*Math.PI*r,dash=(pct/100)*circ;
-            return `<div style="padding:7px 8px;background:#F5FBF5;border-radius:6px;border:1px solid #C8E6C9;display:flex;flex-direction:column;align-items:center;overflow:visible;">
-              <div style="font-size:15px;font-weight:900;color:#1A1A1A;margin-bottom:10px;align-self:flex-start;">${item.label}</div>
+        
+            return `
+            <div style="padding:7px 8px;background:#F5FBF5;border-radius:6px;border:1px solid #C8E6C9;display:flex;flex-direction:column;align-items:center;overflow:visible;">
+        
+              <div style="font-size:15px;font-weight:900;color:#1A1A1A;margin-bottom:10px;align-self:flex-start;">
+                ${item.label}
+              </div>
+        
               <svg width="88" height="88" viewBox="0 0 88 88" style="overflow:visible;margin-bottom:8px;">
-                <circle cx="44" cy="44" r="${r}" fill="none" stroke="#E8E8E8" stroke-width="10"/>
-                ${pct>0?`<circle cx="44" cy="44" r="${r}" fill="none" stroke="${item.color}" stroke-width="10" stroke-dasharray="${dash.toFixed(1)} ${circ.toFixed(1)}" stroke-dashoffset="${(circ/4).toFixed(1)}" stroke-linecap="round"/>`:''}
+        
+                <!-- 배경 -->
+                <circle
+                  cx="44"
+                  cy="44"
+                  r="${r}"
+                  fill="none"
+                  stroke="#E8E8E8"
+                  stroke-width="10"
+                />
+        
+                <!-- 진행 -->
+                ${
+                  pct>0
+                  ? `<circle
+                        cx="44"
+                        cy="44"
+                        r="${r}"
+                        fill="none"
+                        stroke="${item.color}"
+                        stroke-width="10"
+                        stroke-dasharray="${dash.toFixed(1)} ${circ.toFixed(1)}"
+                        stroke-dashoffset="${(circ/4).toFixed(1)}"
+                        stroke-linecap="round"
+                     />`
+                  : ''
+                }
+        
+                <!-- 중앙 점수 -->
                 <text
                   x="44"
-                  y="48"
+                  y="44"
                   text-anchor="middle"
+                  dominant-baseline="middle"
                   font-family="sans-serif"
                   font-weight="800"
                   fill="${item.color}"
                 >
                   ${
                     score!=null
-                      ? `<tspan font-size="30">${score}</tspan><tspan font-size="14">점</tspan>`
-                      : `<tspan font-size="30">-</tspan>`
+                    ? `<tspan font-size="30">${score}</tspan><tspan font-size="14">점</tspan>`
+                    : `<tspan font-size="30">-</tspan>`
                   }
                 </text>
+        
               </svg>
+        
               <div style="display:flex;justify-content:center;">
                 <div style="font-size:12px;color:#444;line-height:1.8;text-align:left;">
                   ${item.items.map(it=>`<div>• ${it.label}</div>`).join('')}
                 </div>
               </div>
+        
             </div>`;
           }).join('')}
         </div>
-      </div>
-    </div>
  
     <!-- ▣ 대사(생활) 관리 (flex:1) -->
     <div style="border:1.5px solid #FFE0B2;border-radius:8px;overflow:hidden;flex:1;display:flex;flex-direction:column;min-height:0;">
