@@ -1017,7 +1017,7 @@ select.form-control {
 }
 
 .progress-sub {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-gray-400);
   margin-top: 3px;
   white-space: nowrap;
@@ -1026,7 +1026,7 @@ select.form-control {
 /* 회차 프로그레스 */
 .round-progress { min-width: 100px; }
 .round-label {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--color-gray-700);
   margin-bottom: 4px;
@@ -1234,7 +1234,7 @@ select.form-control {
 
 .detail-info-label {
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 400;
   color: var(--color-gray-400);
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1243,7 +1243,7 @@ select.form-control {
 
 .detail-info-value {
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 400;
   color: var(--color-gray-800);
   line-height: 1.4;
 }
@@ -1764,11 +1764,11 @@ body { font-size: 15px; line-height: 1.65; }
 .assess-status-chip.empty     { background: var(--color-gray-100); color: var(--color-gray-500); border-color: var(--color-gray-300); }
 
 /* ── 대시보드 평가현황 테이블 ───────────────────────────── */
-.dash-assess-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.dash-assess-table { width: 100%; border-collapse: collapse; font-size: 15px; }
 .dash-assess-table th {
   background: var(--color-gray-50);
   color: var(--color-gray-600);
-  font-size: 12.5px;
+  font-size: 13.5px;
   font-weight: 700;
   padding: 10px 14px;
   border-bottom: 1.5px solid var(--color-gray-200);
@@ -1786,7 +1786,7 @@ body { font-size: 15px; line-height: 1.65; }
 .cat-circle {
   width: 20px; height: 20px; border-radius: 50%;
   display: inline-flex; align-items: center; justify-content: center;
-  font-size: 11px; border: 1.5px solid;
+  font-size: 12px; border: 1.5px solid;
 }
 .cat-circle.done    { background: #4CAF50; border-color: #388E3C; color: white; }
 .cat-circle.empty   { background: white; border-color: var(--color-gray-300); }
@@ -1883,6 +1883,11 @@ body { font-size: 17px; }
 .table thead th { font-size: 13px; padding: 13px 16px; }
 .table td       { padding: 14px 16px; }
 
+/* 고객 리스트 전용 (1px 확대) */
+.client-list-table          { font-size: 16px; }
+.client-list-table thead th { font-size: 14px; }
+.client-list-table td       { font-size: 16px; }
+
 /* 폼 */
 .form-control { height: 48px; font-size: 15px; }
 .form-label   { font-size: 14px; }
@@ -1921,8 +1926,8 @@ body { font-size: 17px; }
 .assess-round-tab   { font-size: 14px; padding: 9px 20px; }
 
 /* 대시보드 테이블 */
-.dash-assess-table th { font-size: 13.5px; padding: 12px 16px; }
-.dash-assess-table td { padding: 13px 16px; font-size: 15px; }
+.dash-assess-table th { font-size: 14.5px; padding: 12px 16px; }
+.dash-assess-table td { padding: 13px 16px; font-size: 16px; }
 
 /* 고객 리스트 사이드바 (평가관리) */
 .assess-client-name { font-size: 15px; }
