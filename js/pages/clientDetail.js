@@ -2215,11 +2215,10 @@ const ClientDetailPage = {
         @media print {
           body { print-color-adjust:exact; -webkit-print-color-adjust:exact; }
           #report-print-area > div {
-            page-break-before:always; page-break-after:always;
-            page-break-inside:avoid; width:100%; height:100vh; overflow:hidden; display:block;
+            page-break-inside:avoid;
+            break-inside:avoid;
+            width:100%;
           }
-          #report-print-area > div:first-child { page-break-before:avoid; }
-          #report-print-area > div:last-child  { page-break-after:avoid; }
           svg text { font-family:'Noto Sans KR','Malgun Gothic',sans-serif; }
         }
         svg text { font-family:'Noto Sans KR','Malgun Gothic',sans-serif; }
