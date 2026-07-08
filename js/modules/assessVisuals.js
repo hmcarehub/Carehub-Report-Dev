@@ -236,34 +236,88 @@ const AssessVisuals = {
       </div>`;
   },
 
-  // 심폐기능(VO2peak) 구간형 게이지 — _renderErgo.segGauge 원본
-  cardioSegGauge: function(score, gender, birthDate) {
+  // 심폐기능 등급 테이블(공통, 내부용)
+  _cardioGrades: function(gender) {
     const isMale = gender === '남자';
     const grades = isMale ?
       [{l:'최우수',min:40,color:'#1B5E20'},{l:'우수',min:36,color:'#2E7D32'},{l:'평균이상',min:32,color:'#388E3C'},
        {l:'평균',min:29,color:'#F57F17'},{l:'평균이하',min:25,color:'#E65100'},{l:'최하위',min:0,color:'#C62828'}] :
       [{l:'최우수',min:33,color:'#1B5E20'},{l:'우수',min:29,color:'#2E7D32'},{l:'평균이상',min:25,color:'#388E3C'},
        {l:'평균',min:22,color:'#F57F17'},{l:'평균이하',min:19,color:'#E65100'},{l:'최하위',min:0,color:'#C62828'}];
-    const gradesOrdered = [...grades].reverse();
-    const maxV = isMale ? 44 : 37, minV = 0;
+    return [...grades].reverse(); // 최하위→최우수 순
+  },
 
+  // 심폐기능 값 + 등급배지 (score/badge만, wrapper 없음 — 호출부에서 flex+gap으로 감싸서 사용)
+  cardioScoreBadge: function(score, gender, birthDate) {
+    const gradesOrdered = this._cardioGrades(gender);
+    const cardioIdx = this.calcCardioIndex(score, gender, birthDate);
+    const matchedGrade = cardioIdx ? gradesOrdered.find(g=>cardioIdx.includes(g.l)) : null;
+    return `<span style="font-size:28px;font-weight:900;color:${matchedGrade?.color||'#888'};">${score!=null?score:'-'}</span>
+      ${matchedGrade?`<span style="background:${matchedGrade.color}22;color:${matchedGrade.color};padding:3px 10px;border-radius:8px;font-size:13px;font-weight:700;">${matchedGrade.l}</span>`:''}`;
+  },
+
+  // 심폐기능 마커+그라데이션 막대만 (등급명 라벨 줄은 제외 — 범례로 분리해서 쓸 때 사용)
+  cardioBar: function(score, gender, birthDate) {
+    const isMale = gender === '남자';
+    const gradesOrdered = this._cardioGrades(gender);
+    const maxV = isMale ? 44 : 37, minV = 0;
     const cardioIdx = this.calcCardioIndex(score, gender, birthDate);
     const pct = score!=null ? Math.min(100,Math.max(0,(Number(score)-minV)/(maxV-minV)*100)) : null;
     const matchedGrade = cardioIdx ? gradesOrdered.find(g=>cardioIdx.includes(g.l)) : null;
-
-    return `<div style="margin-top:4px;">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-        <span style="font-size:28px;font-weight:900;color:${matchedGrade?.color||'#888'};">${score!=null?score:'-'}</span>
-        ${matchedGrade?`<span style="background:${matchedGrade.color}22;color:${matchedGrade.color};padding:3px 10px;border-radius:8px;font-size:13px;font-weight:700;">${matchedGrade.l}</span>`:''}
-      </div>
-      ${pct!=null?`<div style="position:relative;margin-bottom:2px;height:12px;">
+    return `${pct!=null?`<div style="position:relative;margin-bottom:2px;height:12px;">
         <div style="position:absolute;left:calc(${pct}% - 6px);top:0;width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:10px solid ${matchedGrade?.color||'#555'};"></div>
       </div>`:'<div style="height:12px;"></div>'}
       <div style="height:22px;border-radius:6px;overflow:hidden;background:linear-gradient(90deg,#C62828 0%,#E65100 20%,#F57F17 40%,#388E3C 60%,#2E7D32 80%,#1B5E20 100%);">
+      </div>`;
+  },
+
+  // 심폐기능 막대 하단 등급명 라벨 줄 (기존 cardioSegGauge가 쓰던 것과 동일)
+  cardioBarLabels: function(score, gender, birthDate) {
+    const gradesOrdered = this._cardioGrades(gender);
+    const cardioIdx = this.calcCardioIndex(score, gender, birthDate);
+    const matchedGrade = cardioIdx ? gradesOrdered.find(g=>cardioIdx.includes(g.l)) : null;
+    return `<div style="display:flex;justify-content:space-between;margin-top:3px;">
+      ${gradesOrdered.map(g=>`<div style="font-size:8.5px;font-weight:700;color:${g.l===matchedGrade?.l?g.color:'#aaa'};text-align:center;flex:1;">${g.l}</div>`).join('')}
+    </div>`;
+  },
+
+  // 심폐기능 등급 범례 — 해당 고객의 성별·연령대에 맞는 기준값만, 2열 그리드로 표시
+  cardioGradeLegend: function(score, gender, birthDate) {
+    const isMale = gender === '남자';
+    const age = birthDate ? new Date().getFullYear()-new Date(birthDate).getFullYear() : null;
+    const isOld = age!=null && age>=66;
+    const rowsMale = [
+      ['최우수','#1B5E20','40.0↑','37.0↑'],['우수','#2E7D32','36.0~39.9','33.0~37.0'],
+      ['평균이상','#388E3C','32.0~35.9','29.0~32.9'],['평균','#F57F17','29.0~31.9','26.0~28.9'],
+      ['평균이하','#E65100','25.0~28.9','22.0~25.9'],['최하위','#C62828','25.0↓','22.0↓']
+    ];
+    const rowsFemale = [
+      ['최우수','#1B5E20','33.0↑','32.0↑'],['우수','#2E7D32','29.0~32.9','28.0~32.0'],
+      ['평균이상','#388E3C','25.0~28.9','25.0~27.9'],['평균','#F57F17','22.0~24.9','22.0~24.9'],
+      ['평균이하','#E65100','19.0~21.9','19.0~21.9'],['최하위','#C62828','19.0↓','19.0↓']
+    ];
+    const rows = isMale ? rowsMale : rowsFemale;
+    const cardioIdx = this.calcCardioIndex(score, gender, birthDate);
+    return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:7px 10px;width:100%;">
+      ${rows.map(r=>{
+        const label=r[0], color=r[1], range = isOld ? r[3] : r[2];
+        const active = cardioIdx && cardioIdx.includes(label);
+        return `<div style="display:flex;align-items:center;gap:5px;">
+          <span style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0;"></span>
+          <span style="font-size:11px;font-weight:${active?'800':'600'};color:${color};white-space:nowrap;">${label} ${range}</span>
+        </div>`;
+      }).join('')}
+    </div>`;
+  },
+
+  // 심폐기능(VO2peak) 구간형 게이지 — _renderErgo.segGauge 원본 (위 조각 함수들을 조합, 출력은 기존과 동일)
+  cardioSegGauge: function(score, gender, birthDate) {
+    return `<div style="margin-top:4px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+        ${this.cardioScoreBadge(score, gender, birthDate)}
       </div>
-      <div style="display:flex;justify-content:space-between;margin-top:3px;">
-        ${gradesOrdered.map(g=>`<div style="font-size:8.5px;font-weight:700;color:${g.l===matchedGrade?.l?g.color:'#aaa'};text-align:center;flex:1;">${g.l}</div>`).join('')}
-      </div>
+      ${this.cardioBar(score, gender, birthDate)}
+      ${this.cardioBarLabels(score, gender, birthDate)}
     </div>`;
   },
 
@@ -297,14 +351,28 @@ const AssessVisuals = {
     </div>`;
   },
 
-  // 스트레스 구간형 게이지 — _renderStress.segStress 원본
-  stressSegGauge: function(score) {
-    const stressGrades=[
+  // 스트레스 등급 테이블(공통, 내부용)
+  _stressGrades: function() {
+    return [
       {l:'정상',max:34,color:'#2E7D32',bg:'#E8F5E9'},
       {l:'초기',max:44,color:'#F57F17',bg:'#FFF8E1'},
       {l:'진행',max:59,color:'#E65100',bg:'#FBE9E7'},
       {l:'만성',max:999,color:'#C62828',bg:'#FFEBEE'}
     ];
+  },
+
+  // 스트레스 값 + 등급배지 (score/badge만, wrapper 없음 — 호출부에서 flex+gap으로 감싸서 사용)
+  stressScoreBadge: function(score) {
+    const stressGrades = this._stressGrades();
+    const getGrade = s => (s==null||isNaN(s)) ? null : (stressGrades.find(g=>Number(s)<=g.max)||stressGrades[3]);
+    const g = getGrade(score);
+    return `<span style="font-size:28px;font-weight:900;color:${g?.color||'#888'};">${score!=null?score:'-'}</span>
+      ${g?`<span style="background:${g.bg};color:${g.color};padding:3px 10px;border-radius:8px;font-size:13px;font-weight:700;">${g.l}</span>`:''}`;
+  },
+
+  // 스트레스 마커+그라데이션 막대 + 하단 등급명 라벨 줄 (score/badge 제외)
+  stressBar: function(score) {
+    const stressGrades = this._stressGrades();
     const getGrade = s => (s==null||isNaN(s)) ? null : (stressGrades.find(g=>Number(s)<=g.max)||stressGrades[3]);
     const g = getGrade(score);
     const n = Number(score);
@@ -313,19 +381,23 @@ const AssessVisuals = {
       n<=45?37+(n-35)/10*18:
       n<=60?55+(n-45)/15*23:
       Math.min(100, 78+(n-60)/40*22);
-    return `<div style="margin-top:4px;">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-        <span style="font-size:28px;font-weight:900;color:${g?.color||'#888'};">${score!=null?score:'-'}</span>
-        ${g?`<span style="background:${g.bg};color:${g.color};padding:3px 10px;border-radius:8px;font-size:13px;font-weight:700;">${g.l}</span>`:''}
-      </div>
-      ${pct!=null?`<div style="position:relative;margin-bottom:2px;height:12px;">
+    return `${pct!=null?`<div style="position:relative;margin-bottom:2px;height:12px;">
         <div style="position:absolute;left:calc(${pct}% - 6px);top:0;width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:10px solid ${g?.color||'#555'};"></div>
       </div>`:'<div style="height:12px;"></div>'}
       <div style="height:22px;border-radius:6px;overflow:hidden;background:linear-gradient(90deg,#4CAF50 0%,#C0CA33 37%,#FFA000 55%,#F44336 78%,#B71C1C 100%);">
       </div>
       <div style="display:flex;justify-content:space-between;margin-top:3px;">
         ${stressGrades.map(g2=>`<div style="font-size:8.5px;font-weight:700;color:${g2.l===g?.l?g2.color:'#aaa'};text-align:center;flex:1;">${g2.l}</div>`).join('')}
+      </div>`;
+  },
+
+  // 스트레스 구간형 게이지 — _renderStress.segStress 원본 (위 조각 함수들을 조합, 출력은 기존과 동일)
+  stressSegGauge: function(score) {
+    return `<div style="margin-top:4px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+        ${this.stressScoreBadge(score)}
       </div>
+      ${this.stressBar(score)}
     </div>`;
   },
 
