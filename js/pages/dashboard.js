@@ -180,7 +180,7 @@ const DashboardPage = {
       const active = s.col===col;
       const arrow  = active ? (s.dir==='asc'?' ↑':' ↓') : ' ↕';
       return `<th class="dash-sort-th" data-table="${tableKey}" data-col="${col}"
-        style="cursor:pointer;user-select:none;white-space:nowrap;text-align:${align};">${label}<span style="opacity:0.4;font-size:10px;">${arrow}</span></th>`;
+        style="cursor:pointer;user-select:none;white-space:nowrap;text-align:${align};">${label}<span style="opacity:0.4;font-size:11px;">${arrow}</span></th>`;
     };
 
     // KPI 카드 (숫자+단위 인라인)
@@ -188,19 +188,19 @@ const DashboardPage = {
       <div class="card kpi-card" style="flex:1;min-width:110px;cursor:pointer;"
         data-kpi="${navKey}">
         <div class="card-body" style="padding:14px 16px;">
-          <div style="font-size:12px;color:var(--color-gray-500);margin-bottom:6px;">${label}</div>
+          <div style="font-size:13px;color:var(--color-gray-500);margin-bottom:6px;">${label}</div>
           <div style="display:flex;align-items:baseline;gap:4px;">
-            <span style="font-size:28px;font-weight:800;color:${color};line-height:1;">${val}</span>
-            ${unit?`<span style="font-size:14px;font-weight:600;color:${color};opacity:0.75;">${unit}</span>`:''}
+            <span style="font-size:29px;font-weight:800;color:${color};line-height:1;">${val}</span>
+            ${unit?`<span style="font-size:15px;font-weight:600;color:${color};opacity:0.75;">${unit}</span>`:''}
           </div>
-          <div style="font-size:10px;color:var(--color-primary);margin-top:4px;opacity:0.6;">클릭하여 조회 →</div>
+          <div style="font-size:11px;color:var(--color-primary);margin-top:4px;opacity:0.6;">클릭하여 조회 →</div>
         </div>
       </div>`;
 
     // 상태 테이블 (헤더+행)
     const statusTable = (rows, headerHtml, emptyMsg) => {
-      if (!rows.length) return `<div style="padding:14px 18px;font-size:13px;color:var(--color-gray-400);text-align:center;">${emptyMsg}</div>`;
-      return `<table class="table" style="font-size:14px;">
+      if (!rows.length) return `<div style="padding:14px 18px;font-size:14px;color:var(--color-gray-400);text-align:center;">${emptyMsg}</div>`;
+      return `<table class="table" style="font-size:15px;">
         <thead><tr>${headerHtml}</tr></thead>
         <tbody>${rows.map(r=>r._row).join('')}</tbody>
       </table>`;
@@ -210,7 +210,7 @@ const DashboardPage = {
     const makeRow = (r, cols) => `<tr class="dash-assess-row" data-cid="${r.c.clientId}" data-round="${r.round}">${cols}</tr>`;
     const tdRoom  = r => `<td style="font-weight:700;color:var(--color-primary-dark);">${r.c.roomNum||'-'}</td>`;
     const tdName  = r => `<td><span class="client-name-link" data-cid="${r.c.clientId}">${r.c.name}</span></td>`;
-    const tdRound = r => `<td style="font-size:13px;">${r.roundLabel}</td>`;
+    const tdRound = r => `<td style="font-size:14px;">${r.roundLabel}</td>`;
 
     const delayedSorted    = this._applySort(delayed,    'delayed');
     const waitingSorted    = this._applySort(waiting,    'waiting');
@@ -223,37 +223,37 @@ const DashboardPage = {
     )}));
     const waitingRows    = waitingSorted.map(r => ({...r, _row: makeRow(r,
       tdRoom(r)+tdName(r)+tdRound(r)+
-      `<td style="font-size:13px;color:var(--color-gray-600);">${r.deadline}</td>`
+      `<td style="font-size:14px;color:var(--color-gray-600);">${r.deadline}</td>`
     )}));
     const inProgressRows = inProgressSorted.map(r => ({...r, _row: makeRow(r,
       tdRoom(r)+tdName(r)+tdRound(r)+
-      `<td style="font-size:13px;font-weight:600;color:${r.isDelayed?'#E53935':'var(--color-gray-600)'};">${r.deadline}</td>`+
+      `<td style="font-size:14px;font-weight:600;color:${r.isDelayed?'#E53935':'var(--color-gray-600)'};">${r.deadline}</td>`+
       `<td>${r.isReEval
-        ? '<span style="background:#FFF8E1;color:#F9A825;padding:2px 8px;border-radius:8px;font-size:12px;font-weight:700;">재평가</span>'
+        ? '<span style="background:#FFF8E1;color:#F9A825;padding:2px 8px;border-radius:8px;font-size:13px;font-weight:700;">재평가</span>'
         : r.isDelayed
-          ? `<span style="background:#FFEBEE;color:#E53935;padding:2px 8px;border-radius:8px;font-size:12px;font-weight:700;">지연(${r.lateProgressDays}일)</span>`
-          : '<span style="background:#E8F5E9;color:#2E7D32;padding:2px 8px;border-radius:8px;font-size:12px;font-weight:700;">평가중</span>'
+          ? `<span style="background:#FFEBEE;color:#E53935;padding:2px 8px;border-radius:8px;font-size:13px;font-weight:700;">지연(${r.lateProgressDays}일)</span>`
+          : '<span style="background:#E8F5E9;color:#2E7D32;padding:2px 8px;border-radius:8px;font-size:13px;font-weight:700;">평가중</span>'
         }</td>`
     )}));
     const completedRows  = completedSorted.map(r => ({...r, _row: makeRow(r,
       tdRoom(r)+tdName(r)+tdRound(r)+
-      `<td style="font-size:13px;color:var(--color-gray-600);">${fmtDate(r.assessDate)||'-'}</td>`+
-      `<td style="font-size:13px;color:var(--color-gray-600);">${fmtDate(r.reportCreatedAt)||'-'}</td>`
+      `<td style="font-size:14px;color:var(--color-gray-600);">${fmtDate(r.assessDate)||'-'}</td>`+
+      `<td style="font-size:14px;color:var(--color-gray-600);">${fmtDate(r.reportCreatedAt)||'-'}</td>`
     )}));
     const assessRowsHtml = assessRows.map(r => `
       <tr class="dash-assess-row" data-cid="${r.c.clientId}" data-round="${r.round}">
         <td style="font-weight:700;color:var(--color-primary-dark);">${r.c.roomNum||'-'}</td>
         <td><span class="client-name-link" data-cid="${r.c.clientId}" style="font-weight:700;">${r.c.name}</span></td>
-        <td><span class="badge badge-role" style="font-size:12px;">${r.roundLabel}</span></td>
+        <td><span class="badge badge-role" style="font-size:13px;">${r.roundLabel}</span></td>
         <td style="text-align:center;">${circleHtml(overview[r.c.clientId]?.rounds[r.round]?.cognitiveDone)}</td>
         <td style="text-align:center;">${circleHtml(overview[r.c.clientId]?.rounds[r.round]?.movementDone)}</td>
         <td style="text-align:center;">${circleHtml(overview[r.c.clientId]?.rounds[r.round]?.metabolismDone)}</td>
         <td style="text-align:center;">${circleHtml(overview[r.c.clientId]?.rounds[r.round]?.commentDone)}</td>
-        <td style="font-size:13px;font-weight:600;color:${r.isDelayed?'#E53935':'var(--color-gray-600)'};">${r.deadline||'-'}</td>
+        <td style="font-size:14px;font-weight:600;color:${r.isDelayed?'#E53935':'var(--color-gray-600)'};">${r.deadline||'-'}</td>
         <td>
           <span style="background:${r.isReEval?'#FFF8E1':r.isDelayed?'#FFEBEE':'#E8F5E9'};
             color:${r.isReEval?'#F9A825':r.isDelayed?'#E53935':'#2E7D32'};
-            padding:3px 10px;border-radius:10px;font-size:12.5px;font-weight:700;white-space:nowrap;">
+            padding:3px 10px;border-radius:10px;font-size:13.5px;font-weight:700;white-space:nowrap;">
             ${r.isReEval?'재평가':r.isDelayed?'지연('+r.lateProgressDays+'일)':'평가중'}
           </span>
         </td>
@@ -275,9 +275,9 @@ const DashboardPage = {
 
         <div class="card" style="border-top:3px solid #E53935;">
           <div class="card-header" style="padding:12px 16px;">
-            <h2 class="card-title" style="font-size:15px;">
+            <h2 class="card-title" style="font-size:16px;">
               <span style="color:#E53935;">⚠</span> 지연
-              ${delayed.length?`<span style="background:#E53935;color:white;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;margin-left:6px;">${delayed.length}</span>`:''}
+              ${delayed.length?`<span style="background:#E53935;color:white;font-size:12px;font-weight:700;padding:2px 8px;border-radius:10px;margin-left:6px;">${delayed.length}</span>`:''}
             </h2>
           </div>
           <div style="max-height:220px;overflow-y:auto;">
@@ -289,9 +289,9 @@ const DashboardPage = {
 
         <div class="card" style="border-top:3px solid #888;">
           <div class="card-header" style="padding:12px 16px;">
-            <h2 class="card-title" style="font-size:15px;">
+            <h2 class="card-title" style="font-size:16px;">
               ⏳ 평가 대기
-              ${waiting.length?`<span style="background:#888;color:white;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;margin-left:6px;">${waiting.length}</span>`:''}
+              ${waiting.length?`<span style="background:#888;color:white;font-size:12px;font-weight:700;padding:2px 8px;border-radius:10px;margin-left:6px;">${waiting.length}</span>`:''}
             </h2>
           </div>
           <div style="max-height:220px;overflow-y:auto;">
@@ -303,11 +303,11 @@ const DashboardPage = {
 
         <div class="card" style="border-top:3px solid #4CAF50;">
           <div class="card-header" style="padding:12px 16px;">
-            <h2 class="card-title" style="font-size:15px;">
+            <h2 class="card-title" style="font-size:16px;">
               ✏️ 평가중
-              ${inProgress.filter(r=>!r.isReEval&&!r.isDelayed).length?`<span style="background:#4CAF50;color:white;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;margin-left:6px;">${inProgress.filter(r=>!r.isReEval&&!r.isDelayed).length}</span>`:''}
-              ${inProgress.filter(r=>r.isDelayed).length?`<span style="background:#E53935;color:white;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;margin-left:4px;">지연 중 진행 ${inProgress.filter(r=>r.isDelayed).length}</span>`:''}
-              ${inProgress.filter(r=>r.isReEval).length?`<span style="background:#F9A825;color:white;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;margin-left:4px;">재평가 ${inProgress.filter(r=>r.isReEval).length}</span>`:''}
+              ${inProgress.filter(r=>!r.isReEval&&!r.isDelayed).length?`<span style="background:#4CAF50;color:white;font-size:12px;font-weight:700;padding:2px 8px;border-radius:10px;margin-left:6px;">${inProgress.filter(r=>!r.isReEval&&!r.isDelayed).length}</span>`:''}
+              ${inProgress.filter(r=>r.isDelayed).length?`<span style="background:#E53935;color:white;font-size:12px;font-weight:700;padding:2px 8px;border-radius:10px;margin-left:4px;">지연 중 진행 ${inProgress.filter(r=>r.isDelayed).length}</span>`:''}
+              ${inProgress.filter(r=>r.isReEval).length?`<span style="background:#F9A825;color:white;font-size:12px;font-weight:700;padding:2px 8px;border-radius:10px;margin-left:4px;">재평가 ${inProgress.filter(r=>r.isReEval).length}</span>`:''}
             </h2>
           </div>
           <div style="max-height:220px;overflow-y:auto;">
@@ -319,9 +319,9 @@ const DashboardPage = {
 
         <div class="card" style="border-top:3px solid #1565C0;">
           <div class="card-header" style="padding:12px 16px;">
-            <h2 class="card-title" style="font-size:15px;">
-              ✅ 평가완료 <span style="font-size:12px;font-weight:400;color:var(--color-gray-400);">(최근 7일)</span>
-              ${completed.length?`<span style="background:#1565C0;color:white;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;margin-left:6px;">${completed.length}</span>`:''}
+            <h2 class="card-title" style="font-size:16px;">
+              ✅ 평가완료 <span style="font-size:13px;font-weight:400;color:var(--color-gray-400);">(최근 7일)</span>
+              ${completed.length?`<span style="background:#1565C0;color:white;font-size:12px;font-weight:700;padding:2px 8px;border-radius:10px;margin-left:6px;">${completed.length}</span>`:''}
             </h2>
           </div>
           <div style="max-height:220px;overflow-y:auto;">
@@ -338,7 +338,7 @@ const DashboardPage = {
         <div class="card-header" style="padding:14px 20px;">
           <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
             <h2 class="card-title" style="margin:0;"><span class="card-title-dot"></span>평가 현황</h2>
-            <div style="display:flex;gap:8px;font-size:13px;flex-wrap:wrap;">
+            <div style="display:flex;gap:8px;font-size:14px;flex-wrap:wrap;">
               ${inProgress.filter(r=>r.isDelayed).length?`<span style="background:#FFEBEE;color:#E53935;padding:3px 10px;border-radius:12px;font-weight:700;">⚠ 지연 중 진행 ${inProgress.filter(r=>r.isDelayed).length}건</span>`:''}
               <span style="background:#E8F5E9;color:#2E7D32;padding:3px 10px;border-radius:12px;font-weight:600;">평가중 ${inProgress.length}건</span>
             </div>
@@ -347,7 +347,7 @@ const DashboardPage = {
         </div>
         <div class="card-body" style="padding:0;">
           ${assessRows.length===0
-            ? '<div class="empty-state" style="padding:28px;"><div class="empty-state-icon">✅</div><div class="empty-state-text" style="font-size:14px;">진행 중인 평가가 없습니다.</div></div>'
+            ? '<div class="empty-state" style="padding:28px;"><div class="empty-state-icon">✅</div><div class="empty-state-text" style="font-size:15px;">진행 중인 평가가 없습니다.</div></div>'
             : `<div style="max-height:320px;overflow-y:auto;">
                 <table class="dash-assess-table">
                   <thead><tr>
@@ -430,7 +430,7 @@ const DashboardPage = {
               <td style="font-weight:700;color:var(--color-primary-dark);">${c.roomNum||'-'}</td>
               <td><span class="client-name-link" data-cid="${c.clientId}" style="cursor:pointer;">${c.name}</span></td>
               <td>${c.gender||'-'}</td>
-              <td style="font-size:13px;">${c.admitDate||'-'}</td>
+              <td style="font-size:14px;">${c.admitDate||'-'}</td>
               <td><span class="badge badge-${sc[c.status]||'discharged'}">${c.status}</span></td>
             </tr>`).join('')}</tbody>
           </table>`}`);
@@ -458,8 +458,8 @@ const DashboardPage = {
               <td style="font-weight:700;color:var(--color-primary-dark);">${r.c.roomNum||'-'}</td>
               <td><span class="client-name-link" data-cid="${r.c.clientId}" style="cursor:pointer;">${r.c.name}</span></td>
               <td><span class="badge badge-role">${r.round===1?"초기":`${(r.round-1)*4}주차`}</span></td>
-              <td style="font-size:13px;">${fmtDate(r.assessDate)}</td>
-              <td style="font-size:13px;">${fmtDate(r.reportCreatedAt)}</td>
+              <td style="font-size:14px;">${fmtDate(r.assessDate)}</td>
+              <td style="font-size:14px;">${fmtDate(r.reportCreatedAt)}</td>
             </tr>`).join('')}</tbody>
           </table>`}`);
   },
