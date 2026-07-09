@@ -863,13 +863,14 @@ const ClientDetailPage = {
 
     // 지표 타일(Hero Metric Tile) — 상태 → 값 → 등급 → 시각화 → 설명 순으로 시선 유도
     const tile = (opts) => {
-      const { label, value, unit, grade, visual, caption } = opts;
+      const { label, value, unit, grade, visual, caption, center } = opts;
+      const heroAlign = center ? 'justify-content:center;' : '';
       return `<div style="background:#fff;border:1px solid ${LINE};border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:7px;">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
-          <span style="font-size:10px;font-weight:700;letter-spacing:0.04em;color:${G500};text-transform:uppercase;">${label}</span>
+          <span style="font-size:12px;font-weight:700;letter-spacing:0.04em;color:${G500};text-transform:uppercase;">${label}</span>
           ${statusPill(grade)}
         </div>
-        <div style="display:flex;align-items:baseline;gap:4px;">
+        <div style="display:flex;align-items:baseline;gap:4px;${heroAlign}">
           <span style="font-size:26px;font-weight:800;color:${INK};line-height:1;">${value}</span>
           ${unit?`<span style="font-size:10.5px;color:${G500};">${unit}</span>`:''}
         </div>
@@ -903,17 +904,20 @@ const ClientDetailPage = {
         <div style="font-size:8.5px;color:${G300};">REPORT NO. ${reportNo}</div>
       </div>`;
 
-    // 동연령대 상위 분포도(리포트 전용 슬림 히스토그램)
+    // SVG 반응형 처리 — AssessVisuals가 리턴하는 고정 px SVG를 카드 폭에 맞게 스케일
+    const respSvg = (svg) => svg.replace(/<svg width="\d+" height="\d+"/, '<svg width="100%" height="auto"');
+
+    // 동연령대 상위 분포도(리포트 전용 히스토그램 — 카드 폭 전체로 확장, 가운데 정렬)
     const percentileMini = (p) => {
-      if (p==null) return `<div style="font-size:10px;color:${G500};padding-top:4px;">데이터 없음</div>`;
-      const heights=[9,14,20,26,20,14,9];
-      const barW=8,gap=3,n=heights.length,totalW=n*barW+(n-1)*gap,maxH=Math.max(...heights);
+      if (p==null) return `<div style="font-size:10px;color:${G500};padding-top:4px;text-align:center;">데이터 없음</div>`;
+      const heights=[12,19,27,34,27,19,12];
+      const barW=13,gap=6,n=heights.length,totalW=n*barW+(n-1)*gap,maxH=Math.max(...heights);
       const idx=Math.min(n-1,Math.max(0,Math.round((100-p)/100*(n-1))));
       let bars='';
       heights.forEach((h,i)=>{ bars+=`<rect x="${i*(barW+gap)}" y="${maxH-h}" width="${barW}" height="${h}" rx="2" fill="${i===idx?BR:CREAM2}"/>`; });
-      return `<svg width="${totalW}" height="${maxH}" viewBox="0 0 ${totalW} ${maxH}" style="margin-top:2px;">${bars}</svg>`;
+      return `<div style="display:flex;justify-content:center;">${respSvg(`<svg width="${totalW}" height="${maxH}" viewBox="0 0 ${totalW} ${maxH}" style="margin-top:2px;">${bars}</svg>`)}</div>`;
     };
-    const fraCaption = (items) => (items||[]).slice(0,2).map(it=>it.label).join(' · ') + (items&&items.length>2?' 등':'');
+
 
     // ── 기간별 지표 변화(대형 카드) — 최대 7회(초기~24주) 데이터를 겹침 없이 표시 ──
     const bigTrendChart = (field, label, unit, max) => {
@@ -1053,17 +1057,21 @@ const ClientDetailPage = {
     ${sectionHead('🧠','인지 기능 평가')}
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:9px;">
       ${tile({ label:'인지 점수', value: master.cogScore!=null?master.cogScore:'-', unit:'점', grade:cogGrade,
-        visual: rangeBar(master.cogScore,100,zonesCog), caption:'0~64 주의 · 65~79 개선 · 80~89 양호 · 90~100 최적' })}
+        visual: `<div style="display:flex;justify-content:center;">${respSvg(AssessVisuals.semiGauge(master.cogScore, cogGrade?.color||'#1565C0', 100))}</div>`,
+        caption:'0~64 주의 · 65~79 개선 · 80~89 양호 · 90~100 최적' })}
       ${tile({ label:'시공간능력', value: master.spatial!=null?master.spatial:'-', unit:'점', grade:spatialGrade,
-        visual: rangeBar(master.spatial,100,zonesSub), caption:'0~33 주의 · 34~66 관심 · 67~100 양호' })}
+        visual: `<div style="display:flex;justify-content:center;">${AssessVisuals.conicDonut(master.spatial, AssessVisuals.subGradeColor(master.spatial), 100, 78, 10)}</div>`,
+        caption:'0~33 주의 · 34~66 관심 · 67~100 양호' })}
       ${tile({ label:'기억력', value: master.memory!=null?master.memory:'-', unit:'점', grade:memoryGrade,
-        visual: rangeBar(master.memory,100,zonesSub), caption:'0~33 주의 · 34~66 관심 · 67~100 양호' })}
-      ${tile({ label:'우울 점수', value: master.depression!=null?master.depression:'-', unit:'점', grade:depGrade,
-        visual: rangeBar(master.depression,60,zonesDep), caption:'0~20 경도 · 21~24 중등도 · 25~60 높은 수준' })}
-      ${tile({ label:'치매 위험요인', value: demP!=null?demP.toFixed(1):'-', unit:'%', grade:demGrade,
-        visual: demP!=null?rangeBar(demP,100,zonesDementia):'', caption:'0~29 낮음 · 30~59 주의 · 60~100 높음' })}
-      ${tile({ label:'동연령대 상위 분포', value: master.agePercentile!=null?master.agePercentile:'-', unit: master.agePercentile!=null?'%':'', grade:null,
+        visual: `<div style="display:flex;justify-content:center;">${AssessVisuals.conicDonut(master.memory, AssessVisuals.subGradeColor(master.memory), 100, 78, 10)}</div>`,
+        caption:'0~33 주의 · 34~66 관심 · 67~100 양호' })}
+      ${tile({ label:'동연령대 상위 분포도', value: master.agePercentile!=null?`상위 ${master.agePercentile}`:'-', unit: master.agePercentile!=null?'%':'', grade:null, center:true,
         visual: percentileMini(master.agePercentile), caption:'동일 연령대 대비 상대적 위치' })}
+      ${tile({ label:'우울 점수', value: master.depression!=null?master.depression:'-', unit:'점', grade:depGrade,
+        visual: `<div style="display:flex;justify-content:center;">${AssessVisuals.conicDonut(master.depression, depGrade?.color||'#7B1FA2', 60, 78, 10)}</div>`,
+        caption:'0~20 경도 · 21~24 중등도 · 25~60 높은 수준' })}
+      ${tile({ label:'치매 위험요인', value: demP!=null?demP.toFixed(1):'-', unit:'%', grade:demGrade,
+        visual: '', caption:'0~29 낮음 · 30~59 주의 · 60~100 높음' })}
     </div>`;
   })()}
 
@@ -1078,18 +1086,22 @@ const ClientDetailPage = {
     ${sectionHead('🏃','움직임 기능 평가')}
     <div style="display:grid;grid-template-columns:2fr 1fr;gap:9px;margin-bottom:9px;">
       ${tile({ label:'심폐기능지수 (VO2peak)', value: master.cardioScore!=null?master.cardioScore:'-', unit:'ml/kg/min', grade:cardioGrade,
-        visual: master.cardioScore!=null?rangeBar(master.cardioScore,cardioMax,zonesCardio):'',
+        visual: master.cardioScore!=null?`
+          ${rangeBar(master.cardioScore,cardioMax,zonesCardio)}
+          <div style="margin-top:9px;">${AssessVisuals.cardioGradeLegend(master.cardioScore, c.gender, c.birthDate)}</div>
+        `:'',
         caption: c.birthDate?`${c.gender||'-'} · ${age>=66?'66세 이상':'60~65세'} 기준값 적용`:'기준값 정보 없음' })}
       ${tile({ label:'신체 움직임 점수', value: master.bodyMovementIndex!=null?master.bodyMovementIndex:'-', unit:'/100', grade:null,
         visual: plainBar(master.bodyMovementIndex,100,BR), caption:'움직임 종합 활동량 지표' })}
     </div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:9px;">
       ${[
-        {key:'nervousScore', label:'신경계 점수', items:nervItems},
-        {key:'balanceScore', label:'통합 균형능력', items:balItems},
-        {key:'sensoryScore', label:'감각계 점수', items:sensItems}
+        {key:'nervousScore', label:'신경계 점수', color:'#6A1B9A', items:nervItems},
+        {key:'balanceScore', label:'통합 균형능력', color:'#00695C', items:balItems},
+        {key:'sensoryScore', label:'감각계 점수', color:'#E65100', items:sensItems}
       ].map(it => tile({ label:it.label, value: master[it.key]!=null?master[it.key]:'-', unit:'/100', grade:null,
-        visual: plainBar(master[it.key],100,BR), caption: fraCaption(it.items) })).join('')}
+        visual: `<div style="display:flex;justify-content:center;">${AssessVisuals.conicDonut(master[it.key], it.color, 100, 78, 10)}</div>`,
+        caption: (it.items||[]).map(x=>'• '+x.label).join('<br>') })).join('')}
     </div>`;
   })()}
 
