@@ -1029,8 +1029,8 @@ const ClientDetailPage = {
     // 동연령대 상위 분포도(모노크롬 히스토그램, 등급 없음 → 값은 검정) — 값/차트 가로 flex 좌우정렬
     const percentileMini = (p) => {
       if (p==null) return `<div style="font-size:11.5px;color:${G500};">데이터 없음</div>`;
-      const heights=[14,21,29,38,29,21,14];
-      const barW=11,gap=4,n=heights.length,totalW=n*barW+(n-1)*gap,maxH=Math.max(...heights);
+      const heights=[21,32,44,58,44,32,21];
+      const barW=14,gap=4,n=heights.length,totalW=n*barW+(n-1)*gap,maxH=Math.max(...heights);
       const idx=Math.min(n-1,Math.max(0,Math.round((100-p)/100*(n-1))));
       let bars='';
       heights.forEach((h,i)=>{ bars+=`<rect x="${i*(barW+gap)}" y="${maxH-h}" width="${barW}" height="${h}" rx="2" fill="${i===idx?BR:CREAM2}"/>`; });
@@ -1105,11 +1105,11 @@ const ClientDetailPage = {
             : diff<0 ? `<span style="color:#C0392B;font-weight:800;font-size:16px;white-space:nowrap;">▼ ${Math.abs(diff)}</span>`
             : `<span style="color:${G500};font-size:14px;">-</span>`;
         }
-        // 행 간격 15px, flex:1로 확장하여 페이지를 채움 (req1,req3)
-        return `<div style="display:grid;grid-template-columns:${colTemplate};align-items:center;padding:15px 0;border-bottom:1px solid ${CREAM2};flex:1;">
-          <div style="grid-column:1;font-size:14px;font-weight:700;color:${INK};">${met.label}</div>
+        // 차트 배경이 상하 여백 없이 행 전체를 채우도록 — 패딩은 라벨/변화 칸에만 적용 (req3)
+        return `<div style="display:grid;grid-template-columns:${colTemplate};align-items:stretch;border-bottom:1px solid ${CREAM2};flex:1;">
+          <div style="grid-column:1;font-size:14px;font-weight:700;color:${INK};padding:15px 0;display:flex;align-items:center;">${met.label}</div>
           <div style="grid-column:2 / span ${n};">${chartHtml}</div>
-          <div style="grid-column:${n+2};text-align:center;">${changeHtml}</div>
+          <div style="grid-column:${n+2};text-align:center;padding:15px 0;display:flex;align-items:center;justify-content:center;">${changeHtml}</div>
         </div>`;
       }).join('');
 
@@ -1192,11 +1192,11 @@ const ClientDetailPage = {
 
     return categoryBox(sectionHead('🧠','인지 기능 평가'), `
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;column-gap:80px;row-gap:40px;">
-        ${metricCellStacked('인지 점수', chartWithPillRow(cogChart, cogGrade), legendRowStacked(cogLegendItems(cogGrade)))}
-        ${metricCellStacked('우울 점수', chartWithPillRow(depChart, depGrade, `<div style="font-size:10.5px;color:${G500};">만점 60점</div>`), legendRowStacked(depLegendItems(depGrade)))}
-        ${metricCellStacked('치매 위험요인',
-          `<div style="display:flex;align-items:center;gap:14px;"><div><span style="font-size:26px;font-weight:800;color:${valColor(demGrade)};">${demP!=null?demP.toFixed(1):'-'}</span><span style="font-size:11.5px;color:${G500};">%</span></div>${demGrade?statusPill(demGrade):''}</div>`,
-          legendRowStacked(demLegendItems(demGrade)))}
+        ${metricCell('인지 점수', chartWithPill(cogChart, cogGrade), legendCol(cogLegendItems(cogGrade)))}
+        ${metricCell('우울 점수', chartWithPill(`<div style="display:flex;flex-direction:column;align-items:center;gap:4px;">${depChart}<div style="font-size:10.5px;color:${G500};">만점 60점</div></div>`, depGrade), legendCol(depLegendItems(depGrade)))}
+        ${metricCell('치매 위험요인',
+          `<div style="text-align:center;"><div><span style="font-size:26px;font-weight:800;color:${valColor(demGrade)};">${demP!=null?demP.toFixed(1):'-'}</span><span style="font-size:11.5px;color:${G500};">%</span></div>${demGrade?`<div style="margin-top:5px;">${statusPill(demGrade)}</div>`:''}</div>`,
+          legendCol(demLegendItems(demGrade)))}
         ${metricCell('동연령대 상위 분포도', percentileMini(master.agePercentile), null)}
         <div style="grid-column:span 2;">${pairBlock}</div>
       </div>`);
@@ -1213,7 +1213,7 @@ const ClientDetailPage = {
       <div style="margin-bottom:5px;white-space:nowrap;display:flex;align-items:center;justify-content:flex-end;gap:7px;"><span style="font-size:21px;font-weight:800;color:${valColor(cardioGrade)};">${master.cardioScore??'-'}</span><span style="font-size:10.5px;color:${G500};">ml/kg/min</span>${statusPill(cardioGrade)}</div>
       ${AssessVisuals.cardioBar(master.cardioScore, c.gender, c.birthDate)}
       ${AssessVisuals.cardioBarLabels(master.cardioScore, c.gender, c.birthDate)}
-      <div style="margin-top:10px;">${legendRowStacked(cardioLegendItems(master.cardioScore, c.gender, c.birthDate))}</div>
+      <div style="margin-top:8px;">${legendGrid(cardioLegendItems(master.cardioScore, c.gender, c.birthDate), 3)}</div>
     </div>`;
 
     const bodyMoveCell = `<div style="display:flex;flex-direction:column;gap:6px;">
@@ -1247,9 +1247,13 @@ const ClientDetailPage = {
     </div>`;
     const stressCell = `<div style="display:flex;flex-direction:column;gap:6px;">
       <div style="font-size:14px;font-weight:700;color:${INK};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">스트레스 점수</div>
-      <div style="margin-bottom:5px;white-space:nowrap;display:flex;align-items:center;justify-content:flex-end;gap:7px;"><span style="font-size:21px;font-weight:800;color:${valColor(stressGrade)};">${master.stressScore??'-'}</span><span style="font-size:10.5px;color:${G500};">점</span>${statusPill(stressGrade)}</div>
-      ${AssessVisuals.stressBar(master.stressScore)}
-      <div style="margin-top:10px;">${legendRowStacked(stressLegendItems(master.stressScore))}</div>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:0 10px;">
+        <div style="flex:1;min-width:0;">
+          <div style="margin-bottom:5px;white-space:nowrap;display:flex;align-items:center;gap:7px;"><span style="font-size:21px;font-weight:800;color:${valColor(stressGrade)};">${master.stressScore??'-'}</span><span style="font-size:10.5px;color:${G500};">점</span>${statusPill(stressGrade)}</div>
+          ${AssessVisuals.stressBar(master.stressScore)}
+        </div>
+        <div style="width:112px;flex-shrink:0;">${legendCol(stressLegendItems(master.stressScore))}</div>
+      </div>
     </div>`;
     return categoryBox(sectionHead('💊','대사 · 생활 평가'), `
       <div style="display:grid;grid-template-columns:1fr 1fr;column-gap:80px;row-gap:40px;">
