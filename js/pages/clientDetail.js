@@ -894,23 +894,59 @@ const ClientDetailPage = {
       </div>`;
     };
 
-    // 지표 표시 블록(박스 없음) — 라벨 → 상태값 → 시각화(값 내장) → 설명, 전부 가운데 정렬
+    // 지표 표시 블록(박스 없음) — 라벨(좌측 정렬) → 상태값 → 시각화(값 내장) → 설명
     const metric = (opts) => {
       const { label, grade, visual, caption } = opts;
       return `<div style="padding:6px 6px;display:flex;flex-direction:column;align-items:center;gap:7px;">
-        <div style="font-size:12px;font-weight:700;letter-spacing:0.04em;color:${G500};text-transform:uppercase;text-align:center;">${label}</div>
+        <div style="width:100%;font-size:12px;font-weight:700;letter-spacing:0.04em;color:${G500};text-transform:uppercase;text-align:left;">${label}</div>
         ${grade?`<div>${statusPill(grade)}</div>`:''}
         ${visual?`<div style="width:100%;display:flex;justify-content:center;">${visual}</div>`:`<div style="font-size:11px;color:${G500};">데이터 없음</div>`}
         ${caption?`<div style="font-size:8.5px;color:${G500};line-height:1.5;text-align:center;max-width:190px;">${caption}</div>`:''}
       </div>`;
     };
 
-    // 섹션 제목(박스 없음, 가운데 정렬 + 하단 포인트 라인)
+    // 섹션 제목(박스 없음, 좌측 정렬 + 우측으로 뻗는 구분선 = 카테고리 레이아웃 선)
     const sectionHead = (icon, title) => `
-      <div style="text-align:center;margin:18px 0 14px;">
-        <div style="font-size:13.5px;font-weight:800;color:${INK};letter-spacing:0.02em;">${icon} ${title}</div>
-        <div style="width:30px;height:2px;background:${BR};margin:6px auto 0;"></div>
+      <div style="display:flex;align-items:center;gap:8px;margin:18px 0 14px;">
+        <div style="font-size:15.5px;font-weight:800;color:${INK};letter-spacing:0.02em;white-space:nowrap;">${icon} ${title}</div>
+        <div style="flex:1;height:1px;background:${LINE};"></div>
       </div>`;
+
+    // 인바디 "골격근·지방분석" 스타일 가로형 바 — 라벨(좌) → 구간라벨+막대(중앙) → 값(우, 1회만 표시)
+    // zoneLabels: [{label,to}] 누적 임계값(없으면 구간 라벨 없이 단색 막대만 표시)
+    const inbodyRow = (label, score, max, zoneLabels, color) => {
+      max = max || 100;
+      const pct = score!=null ? Math.min(100,Math.max(0,(Number(score)/max)*100)) : null;
+      const zonesHtml = zoneLabels ? `<div style="display:flex;margin-bottom:3px;">
+        ${zoneLabels.map((z,i)=>{
+          const prevTo = i===0 ? 0 : zoneLabels[i-1].to;
+          const w = ((z.to-prevTo)/max)*100;
+          return `<div style="width:${w}%;text-align:center;font-size:8px;color:${G500};font-weight:700;">${z.label}</div>`;
+        }).join('')}
+      </div>` : '';
+      return `<div style="display:flex;align-items:center;gap:14px;padding:8px 0;">
+        <div style="width:112px;flex-shrink:0;">
+          <div style="font-size:12px;font-weight:700;color:${G500};text-transform:uppercase;letter-spacing:0.03em;">${label}</div>
+        </div>
+        <div style="flex:1;">
+          ${zonesHtml}
+          <div style="position:relative;height:8px;background:${CREAM2};border-radius:4px;">
+            <div style="position:absolute;left:0;top:0;bottom:0;width:${pct||0}%;background:${color};border-radius:4px;"></div>
+            ${pct!=null?`<div style="position:absolute;left:calc(${pct}% - 4px);top:-3px;width:8px;height:8px;border-radius:50%;background:${INK};border:2px solid #fff;"></div>`:''}
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:2px;">
+            <span style="font-size:7.5px;color:${G300};">0</span>
+            <span style="font-size:7.5px;color:${G300};">${max}</span>
+          </div>
+        </div>
+        <div style="width:54px;text-align:right;flex-shrink:0;">
+          <span style="font-size:18px;font-weight:800;color:${INK};">${score!=null?score:'-'}</span><span style="font-size:9px;color:${G500};">점</span>
+        </div>
+      </div>`;
+    };
+    // FRA(신경계/균형/감각) 세부 평가항목 — 차트 아래 한 줄, 쉼표로 구분
+    const itemLine = (items) => `<div style="padding-left:126px;font-size:9px;color:${G500};margin-top:-2px;margin-bottom:4px;">${(items||[]).map(x=>x.label).join(', ')}</div>`;
+
 
     const pageHeader = (titleMain, pageIdx, pageTotal) => `
       <div style="display:flex;align-items:flex-end;justify-content:space-between;padding-bottom:10px;margin-bottom:2px;border-bottom:2px solid ${BR};">
@@ -962,7 +998,7 @@ const ClientDetailPage = {
       ];
       if (!sorted.length) return `<div style="text-align:center;color:${G500};font-size:12px;padding:26px 0;">측정 데이터가 없습니다.</div>`;
 
-      const roundHeadCells = sorted.map(m=>`<th style="text-align:center;padding:9px 6px;font-size:10.5px;color:${G500};font-weight:700;">${m.round}회</th>`).join('');
+      const roundHeadCells = sorted.map(m=>`<th style="text-align:center;padding:9px 6px;font-size:10.5px;color:${G500};font-weight:700;">${weekEvalLabel(m.round)}</th>`).join('');
       const bodyRows = metrics.map(met=>{
         const cells = sorted.map(m=>{
           const v = m[met.key];
@@ -981,7 +1017,6 @@ const ClientDetailPage = {
           <td style="text-align:center;padding:9px 6px;border-bottom:1px solid ${CREAM2};">${changeCell}</td>
         </tr>`;
       }).join('');
-      const footCells = sorted.map(m=>`<td style="text-align:center;padding:8px 6px;font-size:10px;color:${G500};">${weekEvalLabel(m.round)}</td>`).join('');
 
       return `
       <table style="width:100%;border-collapse:collapse;">
@@ -993,13 +1028,6 @@ const ClientDetailPage = {
           </tr>
         </thead>
         <tbody>${bodyRows}</tbody>
-        <tfoot>
-          <tr>
-            <td style="text-align:left;padding:8px 10px;font-size:10px;color:${G500};font-weight:700;">측정 회차</td>
-            ${footCells}
-            <td></td>
-          </tr>
-        </tfoot>
       </table>`;
     };
 
@@ -1075,12 +1103,12 @@ const ClientDetailPage = {
       ${metric({ label:'우울 점수', grade:depGrade,
         visual: `<div style="display:flex;justify-content:center;">${AssessVisuals.conicDonut(master.depression, depGrade?.color||'#7B1FA2', 60, 78, 10)}</div>`,
         caption:'0~20 경도 · 21~24 중등도 · 25~60 높은 수준' })}
-      ${metric({ label:'시공간능력', grade:spatialGrade,
-        visual: inbodyBar(master.spatial, 100, 67, AssessVisuals.subGradeColor(master.spatial)),
-        caption:'0~33 주의 · 34~66 관심 · 67~100 양호' })}
-      ${metric({ label:'기억력', grade:memoryGrade,
-        visual: inbodyBar(master.memory, 100, 67, AssessVisuals.subGradeColor(master.memory)),
-        caption:'0~33 주의 · 34~66 관심 · 67~100 양호' })}
+    </div>
+    <div style="margin-top:6px;">
+      ${inbodyRow('시공간능력', master.spatial, 100, [{label:'주의',to:33},{label:'관심',to:66},{label:'양호',to:100}], AssessVisuals.subGradeColor(master.spatial))}
+      ${inbodyRow('기억력', master.memory, 100, [{label:'주의',to:33},{label:'관심',to:66},{label:'양호',to:100}], AssessVisuals.subGradeColor(master.memory))}
+    </div>
+    <div style="max-width:200px;margin:10px auto 0;">
       ${metric({ label:'치매 위험요인', grade:demGrade,
         visual: demP!=null?`<div style="text-align:center;"><span style="font-size:26px;font-weight:800;color:${INK};">${demP.toFixed(1)}</span><span style="font-size:11px;color:${G500};">%</span></div>`:'',
         caption:'0~29 낮음 · 30~59 주의 · 60~100 높음' })}
@@ -1099,7 +1127,7 @@ const ClientDetailPage = {
 
     return `
     ${sectionHead('🏃','움직임 기능 평가')}
-    <div style="display:grid;grid-template-columns:2fr 1fr;column-gap:20px;margin-bottom:20px;">
+    <div style="display:grid;grid-template-columns:2fr 1fr;column-gap:20px;margin-bottom:14px;">
       ${metric({ label:'심폐기능지수 (VO2peak)', grade:cardioGrade,
         visual: master.cardioScore!=null?`
           <div style="max-width:230px;margin:0 auto;">
@@ -1111,14 +1139,13 @@ const ClientDetailPage = {
       ${metric({ label:'신체 움직임 점수', grade:null,
         visual: scoreBarWithValue(master.bodyMovementIndex,100,BR), caption:'움직임 종합 활동량 지표' })}
     </div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);column-gap:20px;row-gap:20px;">
-      ${[
-        {key:'nervousScore', label:'신경계 점수', items:nervItems},
-        {key:'balanceScore', label:'통합 균형능력', items:balItems},
-        {key:'sensoryScore', label:'감각계 점수', items:sensItems}
-      ].map(it => metric({ label:it.label, grade:null,
-        visual: inbodyBar(master[it.key], 100, null, BR),
-        caption: (it.items||[]).map(x=>'• '+x.label).join('<br>') })).join('')}
+    <div>
+      ${inbodyRow('신경계 점수', master.nervousScore, 100, null, BR)}
+      ${itemLine(nervItems)}
+      ${inbodyRow('통합 균형능력', master.balanceScore, 100, null, BR)}
+      ${itemLine(balItems)}
+      ${inbodyRow('감각계 점수', master.sensoryScore, 100, null, BR)}
+      ${itemLine(sensItems)}
     </div>`;
   })()}
 
@@ -1143,9 +1170,9 @@ const ClientDetailPage = {
 
 <!-- ===================== PAGE 3: 기간별 지표 변화 · 전문가 소견 (통합) ===================== -->
 <div style="width:100%;min-height:100vh;height:100vh;padding:32px 38px 22px;box-sizing:border-box;font-family:'Noto Sans KR',sans-serif;display:flex;flex-direction:column;background:#fff;">
-  ${pageHeader('기간별 지표 변화 · 전문가 소견', 3, 3)}
+  ${pageHeader('신체변화 · 전문가 소견', 3, 3)}
 
-  ${sectionHead('📈','기간별 지표 변화')}
+  ${sectionHead('📈','신체변화')}
   <div style="padding:0 2px;">${trendTable()}</div>
 
   ${sectionHead('🗒️','전문가 소견')}
