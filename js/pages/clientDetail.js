@@ -1204,6 +1204,7 @@ const ClientDetailPage = {
     </div>`;
 
     return categoryBox(sectionHead('🧠','인지 기능 평가'), `
+      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;column-gap:0;row-gap:0;">
         ${vDivide(metricCell('인지 점수', chartWithPill(cogChart, cogGrade), legendCol(cogLegendItems(cogGrade))))}
         ${padLeft(vDivide(metricCell('우울 점수', depChartOnly, depRight)))}
@@ -1213,7 +1214,8 @@ const ClientDetailPage = {
         ${hDivideRow()}
         ${vDivide(metricCell('동연령대 상위 분포도', percentileMini(master.agePercentile), null))}
         <div style="grid-column:span 2;">${padLeft(pairBlock)}</div>
-      </div>`);
+      </div>
+      </div>`, 'flex:1;display:flex;flex-direction:column;');
   })()}
 
   ${(() => {
@@ -1244,6 +1246,7 @@ const ClientDetailPage = {
     </div>`;
 
     return categoryBox(sectionHead('🏃','움직임 기능 평가'), `
+      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
       <div style="display:grid;grid-template-columns:1fr 1fr;column-gap:0;">
         <div style="grid-column:1;">
           ${vDivide(`<div style="display:flex;flex-direction:column;">
@@ -1253,7 +1256,8 @@ const ClientDetailPage = {
           </div>`)}
         </div>
         <div style="grid-column:2;">${padLeft(fraCol)}</div>
-      </div>`);
+      </div>
+      </div>`, 'flex:1;display:flex;flex-direction:column;');
   })()}
 
   ${(() => {
@@ -1275,10 +1279,12 @@ const ClientDetailPage = {
       </div>
     </div>`;
     return categoryBox(sectionHead('💊','대사 · 생활 평가'), `
+      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
       <div style="display:grid;grid-template-columns:1fr 1fr;column-gap:0;">
         ${vDivide(stressCell)}
         ${padLeft(bodyCompCell)}
-      </div>`);
+      </div>
+      </div>`, 'flex:1;display:flex;flex-direction:column;');
   })()}
 
   ${pageFooter(2, 4)}
