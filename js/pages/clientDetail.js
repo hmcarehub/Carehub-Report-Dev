@@ -850,12 +850,12 @@ const ClientDetailPage = {
       const fillColor = grade ? grade.color : BR;
       return `<div style="display:flex;align-items:center;gap:12px;padding:6px 0;">
         <div style="width:96px;flex-shrink:0;">
-          <div style="font-size:11px;font-weight:700;color:${G500};text-transform:uppercase;">${label}</div>
+          <div style="font-size:11px;font-weight:700;color:${INK};text-transform:uppercase;">${label}</div>
         </div>
         <div style="flex:1;">
-          <div style="position:relative;height:7px;background:${CREAM2};border-radius:4px;">
-            <div style="position:absolute;left:0;top:0;bottom:0;width:${pct||0}%;background:${fillColor};border-radius:4px;"></div>
-            ${pct!=null?`<div style="position:absolute;left:calc(${pct}% - 3px);top:-2.5px;width:7px;height:7px;border-radius:50%;background:${INK};border:1.5px solid #fff;"></div>`:''}
+          <div style="position:relative;height:11px;background:${CREAM2};border-radius:5px;">
+            <div style="position:absolute;left:0;top:0;bottom:0;width:${pct||0}%;background:${fillColor};border-radius:5px;"></div>
+            ${pct!=null?`<div style="position:absolute;left:calc(${pct}% - 3px);top:-1px;width:7px;height:7px;border-radius:50%;background:${INK};border:1.5px solid #fff;"></div>`:''}
           </div>
         </div>
         <div style="flex-shrink:0;display:flex;align-items:center;gap:6px;">
@@ -864,16 +864,24 @@ const ClientDetailPage = {
         </div>
       </div>`;
     };
-    const itemLine = (items) => `<div style="padding-left:108px;font-size:8.5px;color:${G500};margin:-2px 0 6px;">${(items||[]).map(x=>x.label).join(', ')}</div>`;
+    const itemLine = (items) => `<div style="font-size:8.5px;color:${G500};margin:4px 0 0;">${(items||[]).map(x=>x.label).join(', ')}</div>`;
     // 항목 그룹 타이틀(시공간·기억력 / 인바디 FRA) — 다른 평가항목과 동일한 라벨 스타일
-    const groupTitle = (label) => `<div style="font-size:12px;font-weight:700;color:${G500};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">${label}</div>`;
+    const groupTitle = (label) => `<div style="font-size:12px;font-weight:700;color:${INK};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">${label}</div>`;
 
     const barFull = (score, max, thickness) => {
       const pct = score!=null ? Math.min(100,Math.max(0,(Number(score)/max)*100)) : 0;
-      return `<div style="width:100%;height:${thickness||10}px;background:${CREAM2};border-radius:5px;overflow:hidden;">
-        <div style="height:100%;width:${pct}%;background:${BR};border-radius:5px;"></div>
+      return `<div style="width:100%;height:${thickness||12}px;background:${CREAM2};border-radius:6px;overflow:hidden;">
+        <div style="height:100%;width:${pct}%;background:${BR};border-radius:6px;"></div>
       </div>`;
     };
+
+    // 인바디 FRA 세로형 블록 — 타이틀(상단) → 값 → 막대그래프 → 평가항목(캡션)
+    const fraBlock = (label, score, max, items) => `<div style="display:flex;flex-direction:column;gap:5px;">
+      <div style="font-size:12px;font-weight:700;color:${INK};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">${label}</div>
+      <div style="white-space:nowrap;"><span style="font-size:17px;font-weight:800;color:${INK};">${score!=null?score:'-'}</span><span style="font-size:9px;color:${G500};">점</span></div>
+      ${barFull(score,max,12)}
+      ${itemLine(items)}
+    </div>`;
 
     // ── 범례: ● 상태명(색상) : 범위(#8B8377) — 1열(세로) / 1행(가로) / 그리드(N열) ──
     const legendCol = (items) => `<div style="display:flex;flex-direction:column;gap:5px;">
@@ -946,7 +954,7 @@ const ClientDetailPage = {
 
     // 지표 카드(가로 flex: 시각화(값 내장/등급 배지) 좌측 / 범례 우측 1열)
     const metricCell = (label, visualHtml, legendHtml) => `<div style="display:flex;flex-direction:column;gap:6px;min-width:0;">
-      <div style="font-size:12px;font-weight:700;color:${G500};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">${label}</div>
+      <div style="font-size:12px;font-weight:700;color:${INK};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">${label}</div>
       <div style="display:flex;align-items:center;gap:12px;">
         <div style="flex-shrink:0;">${visualHtml}</div>
         ${legendHtml?`<div style="flex:1;min-width:0;">${legendHtml}</div>`:''}
@@ -993,7 +1001,7 @@ const ClientDetailPage = {
       const idx=Math.min(n-1,Math.max(0,Math.round((100-p)/100*(n-1))));
       let bars='';
       heights.forEach((h,i)=>{ bars+=`<rect x="${i*(barW+gap)}" y="${maxH-h}" width="${barW}" height="${h}" rx="2" fill="${i===idx?BR:CREAM2}"/>`; });
-      return `<div style="display:flex;align-items:center;gap:12px;">
+      return `<div style="display:flex;flex-direction:column;align-items:flex-start;gap:6px;">
         <div style="white-space:nowrap;"><span style="font-size:18px;font-weight:800;color:${INK};">상위 ${p}</span><span style="font-size:9px;color:${G500};">%</span></div>
         <svg width="${totalW}" height="${maxH}" viewBox="0 0 ${totalW} ${maxH}">${bars}</svg>
       </div>`;
@@ -1030,20 +1038,24 @@ const ClientDetailPage = {
           const vals = pts.map(p=>p.v);
           const vMin = Math.min(...vals), vMax = Math.max(...vals);
           const range = (vMax-vMin) || 1;
-          const H=42, padT=15, padB=10;
+          const H=54, padT=18, padB=14;
           const yPos = v => padT + (1-((v-vMin)/range))*(H-padT-padB);
           const xPct = i => n===1 ? 50 : ((i+0.5)/n*100);
-          let pathD='';
+          let pathD='', areaD='';
           pts.forEach((p,idx)=>{ const x=xPct(p.i), y=yPos(p.v); pathD += (idx===0?`M${x},${y}`:`L${x},${y}`); });
+          if (pts.length>1) areaD = pathD + ` L${xPct(pts[pts.length-1].i)},${H-padB} L${xPct(pts[0].i)},${H-padB} Z`;
           let overlay = `<svg width="100%" height="${H}" viewBox="0 0 100 ${H}" preserveAspectRatio="none" style="display:block;position:absolute;left:0;top:0;">
-            ${pts.length>1?`<path d="${pathD}" fill="none" stroke="${BR}" stroke-width="1.6" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/>`:''}
+            <rect x="0" y="0" width="100" height="${H}" fill="${CREAM2}" opacity="0.4"/>
+            <line x1="0" y1="${H-padB}" x2="100" y2="${H-padB}" stroke="${G300}" stroke-width="1" stroke-dasharray="2,2" vector-effect="non-scaling-stroke"/>
+            ${pts.length>1?`<path d="${areaD}" fill="${BR}18" stroke="none"/>`:''}
+            ${pts.length>1?`<path d="${pathD}" fill="none" stroke="${BR}" stroke-width="1.8" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/>`:''}
           </svg>`;
           pts.forEach(p=>{
             const xp = xPct(p.i).toFixed(2);
             const yp = yPos(p.v);
             const ypPct = (yp/H*100).toFixed(2);
             overlay += `<div style="position:absolute;left:${xp}%;top:${ypPct}%;width:5px;height:5px;border-radius:50%;background:${BR};border:1px solid #fff;transform:translate(-50%,-50%);"></div>`;
-            overlay += `<span style="position:absolute;left:${xp}%;top:${ypPct}%;transform:translate(-50%,calc(-100% - 3px));font-size:8.5px;font-weight:700;color:${INK};white-space:nowrap;">${p.v}</span>`;
+            overlay += `<span style="position:absolute;left:${xp}%;top:${ypPct}%;transform:translate(-50%,calc(-100% - 3px));font-size:9px;font-weight:700;color:${INK};white-space:nowrap;">${p.v}</span>`;
           });
           chartHtml = `<div style="position:relative;height:${H}px;">${overlay}</div>`;
 
@@ -1054,8 +1066,8 @@ const ClientDetailPage = {
             : diff<0 ? `<span style="color:#C0392B;font-weight:800;font-size:10.5px;white-space:nowrap;">▼ ${Math.abs(diff)}</span>`
             : `<span style="color:${G500};font-size:10.5px;">변화없음</span>`;
         }
-        return `<div style="display:grid;grid-template-columns:${colTemplate};align-items:center;padding:3px 0;border-bottom:1px solid ${CREAM2};">
-          <div style="grid-column:1;font-size:11.5px;font-weight:700;color:${INK};">${met.label}</div>
+        return `<div style="display:grid;grid-template-columns:${colTemplate};align-items:center;padding:8px 0;border-bottom:1px solid ${CREAM2};">
+          <div style="grid-column:1;font-size:12px;font-weight:700;color:${INK};">${met.label}</div>
           <div style="grid-column:2 / span ${n};">${chartHtml}</div>
           <div style="grid-column:${n+2};text-align:center;">${changeHtml}</div>
         </div>`;
@@ -1122,7 +1134,7 @@ const ClientDetailPage = {
 
 <!-- ===================== PAGE 2: 평가 결과 ===================== -->
 <div style="width:100%;min-height:100vh;height:100vh;padding:30px 36px 20px;box-sizing:border-box;page-break-after:always;font-family:'Noto Sans KR',sans-serif;display:flex;flex-direction:column;background:#fff;">
-  ${pageHeader(`${weekEvalLabel(master.round)} 평가 결과`, 2, 3)}
+  ${pageHeader(`${weekEvalLabel(master.round)} 평가 결과`, 2, 4)}
 
   ${(() => {
     const cogGrade     = mapCogGrade(AssessVisuals.calcCogIndex(master.cogScore));
@@ -1147,7 +1159,7 @@ const ClientDetailPage = {
     </div>`;
 
     return categoryBox(sectionHead('🧠','인지 기능 평가'), `
-      <div style="display:grid;grid-template-columns:1.5fr 1fr 1fr;column-gap:26px;row-gap:24px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;column-gap:30px;row-gap:28px;">
         ${metricCell('인지 점수', chartWithPill(cogChart, cogGrade), legendCol(cogLegendItems(cogGrade)))}
         ${metricCell('우울 점수', chartWithPill(depChart, depGrade), legendCol(depLegendItems(depGrade)))}
         ${metricCell('치매 위험요인',
@@ -1165,31 +1177,28 @@ const ClientDetailPage = {
       : null;
 
     const cardioCell = `<div style="display:flex;flex-direction:column;gap:6px;">
-      <div style="font-size:12px;font-weight:700;color:${G500};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">심폐기능지수 (VO2peak)</div>
-      <div style="margin-bottom:5px;white-space:nowrap;display:flex;align-items:center;gap:7px;"><span style="font-size:19px;font-weight:800;color:${valColor(cardioGrade)};">${master.cardioScore??'-'}</span><span style="font-size:9px;color:${G500};">ml/kg/min</span>${statusPill(cardioGrade)}</div>
+      <div style="font-size:12px;font-weight:700;color:${INK};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">심폐기능지수 (VO2peak)</div>
+      <div style="margin-bottom:5px;white-space:nowrap;display:flex;align-items:center;justify-content:flex-end;gap:7px;"><span style="font-size:19px;font-weight:800;color:${valColor(cardioGrade)};">${master.cardioScore??'-'}</span><span style="font-size:9px;color:${G500};">ml/kg/min</span>${statusPill(cardioGrade)}</div>
       ${AssessVisuals.cardioBar(master.cardioScore, c.gender, c.birthDate)}
       ${AssessVisuals.cardioBarLabels(master.cardioScore, c.gender, c.birthDate)}
       <div style="margin-top:8px;">${legendGrid(cardioLegendItems(master.cardioScore, c.gender, c.birthDate), 3)}</div>
     </div>`;
 
     const bodyMoveCell = `<div style="display:flex;flex-direction:column;gap:6px;">
-      <div style="font-size:12px;font-weight:700;color:${G500};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">신체 움직임 점수</div>
-      <div style="white-space:nowrap;"><span style="font-size:19px;font-weight:800;color:${INK};">${master.bodyMovementIndex??'-'}</span><span style="font-size:9px;color:${G500};">점 / 100점</span></div>
-      ${barFull(master.bodyMovementIndex,100,8)}
+      <div style="font-size:12px;font-weight:700;color:${INK};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">신체 움직임 점수</div>
+      <div style="white-space:nowrap;text-align:right;"><span style="font-size:19px;font-weight:800;color:${INK};">${master.bodyMovementIndex??'-'}</span><span style="font-size:9px;color:${G500};">점 / 100점</span></div>
+      ${barFull(master.bodyMovementIndex,100,12)}
     </div>`;
 
-    const fraCol = `<div style="display:flex;flex-direction:column;justify-content:center;height:100%;gap:6px;">
+    const fraCol = `<div style="display:flex;flex-direction:column;gap:16px;">
       ${groupTitle('인바디 FRA')}
-      ${inbodyRow('신경계 점수', master.nervousScore, 100, null, '점')}
-      ${itemLine(nervItems)}
-      ${inbodyRow('통합 균형능력', master.balanceScore, 100, null, '점')}
-      ${itemLine(balItems)}
-      ${inbodyRow('감각계 점수', master.sensoryScore, 100, null, '점')}
-      ${itemLine(sensItems)}
+      ${fraBlock('신경계 점수', master.nervousScore, 100, nervItems)}
+      ${fraBlock('통합 균형능력', master.balanceScore, 100, balItems)}
+      ${fraBlock('감각계 점수', master.sensoryScore, 100, sensItems)}
     </div>`;
 
     return categoryBox(sectionHead('🏃','움직임 기능 평가'), `
-      <div style="display:grid;grid-template-columns:1fr 2fr;grid-template-rows:auto auto;column-gap:28px;row-gap:22px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto;column-gap:30px;row-gap:26px;">
         <div style="grid-column:1;grid-row:1;">${cardioCell}</div>
         <div style="grid-column:1;grid-row:2;">${bodyMoveCell}</div>
         <div style="grid-column:2;grid-row:1 / span 2;">${fraCol}</div>
@@ -1199,13 +1208,13 @@ const ClientDetailPage = {
   ${(() => {
     const stressGrade = AssessVisuals.calcStressIndex(master.stressScore);
     const bodyCompCell = `<div style="display:flex;flex-direction:column;gap:6px;">
-      <div style="font-size:12px;font-weight:700;color:${G500};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">체성분 종합 점수</div>
-      <div style="white-space:nowrap;"><span style="font-size:19px;font-weight:800;color:${INK};">${master.bodyCompScore??'-'}</span><span style="font-size:9px;color:${G500};">점 / 100점</span></div>
-      ${barFull(master.bodyCompScore,100,8)}
+      <div style="font-size:12px;font-weight:700;color:${INK};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">체성분 종합 점수</div>
+      <div style="white-space:nowrap;text-align:right;"><span style="font-size:19px;font-weight:800;color:${INK};">${master.bodyCompScore??'-'}</span><span style="font-size:9px;color:${G500};">점 / 100점</span></div>
+      ${barFull(master.bodyCompScore,100,12)}
       <div style="font-size:8.5px;color:${G500};">근육량이 많을 경우 100점을 초과할 수 있습니다.</div>
     </div>`;
     const stressCell = `<div style="display:flex;flex-direction:column;gap:6px;">
-      <div style="font-size:12px;font-weight:700;color:${G500};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">스트레스 점수</div>
+      <div style="font-size:12px;font-weight:700;color:${INK};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">스트레스 점수</div>
       <div style="display:flex;align-items:flex-start;gap:16px;">
         <div style="flex:1;min-width:0;">
           <div style="margin-bottom:5px;white-space:nowrap;display:flex;align-items:center;gap:7px;"><span style="font-size:19px;font-weight:800;color:${valColor(stressGrade)};">${master.stressScore??'-'}</span><span style="font-size:9px;color:${G500};">점</span>${statusPill(stressGrade)}</div>
@@ -1215,7 +1224,7 @@ const ClientDetailPage = {
       </div>
     </div>`;
     return categoryBox(sectionHead('💊','대사 · 생활 평가'), `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:28px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:32px;">
         ${bodyCompCell}
         ${stressCell}
       </div>`);
@@ -1224,13 +1233,20 @@ const ClientDetailPage = {
   ${pageFooter()}
 </div>
 
-<!-- ===================== PAGE 3: 기간별 지표 변화 · 전문가 소견 (통합) ===================== -->
-<div style="width:100%;min-height:100vh;height:100vh;padding:30px 36px 20px;box-sizing:border-box;font-family:'Noto Sans KR',sans-serif;display:flex;flex-direction:column;background:#fff;">
-  ${pageHeader('기간별 지표 변화 · 전문가 소견', 3, 3)}
+<!-- ===================== PAGE 3: 기간별 지표 변화 ===================== -->
+<div style="width:100%;min-height:100vh;height:100vh;padding:30px 36px 20px;box-sizing:border-box;page-break-after:always;font-family:'Noto Sans KR',sans-serif;display:flex;flex-direction:column;background:#fff;">
+  ${pageHeader('기간별 지표 변화', 3, 4)}
 
   ${sectionHead('📈','기간별 지표 변화')}
   <div>${trendTableChart()}</div>
   <div style="font-size:8.5px;color:${G500};font-style:italic;text-align:left;margin:8px 0 14px;">※ 변화는 초기 평가를 기준으로 산출됩니다.</div>
+
+  ${pageFooter()}
+</div>
+
+<!-- ===================== PAGE 4: 전문가 소견 ===================== -->
+<div style="width:100%;min-height:100vh;height:100vh;padding:30px 36px 20px;box-sizing:border-box;font-family:'Noto Sans KR',sans-serif;display:flex;flex-direction:column;background:#fff;">
+  ${pageHeader('전문가 소견', 4, 4)}
 
   ${categoryBox(sectionHead('🗒️','전문가 소견'), `
     <div style="display:flex;flex-direction:column;flex:1;">
@@ -1239,8 +1255,8 @@ const ClientDetailPage = {
         {icon:'🏃', role:'운동 전문가 소견', text:master.exComment},
         {icon:'💼', role:'케어 매니저 소견', text:master.cmComment}
       ].map((item,i,arr) => `
-        <div style="flex:1;display:flex;flex-direction:column;padding:4px 2px;${i<arr.length-1?`border-bottom:1px solid rgba(155,115,75,0.18);`:''}">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+        <div style="flex:1;display:flex;flex-direction:column;padding:6px 2px;${i<arr.length-1?`border-bottom:1px solid rgba(155,115,75,0.18);`:''}">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
             <span style="font-size:12px;">${item.icon}</span>
             <span style="font-size:12px;font-weight:800;color:${BR_DARK};letter-spacing:0.02em;">${item.role}</span>
           </div>
