@@ -878,7 +878,7 @@ const ClientDetailPage = {
     // 인바디 FRA 세로형 블록 — 타이틀(상단) → 값 → 막대그래프 → 평가항목(캡션)
     const fraBlock = (label, score, max, items) => `<div style="display:flex;flex-direction:column;gap:5px;">
       <div style="font-size:12px;font-weight:700;color:${INK};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">${label}</div>
-      <div style="white-space:nowrap;"><span style="font-size:17px;font-weight:800;color:${INK};">${score!=null?score:'-'}</span><span style="font-size:9px;color:${G500};">점</span></div>
+      <div style="white-space:nowrap;text-align:right;"><span style="font-size:17px;font-weight:800;color:${INK};">${score!=null?score:'-'}</span><span style="font-size:9px;color:${G500};">점</span></div>
       ${barFull(score,max,12)}
       ${itemLine(items)}
     </div>`;
@@ -955,8 +955,8 @@ const ClientDetailPage = {
     // 지표 카드(가로 flex: 시각화(값 내장/등급 배지) 좌측 / 범례 우측 1열)
     const metricCell = (label, visualHtml, legendHtml) => `<div style="display:flex;flex-direction:column;gap:6px;min-width:0;">
       <div style="font-size:12px;font-weight:700;color:${INK};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">${label}</div>
-      <div style="display:flex;align-items:center;gap:12px;">
-        <div style="flex-shrink:0;">${visualHtml}</div>
+      <div style="display:flex;align-items:center;justify-content:${legendHtml?'space-between':'flex-start'};gap:12px;${legendHtml?'padding:0 10px;':''}">
+        <div style="${legendHtml?'flex-shrink:0;':'flex:1;min-width:0;'}">${visualHtml}</div>
         ${legendHtml?`<div style="flex:1;min-width:0;">${legendHtml}</div>`:''}
       </div>
     </div>`;
@@ -996,13 +996,13 @@ const ClientDetailPage = {
     // 동연령대 상위 분포도(모노크롬 히스토그램, 등급 없음 → 값은 검정) — 값/차트 가로 flex 좌우정렬
     const percentileMini = (p) => {
       if (p==null) return `<div style="font-size:10px;color:${G500};">데이터 없음</div>`;
-      const heights=[10,15,21,27,21,15,10];
-      const barW=8,gap=3,n=heights.length,totalW=n*barW+(n-1)*gap,maxH=Math.max(...heights);
+      const heights=[14,21,29,38,29,21,14];
+      const barW=11,gap=4,n=heights.length,totalW=n*barW+(n-1)*gap,maxH=Math.max(...heights);
       const idx=Math.min(n-1,Math.max(0,Math.round((100-p)/100*(n-1))));
       let bars='';
       heights.forEach((h,i)=>{ bars+=`<rect x="${i*(barW+gap)}" y="${maxH-h}" width="${barW}" height="${h}" rx="2" fill="${i===idx?BR:CREAM2}"/>`; });
-      return `<div style="display:flex;flex-direction:column;align-items:flex-start;gap:6px;">
-        <div style="white-space:nowrap;"><span style="font-size:18px;font-weight:800;color:${INK};">상위 ${p}</span><span style="font-size:9px;color:${G500};">%</span></div>
+      return `<div style="display:flex;align-items:center;justify-content:center;gap:16px;width:100%;">
+        <div style="white-space:nowrap;"><span style="font-size:20px;font-weight:800;color:${INK};">상위 ${p}</span><span style="font-size:9px;color:${G500};">%</span></div>
         <svg width="${totalW}" height="${maxH}" viewBox="0 0 ${totalW} ${maxH}">${bars}</svg>
       </div>`;
     };
@@ -1159,7 +1159,7 @@ const ClientDetailPage = {
     </div>`;
 
     return categoryBox(sectionHead('🧠','인지 기능 평가'), `
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;column-gap:30px;row-gap:28px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;column-gap:50px;row-gap:48px;">
         ${metricCell('인지 점수', chartWithPill(cogChart, cogGrade), legendCol(cogLegendItems(cogGrade)))}
         ${metricCell('우울 점수', chartWithPill(depChart, depGrade), legendCol(depLegendItems(depGrade)))}
         ${metricCell('치매 위험요인',
@@ -1198,7 +1198,7 @@ const ClientDetailPage = {
     </div>`;
 
     return categoryBox(sectionHead('🏃','움직임 기능 평가'), `
-      <div style="display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto;column-gap:30px;row-gap:26px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto;column-gap:50px;row-gap:46px;">
         <div style="grid-column:1;grid-row:1;">${cardioCell}</div>
         <div style="grid-column:1;grid-row:2;">${bodyMoveCell}</div>
         <div style="grid-column:2;grid-row:1 / span 2;">${fraCol}</div>
@@ -1215,7 +1215,7 @@ const ClientDetailPage = {
     </div>`;
     const stressCell = `<div style="display:flex;flex-direction:column;gap:6px;">
       <div style="font-size:12px;font-weight:700;color:${INK};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">스트레스 점수</div>
-      <div style="display:flex;align-items:flex-start;gap:16px;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:0 10px;">
         <div style="flex:1;min-width:0;">
           <div style="margin-bottom:5px;white-space:nowrap;display:flex;align-items:center;gap:7px;"><span style="font-size:19px;font-weight:800;color:${valColor(stressGrade)};">${master.stressScore??'-'}</span><span style="font-size:9px;color:${G500};">점</span>${statusPill(stressGrade)}</div>
           ${AssessVisuals.stressBar(master.stressScore)}
@@ -1224,7 +1224,7 @@ const ClientDetailPage = {
       </div>
     </div>`;
     return categoryBox(sectionHead('💊','대사 · 생활 평가'), `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:32px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:52px;">
         ${bodyCompCell}
         ${stressCell}
       </div>`);
@@ -1234,12 +1234,11 @@ const ClientDetailPage = {
 </div>
 
 <!-- ===================== PAGE 3: 기간별 지표 변화 ===================== -->
-<div style="width:100%;min-height:100vh;height:100vh;padding:30px 36px 20px;box-sizing:border-box;page-break-after:always;font-family:'Noto Sans KR',sans-serif;display:flex;flex-direction:column;background:#fff;">
+<div style="width:100%;min-height:100vh;height:100vh;padding:30px 36px 20px;box-sizing:border-box;page-break-after:always;font-family:'Noto Sans KR',sans-serif;display:flex;flex-direction:column;background:#fff;overflow:hidden;">
   ${pageHeader('기간별 지표 변화', 3, 4)}
 
-  ${sectionHead('📈','기간별 지표 변화')}
-  <div>${trendTableChart()}</div>
-  <div style="font-size:8.5px;color:${G500};font-style:italic;text-align:left;margin:8px 0 14px;">※ 변화는 초기 평가를 기준으로 산출됩니다.</div>
+  <div style="flex:1;display:flex;flex-direction:column;justify-content:space-evenly;min-height:0;">${trendTableChart()}</div>
+  <div style="font-size:8.5px;color:${G500};font-style:italic;text-align:left;margin:8px 0 0;">※ 변화는 초기 평가를 기준으로 산출됩니다.</div>
 
   ${pageFooter()}
 </div>
