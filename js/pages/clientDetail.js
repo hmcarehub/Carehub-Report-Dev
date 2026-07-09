@@ -992,6 +992,11 @@ const ClientDetailPage = {
       ${legendHtml?`<div>${legendHtml}</div>`:''}
     </div>`;
 
+    // ── 평가 항목 사이 연한 회색 구분선 (req1) ──────────────
+    const DIVIDER = '#E2E2E2';
+    const vDivide = (html) => `<div style="border-right:1px solid ${DIVIDER};padding-right:28px;box-sizing:border-box;height:100%;">${html}</div>`;
+    const hDivideRow = () => `<div style="grid-column:1/-1;height:1px;background:${DIVIDER};margin:12px 0;"></div>`;
+
     // 섹션 제목(좌측 정렬 + 우측 구분선)
     const sectionHead = (icon, title) => `
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
@@ -1001,9 +1006,9 @@ const ClientDetailPage = {
 
     // 카테고리 박스: 배경 흰색 + 테두리 #F2ECE2
     const categoryBox = (headHtml, bodyHtml, extraStyle) => `
-      <div style="background:#fff;border:1px solid ${CREAM2};border-radius:10px;padding:14px 18px;margin-bottom:14px;${extraStyle||''}">
+      <div style="background:#fff;border:1px solid ${CREAM2};border-radius:10px;padding:12px 18px;margin-bottom:12px;${extraStyle||''}">
         ${headHtml}
-        <div style="height:10px;"></div>
+        <div style="height:8px;"></div>
         ${bodyHtml}
       </div>`;
 
@@ -1178,6 +1183,12 @@ const ClientDetailPage = {
 
     const cogChart = `<div style="max-width:118px;">${respSvg(AssessVisuals.semiGauge(master.cogScore, cogGrade?.color||'#1565C0', 100))}</div>`;
     const depChart = AssessVisuals.conicDonut(master.depression, depGrade?.color||'#7B1FA2', 60, 90, 12);
+    const depChartOnly = `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;">${depChart}<div style="font-size:10.5px;color:${G500};">만점 60점</div></div>`;
+    // req2: 우울점수 상태값을 범례 위에 배치
+    const depRight = `<div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start;">
+      ${depGrade?statusPill(depGrade):''}
+      ${legendCol(depLegendItems(depGrade))}
+    </div>`;
 
     const pairBlock = `<div style="display:flex;flex-direction:column;gap:8px;">
       ${groupTitle('시공간능력·기억력')}
@@ -1191,13 +1202,14 @@ const ClientDetailPage = {
     </div>`;
 
     return categoryBox(sectionHead('🧠','인지 기능 평가'), `
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;column-gap:80px;row-gap:40px;">
-        ${metricCell('인지 점수', chartWithPill(cogChart, cogGrade), legendCol(cogLegendItems(cogGrade)))}
-        ${metricCell('우울 점수', chartWithPill(`<div style="display:flex;flex-direction:column;align-items:center;gap:4px;">${depChart}<div style="font-size:10.5px;color:${G500};">만점 60점</div></div>`, depGrade), legendCol(depLegendItems(depGrade)))}
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;column-gap:56px;row-gap:24px;">
+        ${vDivide(metricCell('인지 점수', chartWithPill(cogChart, cogGrade), legendCol(cogLegendItems(cogGrade))))}
+        ${vDivide(metricCell('우울 점수', depChartOnly, depRight))}
         ${metricCell('치매 위험요인',
           `<div style="text-align:center;"><div><span style="font-size:26px;font-weight:800;color:${valColor(demGrade)};">${demP!=null?demP.toFixed(1):'-'}</span><span style="font-size:11.5px;color:${G500};">%</span></div>${demGrade?`<div style="margin-top:5px;">${statusPill(demGrade)}</div>`:''}</div>`,
           legendCol(demLegendItems(demGrade)))}
-        ${metricCell('동연령대 상위 분포도', percentileMini(master.agePercentile), null)}
+        ${hDivideRow()}
+        ${vDivide(metricCell('동연령대 상위 분포도', percentileMini(master.agePercentile), null))}
         <div style="grid-column:span 2;">${pairBlock}</div>
       </div>`);
   })()}
@@ -1230,10 +1242,15 @@ const ClientDetailPage = {
     </div>`;
 
     return categoryBox(sectionHead('🏃','움직임 기능 평가'), `
-      <div style="display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto;column-gap:80px;row-gap:40px;">
-        <div style="grid-column:1;grid-row:1;">${cardioCell}</div>
-        <div style="grid-column:1;grid-row:2;">${bodyMoveCell}</div>
-        <div style="grid-column:2;grid-row:1 / span 2;">${fraCol}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;column-gap:56px;">
+        <div style="grid-column:1;">
+          ${vDivide(`<div style="display:flex;flex-direction:column;">
+            ${cardioCell}
+            <div style="height:1px;background:${DIVIDER};margin:20px 0;"></div>
+            ${bodyMoveCell}
+          </div>`)}
+        </div>
+        <div style="grid-column:2;">${fraCol}</div>
       </div>`);
   })()}
 
@@ -1256,9 +1273,9 @@ const ClientDetailPage = {
       </div>
     </div>`;
     return categoryBox(sectionHead('💊','대사 · 생활 평가'), `
-      <div style="display:grid;grid-template-columns:1fr 1fr;column-gap:80px;row-gap:40px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;column-gap:56px;">
+        ${vDivide(stressCell)}
         ${bodyCompCell}
-        ${stressCell}
       </div>`);
   })()}
 
