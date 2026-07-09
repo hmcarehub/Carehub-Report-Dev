@@ -1192,7 +1192,7 @@ const ClientDetailPage = {
       ${legendCol(depLegendItems(depGrade))}
     </div>`;
 
-    const pairBlock = `<div style="display:flex;flex-direction:column;gap:8px;">
+    const pairBlock = `<div style="display:flex;flex-direction:column;gap:14px;">
       ${groupTitle('시공간능력·기억력')}
       <div style="display:flex;justify-content:flex-end;">${legendRow(subLegendItems(spatialGrade||memoryGrade))}</div>
       <div style="display:flex;gap:22px;">
@@ -1211,11 +1211,11 @@ const ClientDetailPage = {
         ${padLeft(metricCell('치매 위험요인',
           `<div style="text-align:center;"><div><span style="font-size:26px;font-weight:800;color:${valColor(demGrade)};">${demP!=null?demP.toFixed(1):'-'}</span><span style="font-size:11.5px;color:${G500};">%</span></div>${demGrade?`<div style="margin-top:5px;">${statusPill(demGrade)}</div>`:''}</div>`,
           legendCol(demLegendItems(demGrade))))}
-        ${hDivideRow()}
+        ${hDivideRow(28)}
         ${vDivide(metricCell('동연령대 상위 분포도', percentileMini(master.agePercentile), null))}
         <div style="grid-column:span 2;">${padLeft(pairBlock)}</div>
       </div>
-      </div>`, 'flex:1;display:flex;flex-direction:column;');
+      </div>`, 'flex:1.8;display:flex;flex-direction:column;');
   })()}
 
   ${(() => {
@@ -1270,7 +1270,7 @@ const ClientDetailPage = {
     </div>`;
     const stressCell = `<div style="display:flex;flex-direction:column;gap:6px;">
       <div style="font-size:14px;font-weight:700;color:${INK};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">스트레스 점수</div>
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:0 10px;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;">
         <div style="flex:1;min-width:0;">
           <div style="margin-bottom:5px;white-space:nowrap;display:flex;align-items:center;gap:7px;"><span style="font-size:21px;font-weight:800;color:${valColor(stressGrade)};">${master.stressScore??'-'}</span><span style="font-size:10.5px;color:${G500};">점</span>${statusPill(stressGrade)}</div>
           ${AssessVisuals.stressBar(master.stressScore)}
