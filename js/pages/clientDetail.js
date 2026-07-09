@@ -826,7 +826,7 @@ const ClientDetailPage = {
       const label = grade.label || grade.l;
       const color = grade.color || grade.c;
       const bg    = grade.bg || grade.b || (color+'1A');
-      return `<span style="display:inline-block;background:${bg};color:${color};font-size:10px;font-weight:700;padding:2px 9px;border-radius:20px;white-space:nowrap;">${label}</span>`;
+      return `<span style="display:inline-block;background:${bg};color:${color};font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:20px;white-space:nowrap;">${label}</span>`;
     };
     // 원형/반원 차트 아래 상태 배지 배치
     const chartWithPill = (chartHtml, grade) => `<div style="display:flex;flex-direction:column;align-items:center;gap:5px;">
@@ -850,7 +850,7 @@ const ClientDetailPage = {
       const fillColor = grade ? grade.color : BR;
       return `<div style="display:flex;align-items:center;gap:12px;padding:6px 0;">
         <div style="width:96px;flex-shrink:0;">
-          <div style="font-size:11px;font-weight:700;color:${INK};text-transform:uppercase;">${label}</div>
+          <div style="font-size:12.5px;font-weight:700;color:${INK};text-transform:uppercase;">${label}</div>
         </div>
         <div style="flex:1;">
           <div style="position:relative;height:11px;background:${CREAM2};border-radius:5px;">
@@ -859,14 +859,14 @@ const ClientDetailPage = {
           </div>
         </div>
         <div style="flex-shrink:0;display:flex;align-items:center;gap:6px;">
-          <span style="font-size:15px;font-weight:800;color:${valColor(grade)};">${score!=null?score:'-'}</span>${unit?`<span style="font-size:9px;color:${G500};">${unit}</span>`:''}
+          <span style="font-size:16.5px;font-weight:800;color:${valColor(grade)};">${score!=null?score:'-'}</span>${unit?`<span style="font-size:10.5px;color:${G500};">${unit}</span>`:''}
           ${grade?statusPill(grade):''}
         </div>
       </div>`;
     };
-    const itemLine = (items) => `<div style="font-size:8.5px;color:${G500};margin:4px 0 0;">${(items||[]).map(x=>x.label).join(', ')}</div>`;
+    const itemLine = (items) => `<div style="font-size:10px;color:${G500};margin:4px 0 0;">${(items||[]).map(x=>x.label).join(', ')}</div>`;
     // 항목 그룹 타이틀(시공간·기억력 / 인바디 FRA) — 다른 평가항목과 동일한 라벨 스타일
-    const groupTitle = (label) => `<div style="font-size:12px;font-weight:700;color:${INK};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">${label}</div>`;
+    const groupTitle = (label) => `<div style="font-size:14px;font-weight:700;color:${INK};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">${label}</div>`;
 
     const barFull = (score, max, thickness) => {
       const pct = score!=null ? Math.min(100,Math.max(0,(Number(score)/max)*100)) : 0;
@@ -877,8 +877,8 @@ const ClientDetailPage = {
 
     // 인바디 FRA 세로형 블록 — 타이틀(상단) → 값 → 막대그래프 → 평가항목(캡션)
     const fraBlock = (label, score, max, items) => `<div style="display:flex;flex-direction:column;gap:5px;">
-      <div style="font-size:12px;font-weight:700;color:${INK};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">${label}</div>
-      <div style="white-space:nowrap;text-align:right;"><span style="font-size:17px;font-weight:800;color:${INK};">${score!=null?score:'-'}</span><span style="font-size:9px;color:${G500};">점</span></div>
+      <div style="font-size:14px;font-weight:700;color:${INK};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">${label}</div>
+      <div style="white-space:nowrap;text-align:right;"><span style="font-size:18.5px;font-weight:800;color:${INK};">${score!=null?score:'-'}</span><span style="font-size:10.5px;color:${G500};">점</span></div>
       ${barFull(score,max,12)}
       ${itemLine(items)}
     </div>`;
@@ -887,22 +887,22 @@ const ClientDetailPage = {
     const legendCol = (items) => `<div style="display:flex;flex-direction:column;gap:5px;">
       ${items.map(it=>`<div style="display:flex;align-items:center;gap:5px;white-space:nowrap;">
         <span style="width:7px;height:7px;border-radius:50%;background:${it.color};flex-shrink:0;"></span>
-        <span style="font-size:9px;font-weight:${it.active?'800':'600'};color:${it.color};">${it.label}</span>
-        <span style="font-size:9px;color:${G500};">: ${it.range}</span>
+        <span style="font-size:10.5px;font-weight:${it.active?'800':'600'};color:${it.color};">${it.label}</span>
+        <span style="font-size:10.5px;color:${G500};">: ${it.range}</span>
       </div>`).join('')}
     </div>`;
     const legendRow = (items) => `<div style="display:flex;gap:16px;flex-wrap:wrap;">
       ${items.map(it=>`<div style="display:flex;align-items:center;gap:5px;white-space:nowrap;">
         <span style="width:7px;height:7px;border-radius:50%;background:${it.color};flex-shrink:0;"></span>
-        <span style="font-size:9px;font-weight:${it.active?'800':'600'};color:${it.color};">${it.label}</span>
-        <span style="font-size:9px;color:${G500};">: ${it.range}</span>
+        <span style="font-size:10.5px;font-weight:${it.active?'800':'600'};color:${it.color};">${it.label}</span>
+        <span style="font-size:10.5px;color:${G500};">: ${it.range}</span>
       </div>`).join('')}
     </div>`;
     const legendGrid = (items, cols) => `<div style="display:grid;grid-template-columns:repeat(${cols||3},1fr);gap:5px 14px;">
       ${items.map(it=>`<div style="display:flex;align-items:center;gap:5px;white-space:nowrap;">
         <span style="width:7px;height:7px;border-radius:50%;background:${it.color};flex-shrink:0;"></span>
-        <span style="font-size:9px;font-weight:${it.active?'800':'600'};color:${it.color};">${it.label}</span>
-        <span style="font-size:9px;color:${G500};">: ${it.range}</span>
+        <span style="font-size:10.5px;font-weight:${it.active?'800':'600'};color:${it.color};">${it.label}</span>
+        <span style="font-size:10.5px;color:${G500};">: ${it.range}</span>
       </div>`).join('')}
     </div>`;
 
@@ -954,7 +954,7 @@ const ClientDetailPage = {
 
     // 지표 카드(가로 flex: 시각화(값 내장/등급 배지) 좌측 / 범례 우측 1열)
     const metricCell = (label, visualHtml, legendHtml) => `<div style="display:flex;flex-direction:column;gap:6px;min-width:0;">
-      <div style="font-size:12px;font-weight:700;color:${INK};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">${label}</div>
+      <div style="font-size:14px;font-weight:700;color:${INK};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">${label}</div>
       <div style="display:flex;align-items:center;justify-content:${legendHtml?'space-between':'flex-start'};gap:12px;${legendHtml?'padding:0 10px;':''}">
         <div style="${legendHtml?'flex-shrink:0;':'flex:1;min-width:0;'}">${visualHtml}</div>
         ${legendHtml?`<div style="flex:1;min-width:0;">${legendHtml}</div>`:''}
@@ -964,7 +964,7 @@ const ClientDetailPage = {
     // 섹션 제목(좌측 정렬 + 우측 구분선)
     const sectionHead = (icon, title) => `
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-        <div style="font-size:15.5px;font-weight:800;color:${INK};letter-spacing:0.02em;white-space:nowrap;">${icon} ${title}</div>
+        <div style="font-size:17px;font-weight:800;color:${INK};letter-spacing:0.02em;white-space:nowrap;">${icon} ${title}</div>
         <div style="flex:1;height:1px;background:rgba(155,115,75,0.3);"></div>
       </div>`;
 
@@ -975,34 +975,36 @@ const ClientDetailPage = {
         ${bodyHtml}
       </div>`;
 
-    const pageHeader = (titleMain, pageIdx, pageTotal) => `
+    const pageHeader = (titleMain) => `
       <div style="display:flex;align-items:flex-end;justify-content:space-between;padding-bottom:10px;margin-bottom:14px;border-bottom:2px solid ${BR};">
         <div>
-          <div style="font-size:9px;font-weight:700;letter-spacing:0.15em;color:${BR};text-transform:uppercase;margin-bottom:3px;">CARE HUB · INTEGRATED HEALTH REPORT</div>
-          <div style="font-size:19px;font-weight:800;color:${INK};">${titleMain}</div>
+          <div style="font-size:10.5px;font-weight:700;letter-spacing:0.15em;color:${BR};text-transform:uppercase;margin-bottom:3px;">CARE HUB · INTEGRATED HEALTH REPORT</div>
+          <div style="font-size:21px;font-weight:800;color:${INK};">${titleMain}</div>
         </div>
         <div style="text-align:right;">
-          <div style="font-size:12px;font-weight:700;color:${INK};">${c.name} <span style="font-weight:400;color:${G500};font-size:10.5px;">${age}세 · ${c.gender||'-'}</span></div>
-          <div style="font-size:9.5px;color:${G500};margin-top:2px;">${todayStr} 발행 · PAGE ${pageIdx}/${pageTotal}</div>
+          <div style="font-size:14px;font-weight:700;color:${INK};">${c.name} <span style="font-weight:400;color:${G500};font-size:12px;">${age}세 · ${c.gender||'-'}</span></div>
+          <div style="font-size:11px;color:${G500};margin-top:2px;">${todayStr} 발행</div>
         </div>
       </div>`;
 
-    const pageFooter = () => `
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;padding-top:8px;border-top:1px solid ${LINE};">
-        <div style="font-size:8.5px;color:${G500};letter-spacing:0.03em;">CARE HUB IN HANAM · 케어허브 하남</div>
-        <div style="font-size:8.5px;color:${G300};">REPORT NO. ${reportNo}</div>
+    // 페이지 번호는 하단 중앙에 표기 (req7)
+    const pageFooter = (pageIdx, pageTotal) => `
+      <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;margin-top:auto;padding-top:8px;border-top:1px solid ${LINE};">
+        <div style="font-size:10px;color:${G500};letter-spacing:0.03em;">CARE HUB IN HANAM · 케어허브 하남</div>
+        <div style="text-align:center;font-size:10.5px;font-weight:700;color:${G500};">${pageIdx} / ${pageTotal}</div>
+        <div style="text-align:right;font-size:10px;color:${G300};">REPORT NO. ${reportNo}</div>
       </div>`;
 
     // 동연령대 상위 분포도(모노크롬 히스토그램, 등급 없음 → 값은 검정) — 값/차트 가로 flex 좌우정렬
     const percentileMini = (p) => {
-      if (p==null) return `<div style="font-size:10px;color:${G500};">데이터 없음</div>`;
+      if (p==null) return `<div style="font-size:11.5px;color:${G500};">데이터 없음</div>`;
       const heights=[14,21,29,38,29,21,14];
       const barW=11,gap=4,n=heights.length,totalW=n*barW+(n-1)*gap,maxH=Math.max(...heights);
       const idx=Math.min(n-1,Math.max(0,Math.round((100-p)/100*(n-1))));
       let bars='';
       heights.forEach((h,i)=>{ bars+=`<rect x="${i*(barW+gap)}" y="${maxH-h}" width="${barW}" height="${h}" rx="2" fill="${i===idx?BR:CREAM2}"/>`; });
       return `<div style="display:flex;align-items:center;justify-content:center;gap:16px;width:100%;">
-        <div style="white-space:nowrap;"><span style="font-size:20px;font-weight:800;color:${INK};">상위 ${p}</span><span style="font-size:9px;color:${G500};">%</span></div>
+        <div style="white-space:nowrap;"><span style="font-size:22px;font-weight:800;color:${INK};">상위 ${p}</span><span style="font-size:10.5px;color:${G500};">%</span></div>
         <svg width="${totalW}" height="${maxH}" viewBox="0 0 ${totalW} ${maxH}">${bars}</svg>
       </div>`;
     };
@@ -1012,7 +1014,7 @@ const ClientDetailPage = {
       const currentRound = master.round;
       const sorted = [...trendMasters].filter(m=>m.round<=currentRound && m.reportGenerated).sort((a,b)=>a.round-b.round);
       const n = sorted.length;
-      if (!n) return `<div style="text-align:center;color:${G500};font-size:12px;padding:20px 0;">측정 데이터가 없습니다.</div>`;
+      if (!n) return `<div style="text-align:center;color:${G500};font-size:14px;padding:20px 0;">측정 데이터가 없습니다.</div>`;
 
       const metrics = [
         {key:'cogScore',     label:'인지점수'},
@@ -1024,21 +1026,23 @@ const ClientDetailPage = {
       ];
       const colTemplate = `140px repeat(${n},1fr) 64px`;
 
+      // 측정회차는 별도 행이 아니라 "평가 항목/변화"와 같은 헤더 행에 표기
+      const weekHeadCells = sorted.map((m,i)=>`<div style="grid-column:${i+2};text-align:center;font-size:11px;font-weight:700;color:${G500};">${weekEvalLabel(m.round)}</div>`).join('');
       const headerRow = `<div style="display:grid;grid-template-columns:${colTemplate};align-items:end;padding-bottom:6px;border-bottom:2px solid ${BR};">
-        <div style="grid-column:1;font-size:10.5px;font-weight:700;color:${G500};letter-spacing:0.04em;text-transform:uppercase;">평가 항목</div>
-        <div style="grid-column:2 / span ${n};"></div>
-        <div style="grid-column:${n+2};font-size:10.5px;font-weight:700;color:${G500};letter-spacing:0.04em;text-transform:uppercase;text-align:center;">변화</div>
+        <div style="grid-column:1;font-size:12px;font-weight:700;color:${G500};letter-spacing:0.04em;text-transform:uppercase;">평가 항목</div>
+        ${weekHeadCells}
+        <div style="grid-column:${n+2};font-size:12px;font-weight:700;color:${G500};letter-spacing:0.04em;text-transform:uppercase;text-align:center;">변화</div>
       </div>`;
 
       const metricRows = metrics.map(met=>{
         const pts = sorted.map((m,i)=>{ const v=Number(m[met.key]); return isNaN(v)?null:{i,v}; }).filter(Boolean);
-        let chartHtml = `<div style="font-size:10px;color:${G500};text-align:center;">-</div>`;
-        let changeHtml = `<span style="color:${G500};font-size:11px;">-</span>`;
+        let chartHtml = `<div style="font-size:11.5px;color:${G500};text-align:center;">-</div>`;
+        let changeHtml = `<span style="color:${G500};font-size:16px;">-</span>`;
         if (pts.length) {
           const vals = pts.map(p=>p.v);
           const vMin = Math.min(...vals), vMax = Math.max(...vals);
           const range = (vMax-vMin) || 1;
-          const H=54, padT=18, padB=14;
+          const H=54, padT=20, padB=14;
           const yPos = v => padT + (1-((v-vMin)/range))*(H-padT-padB);
           const xPct = i => n===1 ? 50 : ((i+0.5)/n*100);
           let pathD='', areaD='';
@@ -1050,37 +1054,34 @@ const ClientDetailPage = {
             ${pts.length>1?`<path d="${areaD}" fill="${BR}18" stroke="none"/>`:''}
             ${pts.length>1?`<path d="${pathD}" fill="none" stroke="${BR}" stroke-width="1.8" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/>`:''}
           </svg>`;
-          pts.forEach(p=>{
+          pts.forEach((p,idx)=>{
             const xp = xPct(p.i).toFixed(2);
             const yp = yPos(p.v);
             const ypPct = (yp/H*100).toFixed(2);
-            overlay += `<div style="position:absolute;left:${xp}%;top:${ypPct}%;width:5px;height:5px;border-radius:50%;background:${BR};border:1px solid #fff;transform:translate(-50%,-50%);"></div>`;
-            overlay += `<span style="position:absolute;left:${xp}%;top:${ypPct}%;transform:translate(-50%,calc(-100% - 3px));font-size:9px;font-weight:700;color:${INK};white-space:nowrap;">${p.v}</span>`;
+            const isLatest = idx===pts.length-1;
+            overlay += `<div style="position:absolute;left:${xp}%;top:${ypPct}%;width:${isLatest?7:5}px;height:${isLatest?7:5}px;border-radius:50%;background:${BR};border:1px solid #fff;transform:translate(-50%,-50%);"></div>`;
+            // 가장 최근 값만 18px로 강조 표기 (req2)
+            overlay += `<span style="position:absolute;left:${xp}%;top:${ypPct}%;transform:translate(-50%,calc(-100% - 3px));font-size:${isLatest?'18px':'11px'};font-weight:800;color:${isLatest?BR_DARK:INK};white-space:nowrap;">${p.v}</span>`;
           });
           chartHtml = `<div style="position:relative;height:${H}px;">${overlay}</div>`;
 
           const first = pts[0].v, last = pts[pts.length-1].v;
           const diff = pts.length>1 ? Math.round((last-first)*10)/10 : null;
-          changeHtml = diff==null ? `<span style="color:${G500};font-size:10.5px;">-</span>`
-            : diff>0 ? `<span style="color:#1D5FC4;font-weight:800;font-size:10.5px;white-space:nowrap;">▲ ${Math.abs(diff)}</span>`
-            : diff<0 ? `<span style="color:#C0392B;font-weight:800;font-size:10.5px;white-space:nowrap;">▼ ${Math.abs(diff)}</span>`
-            : `<span style="color:${G500};font-size:10.5px;">변화없음</span>`;
+          // 값 변화 배지는 16px로 표기 (req2)
+          changeHtml = diff==null ? `<span style="color:${G500};font-size:16px;">-</span>`
+            : diff>0 ? `<span style="color:#1D5FC4;font-weight:800;font-size:16px;white-space:nowrap;">▲ ${Math.abs(diff)}</span>`
+            : diff<0 ? `<span style="color:#C0392B;font-weight:800;font-size:16px;white-space:nowrap;">▼ ${Math.abs(diff)}</span>`
+            : `<span style="color:${G500};font-size:14px;">변화없음</span>`;
         }
-        return `<div style="display:grid;grid-template-columns:${colTemplate};align-items:center;padding:8px 0;border-bottom:1px solid ${CREAM2};">
-          <div style="grid-column:1;font-size:12px;font-weight:700;color:${INK};">${met.label}</div>
+        // 행 간격 15px (req3)
+        return `<div style="display:grid;grid-template-columns:${colTemplate};align-items:center;padding:15px 0;border-bottom:1px solid ${CREAM2};">
+          <div style="grid-column:1;font-size:14px;font-weight:700;color:${INK};">${met.label}</div>
           <div style="grid-column:2 / span ${n};">${chartHtml}</div>
           <div style="grid-column:${n+2};text-align:center;">${changeHtml}</div>
         </div>`;
       }).join('');
 
-      const weekCells = sorted.map((m,i)=>`<div style="grid-column:${i+2};text-align:center;font-size:9.5px;color:${G500};">${weekEvalLabel(m.round)}</div>`).join('');
-      const footerRow = `<div style="display:grid;grid-template-columns:${colTemplate};align-items:center;padding-top:5px;">
-        <div style="grid-column:1;font-size:10px;font-weight:700;color:${G500};">측정 회차</div>
-        ${weekCells}
-        <div style="grid-column:${n+2};"></div>
-      </div>`;
-
-      return `${headerRow}${metricRows}${footerRow}`;
+      return `${headerRow}${metricRows}`;
     };
 
     return `
@@ -1089,25 +1090,25 @@ const ClientDetailPage = {
 
   <div>
     <div style="display:flex;justify-content:flex-end;margin-bottom:34px;">
-      <span style="font-size:9px;font-weight:700;letter-spacing:0.1em;color:${G500};border:1px solid ${LINE};padding:4px 10px;border-radius:20px;">CONFIDENTIAL · 개인 건강정보</span>
+      <span style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;color:${G500};border:1px solid ${LINE};padding:4px 10px;border-radius:20px;">CONFIDENTIAL · 개인 건강정보</span>
     </div>
     <div style="text-align:center;">
-      ${logoSrc?`<img src="${logoSrc}" alt="Care Hub" style="max-width:170px;height:auto;object-fit:contain;">`:`<div style="font-size:17px;font-weight:800;letter-spacing:0.15em;color:${BR};">CARE HUB IN HANAM</div>`}
+      ${logoSrc?`<img src="${logoSrc}" alt="Care Hub" style="max-width:170px;height:auto;object-fit:contain;">`:`<div style="font-size:18.5px;font-weight:800;letter-spacing:0.15em;color:${BR};">CARE HUB IN HANAM</div>`}
     </div>
   </div>
 
   <div style="text-align:center;">
-    <div style="font-size:11px;letter-spacing:0.3em;color:${BR};font-weight:700;margin-bottom:18px;text-transform:uppercase;">Integrated Health Report</div>
+    <div style="font-size:12.5px;letter-spacing:0.3em;color:${BR};font-weight:700;margin-bottom:18px;text-transform:uppercase;">Integrated Health Report</div>
     <div style="position:relative;display:inline-block;padding:12px 36px;">
       <span style="position:absolute;top:0;left:0;width:14px;height:14px;border-top:2px solid ${BR};border-left:2px solid ${BR};"></span>
       <span style="position:absolute;top:0;right:0;width:14px;height:14px;border-top:2px solid ${BR};border-right:2px solid ${BR};"></span>
       <span style="position:absolute;bottom:0;left:0;width:14px;height:14px;border-bottom:2px solid ${BR};border-left:2px solid ${BR};"></span>
       <span style="position:absolute;bottom:0;right:0;width:14px;height:14px;border-bottom:2px solid ${BR};border-right:2px solid ${BR};"></span>
-      <div style="font-size:42px;font-weight:800;color:${INK};letter-spacing:-0.01em;">통합 건강 리포트</div>
+      <div style="font-size:44px;font-weight:800;color:${INK};letter-spacing:-0.01em;">통합 건강 리포트</div>
     </div>
     <div style="width:44px;height:2px;background:${BR};margin:24px auto 20px;"></div>
-    <div style="font-size:23px;font-weight:700;color:${INK};">${c.name} 님</div>
-    <div style="font-size:12px;color:${G500};margin-top:8px;">귀하의 건강 상태를 종합적으로 안내해 드립니다.</div>
+    <div style="font-size:25px;font-weight:700;color:${INK};">${c.name} 님</div>
+    <div style="font-size:14px;color:${G500};margin-top:8px;">귀하의 건강 상태를 종합적으로 안내해 드립니다.</div>
   </div>
 
   <div>
@@ -1119,22 +1120,23 @@ const ClientDetailPage = {
           {l:'입소 등록일',v:c.firstVisit||'-'},
           {l:'리포트 생성일',v:todayStr},
         ].map((f,i)=>`<div style="padding:0 18px;text-align:center;${i>0?`border-left:1px solid ${LINE};`:''}">
-          <div style="font-size:9px;font-weight:700;letter-spacing:0.06em;color:${BR};text-transform:uppercase;margin-bottom:5px;">${f.l}</div>
-          <div style="font-size:14px;font-weight:700;color:${INK};">${f.v}</div>
+          <div style="font-size:10.5px;font-weight:700;letter-spacing:0.06em;color:${BR};text-transform:uppercase;margin-bottom:5px;">${f.l}</div>
+          <div style="font-size:15.5px;font-weight:700;color:${INK};">${f.v}</div>
         </div>`).join('')}
       </div>
     </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:24px;">
-      <div style="font-size:10px;color:${G500};letter-spacing:0.03em;">CARE HUB IN HANAM · 케어허브 하남</div>
-      <div style="font-size:10px;color:${G300};">REPORT NO. ${reportNo}</div>
+    <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;margin-top:24px;">
+      <div style="font-size:11.5px;color:${G500};letter-spacing:0.03em;">CARE HUB IN HANAM · 케어허브 하남</div>
+      <div style="text-align:center;font-size:10.5px;font-weight:700;color:${G500};">1 / 4</div>
+      <div style="text-align:right;font-size:11.5px;color:${G300};">REPORT NO. ${reportNo}</div>
     </div>
-    <div style="font-size:8.5px;color:${G300};margin-top:6px;text-align:center;">본 리포트는 CareHub 통합 건강관리 시스템을 통해 자동 생성되었습니다.</div>
+    <div style="font-size:10px;color:${G300};margin-top:6px;text-align:center;">본 리포트는 CareHub 통합 건강관리 시스템을 통해 자동 생성되었습니다.</div>
   </div>
 </div>
 
 <!-- ===================== PAGE 2: 평가 결과 ===================== -->
-<div style="width:100%;min-height:100vh;height:100vh;padding:30px 36px 20px;box-sizing:border-box;page-break-after:always;font-family:'Noto Sans KR',sans-serif;display:flex;flex-direction:column;background:#fff;">
-  ${pageHeader(`${weekEvalLabel(master.round)} 평가 결과`, 2, 4)}
+<div style="width:100%;min-height:100vh;padding:30px 36px 20px;box-sizing:border-box;page-break-after:always;font-family:'Noto Sans KR',sans-serif;display:flex;flex-direction:column;background:#fff;">
+  ${pageHeader(`${weekEvalLabel(master.round)} 평가 결과`)}
 
   ${(() => {
     const cogGrade     = mapCogGrade(AssessVisuals.calcCogIndex(master.cogScore));
@@ -1163,7 +1165,7 @@ const ClientDetailPage = {
         ${metricCell('인지 점수', chartWithPill(cogChart, cogGrade), legendCol(cogLegendItems(cogGrade)))}
         ${metricCell('우울 점수', chartWithPill(depChart, depGrade), legendCol(depLegendItems(depGrade)))}
         ${metricCell('치매 위험요인',
-          `<div style="text-align:center;"><div><span style="font-size:24px;font-weight:800;color:${valColor(demGrade)};">${demP!=null?demP.toFixed(1):'-'}</span><span style="font-size:10px;color:${G500};">%</span></div>${demGrade?`<div style="margin-top:5px;">${statusPill(demGrade)}</div>`:''}</div>`,
+          `<div style="text-align:center;"><div><span style="font-size:26px;font-weight:800;color:${valColor(demGrade)};">${demP!=null?demP.toFixed(1):'-'}</span><span style="font-size:11.5px;color:${G500};">%</span></div>${demGrade?`<div style="margin-top:5px;">${statusPill(demGrade)}</div>`:''}</div>`,
           legendCol(demLegendItems(demGrade)))}
         ${metricCell('동연령대 상위 분포도', percentileMini(master.agePercentile), null)}
         <div style="grid-column:span 2;">${pairBlock}</div>
@@ -1177,16 +1179,16 @@ const ClientDetailPage = {
       : null;
 
     const cardioCell = `<div style="display:flex;flex-direction:column;gap:6px;">
-      <div style="font-size:12px;font-weight:700;color:${INK};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">심폐기능지수 (VO2peak)</div>
-      <div style="margin-bottom:5px;white-space:nowrap;display:flex;align-items:center;justify-content:flex-end;gap:7px;"><span style="font-size:19px;font-weight:800;color:${valColor(cardioGrade)};">${master.cardioScore??'-'}</span><span style="font-size:9px;color:${G500};">ml/kg/min</span>${statusPill(cardioGrade)}</div>
+      <div style="font-size:14px;font-weight:700;color:${INK};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">심폐기능지수 (VO2peak)</div>
+      <div style="margin-bottom:5px;white-space:nowrap;display:flex;align-items:center;justify-content:flex-end;gap:7px;"><span style="font-size:21px;font-weight:800;color:${valColor(cardioGrade)};">${master.cardioScore??'-'}</span><span style="font-size:10.5px;color:${G500};">ml/kg/min</span>${statusPill(cardioGrade)}</div>
       ${AssessVisuals.cardioBar(master.cardioScore, c.gender, c.birthDate)}
       ${AssessVisuals.cardioBarLabels(master.cardioScore, c.gender, c.birthDate)}
       <div style="margin-top:8px;">${legendGrid(cardioLegendItems(master.cardioScore, c.gender, c.birthDate), 3)}</div>
     </div>`;
 
     const bodyMoveCell = `<div style="display:flex;flex-direction:column;gap:6px;">
-      <div style="font-size:12px;font-weight:700;color:${INK};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">신체 움직임 점수</div>
-      <div style="white-space:nowrap;text-align:right;"><span style="font-size:19px;font-weight:800;color:${INK};">${master.bodyMovementIndex??'-'}</span><span style="font-size:9px;color:${G500};">점 / 100점</span></div>
+      <div style="font-size:14px;font-weight:700;color:${INK};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">신체 움직임 점수</div>
+      <div style="white-space:nowrap;text-align:right;"><span style="font-size:21px;font-weight:800;color:${INK};">${master.bodyMovementIndex??'-'}</span><span style="font-size:10.5px;color:${G500};">점 / 100점</span></div>
       ${barFull(master.bodyMovementIndex,100,12)}
     </div>`;
 
@@ -1208,16 +1210,16 @@ const ClientDetailPage = {
   ${(() => {
     const stressGrade = AssessVisuals.calcStressIndex(master.stressScore);
     const bodyCompCell = `<div style="display:flex;flex-direction:column;gap:6px;">
-      <div style="font-size:12px;font-weight:700;color:${INK};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">체성분 종합 점수</div>
-      <div style="white-space:nowrap;text-align:right;"><span style="font-size:19px;font-weight:800;color:${INK};">${master.bodyCompScore??'-'}</span><span style="font-size:9px;color:${G500};">점 / 100점</span></div>
+      <div style="font-size:14px;font-weight:700;color:${INK};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">체성분 종합 점수</div>
+      <div style="white-space:nowrap;text-align:right;"><span style="font-size:21px;font-weight:800;color:${INK};">${master.bodyCompScore??'-'}</span><span style="font-size:10.5px;color:${G500};">점 / 100점</span></div>
       ${barFull(master.bodyCompScore,100,12)}
-      <div style="font-size:8.5px;color:${G500};">근육량이 많을 경우 100점을 초과할 수 있습니다.</div>
+      <div style="font-size:10px;color:${G500};">근육량이 많을 경우 100점을 초과할 수 있습니다.</div>
     </div>`;
     const stressCell = `<div style="display:flex;flex-direction:column;gap:6px;">
-      <div style="font-size:12px;font-weight:700;color:${INK};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">스트레스 점수</div>
+      <div style="font-size:14px;font-weight:700;color:${INK};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">스트레스 점수</div>
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:0 10px;">
         <div style="flex:1;min-width:0;">
-          <div style="margin-bottom:5px;white-space:nowrap;display:flex;align-items:center;gap:7px;"><span style="font-size:19px;font-weight:800;color:${valColor(stressGrade)};">${master.stressScore??'-'}</span><span style="font-size:9px;color:${G500};">점</span>${statusPill(stressGrade)}</div>
+          <div style="margin-bottom:5px;white-space:nowrap;display:flex;align-items:center;gap:7px;"><span style="font-size:21px;font-weight:800;color:${valColor(stressGrade)};">${master.stressScore??'-'}</span><span style="font-size:10.5px;color:${G500};">점</span>${statusPill(stressGrade)}</div>
           ${AssessVisuals.stressBar(master.stressScore)}
         </div>
         <div style="width:112px;flex-shrink:0;">${stressLegendCol(master.stressScore)}</div>
@@ -1230,22 +1232,22 @@ const ClientDetailPage = {
       </div>`);
   })()}
 
-  ${pageFooter()}
+  ${pageFooter(2, 4)}
 </div>
 
 <!-- ===================== PAGE 3: 기간별 지표 변화 ===================== -->
-<div style="width:100%;min-height:100vh;height:100vh;padding:30px 36px 20px;box-sizing:border-box;page-break-after:always;font-family:'Noto Sans KR',sans-serif;display:flex;flex-direction:column;background:#fff;overflow:hidden;">
-  ${pageHeader('기간별 지표 변화', 3, 4)}
+<div style="width:100%;min-height:100vh;padding:30px 36px 20px;box-sizing:border-box;page-break-after:always;font-family:'Noto Sans KR',sans-serif;display:flex;flex-direction:column;background:#fff;">
+  ${pageHeader('기간별 지표 변화')}
 
   <div style="flex:1;display:flex;flex-direction:column;justify-content:space-evenly;min-height:0;">${trendTableChart()}</div>
-  <div style="font-size:8.5px;color:${G500};font-style:italic;text-align:left;margin:8px 0 0;">※ 변화는 초기 평가를 기준으로 산출됩니다.</div>
+  <div style="font-size:10px;color:${G500};font-style:italic;text-align:left;margin:8px 0 0;">※ 변화는 초기 평가를 기준으로 산출됩니다.</div>
 
-  ${pageFooter()}
+  ${pageFooter(3, 4)}
 </div>
 
 <!-- ===================== PAGE 4: 전문가 소견 ===================== -->
-<div style="width:100%;min-height:100vh;height:100vh;padding:30px 36px 20px;box-sizing:border-box;font-family:'Noto Sans KR',sans-serif;display:flex;flex-direction:column;background:#fff;">
-  ${pageHeader('전문가 소견', 4, 4)}
+<div style="width:100%;min-height:100vh;padding:30px 36px 20px;box-sizing:border-box;font-family:'Noto Sans KR',sans-serif;display:flex;flex-direction:column;background:#fff;">
+  ${pageHeader('전문가 소견')}
 
   ${categoryBox(sectionHead('🗒️','전문가 소견'), `
     <div style="display:flex;flex-direction:column;flex:1;">
@@ -1256,14 +1258,14 @@ const ClientDetailPage = {
       ].map((item,i,arr) => `
         <div style="flex:1;display:flex;flex-direction:column;padding:6px 2px;${i<arr.length-1?`border-bottom:1px solid rgba(155,115,75,0.18);`:''}">
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-            <span style="font-size:12px;">${item.icon}</span>
-            <span style="font-size:12px;font-weight:800;color:${BR_DARK};letter-spacing:0.02em;">${item.role}</span>
+            <span style="font-size:14px;">${item.icon}</span>
+            <span style="font-size:14px;font-weight:800;color:${BR_DARK};letter-spacing:0.02em;">${item.role}</span>
           </div>
-          <div style="flex:1;font-size:12px;line-height:1.7;color:${item.text?INK:G500};${item.text?'':'font-style:italic;'}white-space:pre-wrap;text-align:left;overflow:hidden;">${item.text || '작성된 소견이 없습니다.'}</div>
+          <div style="flex:1;font-size:14px;line-height:1.7;color:${item.text?INK:G500};${item.text?'':'font-style:italic;'}white-space:pre-wrap;text-align:left;overflow:hidden;">${item.text || '작성된 소견이 없습니다.'}</div>
         </div>`).join('')}
     </div>`, 'flex:1;display:flex;flex-direction:column;')}
 
-  ${pageFooter()}
+  ${pageFooter(4, 4)}
 </div>
   `;
   },
