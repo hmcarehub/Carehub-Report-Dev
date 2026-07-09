@@ -785,9 +785,9 @@ const ClientDetailPage = {
 
   _buildReportHTML: function(master, allMasterList) {
     // ══════════════════════════════════════════════════════════
-    // 통합 리포트(PDF) — 병원/건강검진센터 스타일 디자인 시스템
-    // 데이터/계산식/등급/상태값은 기존 로직(AssessVisuals, 로컬 임계값)을
-    // 그대로 사용하며, 레이아웃·타이포그래피·시각화 스타일만 새로 설계함.
+    // 통합 리포트(PDF) — 병원/건강검진센터 스타일, 박스 최소화 버전
+    // 총 3페이지: ①표지 ②평가결과 ③기간별 지표 변화 + 전문가 소견(통합)
+    // 데이터/계산식/등급/상태값은 기존 로직(AssessVisuals)을 그대로 사용.
     // ══════════════════════════════════════════════════════════
     const c   = this.client;
     const logoSrc = document.getElementById('logo-data')?.value || '';
@@ -805,7 +805,7 @@ const ClientDetailPage = {
     const sensItems = (typeof StandardsCache!=='undefined'&&StandardsCache.get('inbodyFra_sensory'))||
       [{label:'감각계 평가'},{label:'체성감각 평가'},{label:'시각 평가'},{label:'전정감각 평가'}];
 
-    // ── 디자인 토큰: 브랜드 브라운 + 뉴트럴 (등급색은 상태 표시에만 한정 사용) ──
+    // ── 디자인 토큰 ──────────────────────────────────────────
     const BR      = '#9B734B';
     const BR_DARK = '#6B4E35';
     const INK     = '#221D17';
@@ -815,21 +815,14 @@ const ClientDetailPage = {
     const CREAM2  = '#F2ECE2';
     const LINE    = '#E6DCCB';
 
-    const reportNo = `${c.clientId||'-'}-R${String(master.round).padStart(2,'0')}-${today.getFullYear()}${pad2(today.getMonth()+1)}${pad2(today.getDate())}`;
+    const reportNo  = `${c.clientId||'-'}-R${String(master.round).padStart(2,'0')}-${today.getFullYear()}${pad2(today.getMonth()+1)}${pad2(today.getDate())}`;
     const cardioMax = c.gender==='남자' ? 44 : 37;
-
-    // ── 등급 구간(기존 계산식과 동일한 임계값을 시각 구간으로 매핑, 색상만 저채도로 재구성) ──
-    const zonesCog      = [{to:64,color:'#C0392B'},{to:79,color:'#C99A2E'},{to:89,color:'#4C8C4A'},{to:100,color:'#2E6B2E'}];
-    const zonesSub      = [{to:33,color:'#C0392B'},{to:66,color:'#C99A2E'},{to:100,color:'#4C8C4A'}];
-    const zonesDep      = [{to:20,color:'#4C8C4A'},{to:24,color:'#C99A2E'},{to:60,color:'#C0392B'}];
-    const zonesDementia = [{to:29,color:'#4C8C4A'},{to:59,color:'#C99A2E'},{to:100,color:'#C0392B'}];
-    const zonesStress   = AssessVisuals._stressGrades().map(z=>({to:Math.min(z.max,100), color:z.color}));
-    const zonesCardio   = (()=>{
+    const zonesCardio = (()=>{
       const gs = AssessVisuals._cardioGrades(c.gender); // 최하위→최우수
       return gs.map((g,i)=>({ to: i<gs.length-1 ? gs[i+1].min : cardioMax, color:g.color }));
     })();
 
-    // ── 공통 컴포넌트 ──────────────────────────────────────────
+    // ── 공통 컴포넌트 ────────────────────────────────────────
     const statusPill = (grade) => {
       if (!grade) return '';
       const label = grade.label || grade.l;
@@ -838,7 +831,7 @@ const ClientDetailPage = {
       return `<span style="display:inline-block;background:${bg};color:${color};font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;white-space:nowrap;">${label}</span>`;
     };
 
-    // 구간형 레인지 바(검진 리포트의 "기준범위" 막대 스타일) — 값의 위치를 점으로 표시
+    // 심폐기능(범위+마커 유지) — 기존 그래프의 화살표(마커)는 그대로 둔다
     const rangeBar = (score, max, zones) => {
       const pct = score!=null ? Math.min(100, Math.max(0,(Number(score)/max)*100)) : null;
       let segs = '', prev = 0;
@@ -848,45 +841,78 @@ const ClientDetailPage = {
         prev = zPct;
       });
       return `<div style="position:relative;padding-top:11px;">
-        ${pct!=null?`<div style="position:absolute;left:calc(${pct}% - 5px);top:0;width:10px;height:10px;border-radius:50%;background:${INK};border:2px solid #fff;box-shadow:0 0 0 1px ${G300};"></div>`:''}
+        ${pct!=null?`<div style="position:absolute;left:calc(${pct}% - 5px);top:0;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:8px solid ${INK};"></div>`:''}
         <div style="position:relative;height:7px;border-radius:4px;overflow:hidden;background:${CREAM2};">${segs}</div>
       </div>`;
     };
-    // 등급 개념이 없는 지표(신체움직임/체성분/신경계/균형/감각)용 단색 진행 막대
-    const plainBar = (score, max, color) => {
+
+    // 인바디 "골격근·지방분석" 스타일 막대 — 값은 막대 위 텍스트로 1회만 표시, 기준선(옵션) 표시
+    const inbodyBar = (score, max, refLine, color) => {
       max = max||100; color = color||BR;
       const pct = score!=null ? Math.min(100,Math.max(0,(Number(score)/max)*100)) : 0;
-      return `<div style="height:7px;border-radius:4px;overflow:hidden;background:${CREAM2};margin-top:2px;">
-        <div style="height:100%;width:${pct}%;background:${color};border-radius:4px;"></div>
+      const refPct = refLine!=null ? Math.min(100,Math.max(0,(refLine/max)*100)) : null;
+      return `<div style="width:100%;max-width:190px;margin:0 auto;">
+        <div style="text-align:center;margin-bottom:6px;">
+          <span style="font-size:22px;font-weight:800;color:${INK};">${score!=null?score:'-'}</span><span style="font-size:10px;color:${G500};">/${max}점</span>
+        </div>
+        <div style="position:relative;padding-top:${refPct!=null?'12px':'0'};">
+          ${refPct!=null?`<span style="position:absolute;left:${refPct}%;top:0;transform:translateX(-50%);font-size:7.5px;color:${G500};white-space:nowrap;">기준 ${refLine}</span>`:''}
+          <div style="position:relative;height:8px;background:${CREAM2};border-radius:4px;">
+            <div style="position:absolute;left:0;top:0;bottom:0;width:${pct}%;background:${color};border-radius:4px;"></div>
+            ${refPct!=null?`<div style="position:absolute;left:${refPct}%;top:-3px;bottom:-3px;width:2px;background:${INK};"></div>`:''}
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:3px;">
+            <span style="font-size:7.5px;color:${G300};">0</span>
+            <span style="font-size:7.5px;color:${G300};">${max}</span>
+          </div>
+        </div>
       </div>`;
     };
 
-    // 지표 타일(Hero Metric Tile) — 상태 → 값 → 등급 → 시각화 → 설명 순으로 시선 유도
-    const tile = (opts) => {
-      const { label, value, unit, grade, visual, caption, center } = opts;
-      const heroAlign = center ? 'justify-content:center;' : '';
-      return `<div style="background:#fff;border:1px solid ${LINE};border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:7px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
-          <span style="font-size:12px;font-weight:700;letter-spacing:0.04em;color:${G500};text-transform:uppercase;">${label}</span>
-          ${statusPill(grade)}
+    // 등급 개념이 없는 지표(신체움직임/체성분)용 — 값(N점/100점)을 1회 표시 후 단색 막대
+    const scoreBarWithValue = (score, max, color) => {
+      max = max||100; color = color||BR;
+      const pct = score!=null ? Math.min(100,Math.max(0,(Number(score)/max)*100)) : 0;
+      return `<div style="width:100%;max-width:170px;margin:0 auto;">
+        <div style="text-align:center;margin-bottom:6px;">
+          <span style="font-size:22px;font-weight:800;color:${INK};">${score!=null?score:'-'}</span><span style="font-size:10px;color:${G500};">점 / ${max}점</span>
         </div>
-        <div style="display:flex;align-items:baseline;gap:4px;${heroAlign}">
-          <span style="font-size:26px;font-weight:800;color:${INK};line-height:1;">${value}</span>
-          ${unit?`<span style="font-size:10.5px;color:${G500};">${unit}</span>`:''}
+        <div style="height:7px;border-radius:4px;overflow:hidden;background:${CREAM2};">
+          <div style="height:100%;width:${pct}%;background:${color};border-radius:4px;"></div>
         </div>
-        ${visual?`<div>${visual}</div>`:''}
-        ${caption?`<div style="font-size:8.5px;color:${G500};border-top:1px solid ${CREAM2};padding-top:6px;line-height:1.4;">${caption}</div>`:''}
       </div>`;
     };
 
+    // 인지 영역과 동일한 스타일의 점(dot) 범례 — 색상 중심, 문장형 수치 없이 표시
+    const legendDots = (items, cols) => {
+      cols = cols || 3;
+      return `<div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:6px 16px;justify-items:center;max-width:260px;margin:0 auto;">
+        ${items.map(it=>`<div style="display:flex;align-items:center;gap:5px;">
+          <span style="width:7px;height:7px;border-radius:50%;background:${it.color};flex-shrink:0;"></span>
+          <span style="font-size:9.5px;font-weight:${it.active?'800':'600'};color:${it.color};white-space:nowrap;">${it.label}</span>
+        </div>`).join('')}
+      </div>`;
+    };
+
+    // 지표 표시 블록(박스 없음) — 라벨 → 상태값 → 시각화(값 내장) → 설명, 전부 가운데 정렬
+    const metric = (opts) => {
+      const { label, grade, visual, caption } = opts;
+      return `<div style="padding:6px 6px;display:flex;flex-direction:column;align-items:center;gap:7px;">
+        <div style="font-size:12px;font-weight:700;letter-spacing:0.04em;color:${G500};text-transform:uppercase;text-align:center;">${label}</div>
+        ${grade?`<div>${statusPill(grade)}</div>`:''}
+        ${visual?`<div style="width:100%;display:flex;justify-content:center;">${visual}</div>`:`<div style="font-size:11px;color:${G500};">데이터 없음</div>`}
+        ${caption?`<div style="font-size:8.5px;color:${G500};line-height:1.5;text-align:center;max-width:190px;">${caption}</div>`:''}
+      </div>`;
+    };
+
+    // 섹션 제목(박스 없음, 가운데 정렬 + 하단 포인트 라인)
     const sectionHead = (icon, title) => `
-      <div style="display:flex;align-items:center;gap:8px;margin:16px 0 8px;">
-        <div style="width:22px;height:22px;border-radius:6px;background:${CREAM2};display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;">${icon}</div>
-        <div style="font-size:13.5px;font-weight:800;color:${INK};">${title}</div>
-        <div style="flex:1;height:1px;background:${LINE};"></div>
+      <div style="text-align:center;margin:18px 0 14px;">
+        <div style="font-size:13.5px;font-weight:800;color:${INK};letter-spacing:0.02em;">${icon} ${title}</div>
+        <div style="width:30px;height:2px;background:${BR};margin:6px auto 0;"></div>
       </div>`;
 
-    const pageHeader = (titleMain, pageIdx) => `
+    const pageHeader = (titleMain, pageIdx, pageTotal) => `
       <div style="display:flex;align-items:flex-end;justify-content:space-between;padding-bottom:10px;margin-bottom:2px;border-bottom:2px solid ${BR};">
         <div>
           <div style="font-size:9px;font-weight:700;letter-spacing:0.15em;color:${BR};text-transform:uppercase;margin-bottom:3px;">CARE HUB · INTEGRATED HEALTH REPORT</div>
@@ -894,7 +920,7 @@ const ClientDetailPage = {
         </div>
         <div style="text-align:right;">
           <div style="font-size:12px;font-weight:700;color:${INK};">${c.name} <span style="font-weight:400;color:${G500};font-size:10.5px;">${age}세 · ${c.gender||'-'}</span></div>
-          <div style="font-size:9.5px;color:${G500};margin-top:2px;">${todayStr} 발행 · PAGE ${pageIdx}/4</div>
+          <div style="font-size:9.5px;color:${G500};margin-top:2px;">${todayStr} 발행 · PAGE ${pageIdx}/${pageTotal}</div>
         </div>
       </div>`;
 
@@ -904,93 +930,78 @@ const ClientDetailPage = {
         <div style="font-size:8.5px;color:${G300};">REPORT NO. ${reportNo}</div>
       </div>`;
 
-    // SVG 반응형 처리 — AssessVisuals가 리턴하는 고정 px SVG를 카드 폭에 맞게 스케일
     const respSvg = (svg) => svg.replace(/<svg width="\d+" height="\d+"/, '<svg width="100%" height="auto"');
 
-    // 동연령대 상위 분포도(리포트 전용 히스토그램 — 카드 폭 전체로 확장, 가운데 정렬)
+    // 동연령대 상위 분포도 — 값을 그래프 내부(위)에 1회만 표시, 가운데 정렬, 폭 확장
     const percentileMini = (p) => {
-      if (p==null) return `<div style="font-size:10px;color:${G500};padding-top:4px;text-align:center;">데이터 없음</div>`;
-      const heights=[12,19,27,34,27,19,12];
-      const barW=13,gap=6,n=heights.length,totalW=n*barW+(n-1)*gap,maxH=Math.max(...heights);
+      if (p==null) return `<div style="font-size:11px;color:${G500};">데이터 없음</div>`;
+      const heights=[13,20,29,37,29,20,13];
+      const barW=15,gap=7,n=heights.length,totalW=n*barW+(n-1)*gap,maxH=Math.max(...heights);
       const idx=Math.min(n-1,Math.max(0,Math.round((100-p)/100*(n-1))));
       let bars='';
       heights.forEach((h,i)=>{ bars+=`<rect x="${i*(barW+gap)}" y="${maxH-h}" width="${barW}" height="${h}" rx="2" fill="${i===idx?BR:CREAM2}"/>`; });
-      return `<div style="display:flex;justify-content:center;">${respSvg(`<svg width="${totalW}" height="${maxH}" viewBox="0 0 ${totalW} ${maxH}" style="margin-top:2px;">${bars}</svg>`)}</div>`;
+      return `<div style="max-width:230px;margin:0 auto;">
+        <div style="text-align:center;margin-bottom:6px;">
+          <span style="font-size:22px;font-weight:800;color:${INK};">상위 ${p}</span><span style="font-size:10px;color:${G500};">%</span>
+        </div>
+        <div style="display:flex;justify-content:center;">${respSvg(`<svg width="${totalW}" height="${maxH}" viewBox="0 0 ${totalW} ${maxH}">${bars}</svg>`)}</div>
+      </div>`;
     };
 
-
-    // ── 기간별 지표 변화(대형 카드) — 최대 7회(초기~24주) 데이터를 겹침 없이 표시 ──
-    const bigTrendChart = (field, label, unit, max) => {
+    // ── 기간별 지표 변화 표 (인바디 "신체변화" 스타일 — 8행 × (2+회차수)열, 신체움직임 제외) ──
+    const trendTable = () => {
       const currentRound = master.round;
       const sorted = [...trendMasters].filter(m=>m.round<=currentRound && m.reportGenerated).sort((a,b)=>a.round-b.round);
-      const pts = sorted.map(m=>{ const v=Number(m[field]); return isNaN(v)?null:{round:m.round, v}; }).filter(Boolean);
-      if (!pts.length) return `<div style="padding:26px 0;text-align:center;color:${G500};font-size:11px;">데이터 없음</div>`;
+      const metrics = [
+        {key:'cogScore',     label:'인지점수'},
+        {key:'depression',   label:'우울점수'},
+        {key:'cardioScore',  label:'심폐기능'},
+        {key:'balanceScore', label:'통합균형능력'},
+        {key:'bodyCompScore',label:'체성분'},
+        {key:'stressScore',  label:'스트레스'}
+      ];
+      if (!sorted.length) return `<div style="text-align:center;color:${G500};font-size:12px;padding:26px 0;">측정 데이터가 없습니다.</div>`;
 
-      const latest = pts[pts.length-1].v;
-      const first  = pts[0].v;
-      const diff   = pts.length>1 ? Math.round((latest-first)*10)/10 : null;
-      const isSingle = pts.length===1;
-
-      const changeBadge = diff==null
-        ? `<span style="font-size:9.5px;color:${G500};">변화없음</span>`
-        : diff>0
-          ? `<span style="display:inline-flex;align-items:center;gap:3px;background:#EAF1FB;color:#1D5FC4;font-size:11px;font-weight:800;padding:4px 10px;border-radius:20px;white-space:nowrap;">▲ ${Math.abs(diff)}${unit} 상승</span>`
-          : diff<0
-            ? `<span style="display:inline-flex;align-items:center;gap:3px;background:#FBEAEA;color:#C0392B;font-size:11px;font-weight:800;padding:4px 10px;border-radius:20px;white-space:nowrap;">▼ ${Math.abs(diff)}${unit} 하락</span>`
-            : `<span style="font-size:9.5px;color:${G500};">변화없음</span>`;
-
-      const W=300, H=112, padL=26, padR=10, padT=14, padB=20;
-      const innerW=W-padL-padR, innerH=H-padT-padB;
-      const xPos = i => isSingle ? padL+innerW/2 : padL + i*(innerW/(pts.length-1));
-      const yPos = v => padT + (1-Math.min(1,Math.max(0,v/max)))*innerH;
-
-      let gridLines='';
-      [0,0.5,1].forEach(f=>{
-        const y = padT + (1-f)*innerH;
-        gridLines += `<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="${LINE}" stroke-width="1"/>
-          <text x="${padL-4}" y="${y+3}" text-anchor="end" font-size="7.5" fill="${G500}">${Math.round(max*f)}</text>`;
-      });
-
-      let pathD='', areaD='';
-      pts.forEach((p,i)=>{ const x=xPos(i), y=yPos(p.v); pathD += (i===0?`M${x},${y}`:`L${x},${y}`); });
-      if (!isSingle) areaD = pathD + ` L${xPos(pts.length-1)},${H-padB} L${xPos(0)},${H-padB} Z`;
-
-      let overlay='';
-      pts.forEach((p,i)=>{
-        const xPct=(xPos(i)/W*100).toFixed(2), yPct=(yPos(p.v)/H*100).toFixed(2);
-        const isLatest = i===pts.length-1;
-        if (isLatest) {
-          overlay += `<div style="position:absolute;left:${xPct}%;top:${yPct}%;transform:translate(-50%,-50%);width:10px;height:10px;border-radius:50%;background:${BR};border:2.5px solid #fff;box-shadow:0 0 0 1px ${BR};"></div>`;
-          overlay += `<span style="position:absolute;left:${xPct}%;top:${yPct}%;transform:translate(-50%,calc(-100% - 9px));font-size:11px;font-weight:800;color:${BR_DARK};white-space:nowrap;">${p.v}${unit}</span>`;
-        } else {
-          overlay += `<div style="position:absolute;left:${xPct}%;top:${yPct}%;width:6px;height:6px;border-radius:50%;background:${G300};border:1.5px solid #fff;transform:translate(-50%,-50%);"></div>`;
-        }
-        const wLbl = p.round===1?'초기':`${(p.round-1)*4}주`;
-        overlay += `<span style="position:absolute;left:${xPct}%;bottom:1px;transform:translateX(-50%);font-size:8px;color:${G500};">${wLbl}</span>`;
-      });
+      const roundHeadCells = sorted.map(m=>`<th style="text-align:center;padding:9px 6px;font-size:10.5px;color:${G500};font-weight:700;">${m.round}회</th>`).join('');
+      const bodyRows = metrics.map(met=>{
+        const cells = sorted.map(m=>{
+          const v = m[met.key];
+          return `<td style="text-align:center;padding:9px 6px;font-size:12px;color:${INK};border-bottom:1px solid ${CREAM2};">${v!=null?v:'-'}</td>`;
+        }).join('');
+        const first = sorted[0][met.key], last = sorted[sorted.length-1][met.key];
+        const diff = (first!=null && last!=null) ? Math.round((last-first)*10)/10 : null;
+        const changeCell = diff==null
+          ? `<span style="color:${G500};font-size:11px;">-</span>`
+          : diff>0 ? `<span style="color:#1D5FC4;font-weight:800;font-size:11px;white-space:nowrap;">▲ ${Math.abs(diff)}</span>`
+          : diff<0 ? `<span style="color:#C0392B;font-weight:800;font-size:11px;white-space:nowrap;">▼ ${Math.abs(diff)}</span>`
+          : `<span style="color:${G500};font-size:11px;">변화없음</span>`;
+        return `<tr>
+          <td style="text-align:left;padding:9px 10px;font-size:12px;font-weight:700;color:${INK};border-bottom:1px solid ${CREAM2};">${met.label}</td>
+          ${cells}
+          <td style="text-align:center;padding:9px 6px;border-bottom:1px solid ${CREAM2};">${changeCell}</td>
+        </tr>`;
+      }).join('');
+      const footCells = sorted.map(m=>`<td style="text-align:center;padding:8px 6px;font-size:10px;color:${G500};">${weekEvalLabel(m.round)}</td>`).join('');
 
       return `
-        <div style="display:flex;align-items:flex-end;justify-content:space-between;">
-          <div>
-            <div style="font-size:10px;font-weight:700;letter-spacing:0.04em;color:${G500};text-transform:uppercase;margin-bottom:3px;">${label}</div>
-            <div style="display:flex;align-items:baseline;gap:4px;">
-              <span style="font-size:26px;font-weight:800;color:${INK};line-height:1;">${latest}</span>
-              <span style="font-size:10.5px;color:${G500};">${unit}</span>
-            </div>
-          </div>
-          ${changeBadge}
-        </div>
-        <div style="position:relative;margin-top:8px;">
-          <svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="display:block;">
-            ${gridLines}
-            ${!isSingle?`<path d="${areaD}" fill="${BR}14" stroke="none"/>`:''}
-            ${!isSingle?`<path d="${pathD}" fill="none" stroke="${BR}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`:''}
-          </svg>
-          ${overlay}
-        </div>
-        <div style="font-size:8.5px;color:${G500};border-top:1px solid ${CREAM2};padding-top:5px;margin-top:6px;">초기~${weekEvalLabel(master.round)} · 총 ${pts.length}회 측정</div>`;
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr style="border-bottom:2px solid ${BR};">
+            <th style="text-align:left;padding:8px 10px;font-size:10.5px;color:${G500};font-weight:700;letter-spacing:0.04em;text-transform:uppercase;">평가 항목</th>
+            ${roundHeadCells}
+            <th style="text-align:center;padding:8px 6px;font-size:10.5px;color:${G500};font-weight:700;letter-spacing:0.04em;text-transform:uppercase;">변화</th>
+          </tr>
+        </thead>
+        <tbody>${bodyRows}</tbody>
+        <tfoot>
+          <tr>
+            <td style="text-align:left;padding:8px 10px;font-size:10px;color:${G500};font-weight:700;">측정 회차</td>
+            ${footCells}
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>`;
     };
-    const trendCard = (field,label,unit,max) => `<div style="background:#fff;border:1px solid ${LINE};border-radius:10px;padding:13px 15px;">${bigTrendChart(field,label,unit,max)}</div>`;
 
     return `
 <!-- ===================== PAGE 1: 표지 ===================== -->
@@ -1020,20 +1031,20 @@ const ClientDetailPage = {
   </div>
 
   <div>
-    <div style="border:1px solid ${LINE};border-radius:12px;padding:20px 24px;background:${CREAM};">
+    <div style="display:flex;justify-content:center;">
       <div style="display:grid;grid-template-columns:repeat(4,1fr);">
         ${[
           {l:'나이',v:`${age}세`},
           {l:'성별',v:c.gender||'-'},
           {l:'입소 등록일',v:c.firstVisit||'-'},
           {l:'리포트 생성일',v:todayStr},
-        ].map((f,i)=>`<div style="padding:0 12px;${i>0?`border-left:1px solid ${LINE};`:''}">
+        ].map((f,i)=>`<div style="padding:0 18px;text-align:center;${i>0?`border-left:1px solid ${LINE};`:''}">
           <div style="font-size:9px;font-weight:700;letter-spacing:0.06em;color:${BR};text-transform:uppercase;margin-bottom:5px;">${f.l}</div>
           <div style="font-size:14px;font-weight:700;color:${INK};">${f.v}</div>
         </div>`).join('')}
       </div>
     </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:20px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:24px;">
       <div style="font-size:10px;color:${G500};letter-spacing:0.03em;">CARE HUB IN HANAM · 케어허브 하남</div>
       <div style="font-size:10px;color:${G300};">REPORT NO. ${reportNo}</div>
     </div>
@@ -1043,7 +1054,7 @@ const ClientDetailPage = {
 
 <!-- ===================== PAGE 2: 평가 결과 ===================== -->
 <div style="width:100%;min-height:100vh;height:100vh;padding:32px 38px 22px;box-sizing:border-box;page-break-after:always;font-family:'Noto Sans KR',sans-serif;display:flex;flex-direction:column;background:#fff;">
-  ${pageHeader(`${weekEvalLabel(master.round)} 평가 결과`, 2)}
+  ${pageHeader(`${weekEvalLabel(master.round)} 평가 결과`, 2, 3)}
 
   ${(() => {
     const cogGrade     = AssessVisuals.calcCogIndex(master.cogScore);
@@ -1055,23 +1066,24 @@ const ClientDetailPage = {
 
     return `
     ${sectionHead('🧠','인지 기능 평가')}
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:9px;">
-      ${tile({ label:'인지 점수', value: master.cogScore!=null?master.cogScore:'-', unit:'점', grade:cogGrade,
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);column-gap:20px;row-gap:20px;">
+      ${metric({ label:'인지 점수', grade:cogGrade,
         visual: `<div style="display:flex;justify-content:center;">${respSvg(AssessVisuals.semiGauge(master.cogScore, cogGrade?.color||'#1565C0', 100))}</div>`,
         caption:'0~64 주의 · 65~79 개선 · 80~89 양호 · 90~100 최적' })}
-      ${tile({ label:'시공간능력', value: master.spatial!=null?master.spatial:'-', unit:'점', grade:spatialGrade,
-        visual: `<div style="display:flex;justify-content:center;">${AssessVisuals.conicDonut(master.spatial, AssessVisuals.subGradeColor(master.spatial), 100, 78, 10)}</div>`,
-        caption:'0~33 주의 · 34~66 관심 · 67~100 양호' })}
-      ${tile({ label:'기억력', value: master.memory!=null?master.memory:'-', unit:'점', grade:memoryGrade,
-        visual: `<div style="display:flex;justify-content:center;">${AssessVisuals.conicDonut(master.memory, AssessVisuals.subGradeColor(master.memory), 100, 78, 10)}</div>`,
-        caption:'0~33 주의 · 34~66 관심 · 67~100 양호' })}
-      ${tile({ label:'동연령대 상위 분포도', value: master.agePercentile!=null?`상위 ${master.agePercentile}`:'-', unit: master.agePercentile!=null?'%':'', grade:null, center:true,
+      ${metric({ label:'동연령대 상위 분포도', grade:null,
         visual: percentileMini(master.agePercentile), caption:'동일 연령대 대비 상대적 위치' })}
-      ${tile({ label:'우울 점수', value: master.depression!=null?master.depression:'-', unit:'점', grade:depGrade,
+      ${metric({ label:'우울 점수', grade:depGrade,
         visual: `<div style="display:flex;justify-content:center;">${AssessVisuals.conicDonut(master.depression, depGrade?.color||'#7B1FA2', 60, 78, 10)}</div>`,
         caption:'0~20 경도 · 21~24 중등도 · 25~60 높은 수준' })}
-      ${tile({ label:'치매 위험요인', value: demP!=null?demP.toFixed(1):'-', unit:'%', grade:demGrade,
-        visual: '', caption:'0~29 낮음 · 30~59 주의 · 60~100 높음' })}
+      ${metric({ label:'시공간능력', grade:spatialGrade,
+        visual: inbodyBar(master.spatial, 100, 67, AssessVisuals.subGradeColor(master.spatial)),
+        caption:'0~33 주의 · 34~66 관심 · 67~100 양호' })}
+      ${metric({ label:'기억력', grade:memoryGrade,
+        visual: inbodyBar(master.memory, 100, 67, AssessVisuals.subGradeColor(master.memory)),
+        caption:'0~33 주의 · 34~66 관심 · 67~100 양호' })}
+      ${metric({ label:'치매 위험요인', grade:demGrade,
+        visual: demP!=null?`<div style="text-align:center;"><span style="font-size:26px;font-weight:800;color:${INK};">${demP.toFixed(1)}</span><span style="font-size:11px;color:${G500};">%</span></div>`:'',
+        caption:'0~29 낮음 · 30~59 주의 · 60~100 높음' })}
     </div>`;
   })()}
 
@@ -1082,89 +1094,73 @@ const ClientDetailPage = {
       const m = AssessVisuals._cardioGrades(c.gender).find(g=>cardioIdx.includes(g.l));
       return m ? {label:cardioIdx, color:m.color, bg:m.color+'1A'} : null;
     })();
+    const cardioLegend = AssessVisuals._cardioGrades(c.gender).slice().reverse()
+      .map(g=>({label:g.l, color:g.color, active:cardioIdx===g.l}));
+
     return `
     ${sectionHead('🏃','움직임 기능 평가')}
-    <div style="display:grid;grid-template-columns:2fr 1fr;gap:9px;margin-bottom:9px;">
-      ${tile({ label:'심폐기능지수 (VO2peak)', value: master.cardioScore!=null?master.cardioScore:'-', unit:'ml/kg/min', grade:cardioGrade,
+    <div style="display:grid;grid-template-columns:2fr 1fr;column-gap:20px;margin-bottom:20px;">
+      ${metric({ label:'심폐기능지수 (VO2peak)', grade:cardioGrade,
         visual: master.cardioScore!=null?`
-          ${rangeBar(master.cardioScore,cardioMax,zonesCardio)}
-          <div style="margin-top:9px;">${AssessVisuals.cardioGradeLegend(master.cardioScore, c.gender, c.birthDate)}</div>
-        `:'',
+          <div style="max-width:230px;margin:0 auto;">
+            <div style="text-align:center;margin-bottom:8px;"><span style="font-size:22px;font-weight:800;color:${INK};">${master.cardioScore}</span><span style="font-size:10px;color:${G500};"> ml/kg/min</span></div>
+            ${rangeBar(master.cardioScore,cardioMax,zonesCardio)}
+            <div style="margin-top:12px;">${legendDots(cardioLegend,3)}</div>
+          </div>`:'',
         caption: c.birthDate?`${c.gender||'-'} · ${age>=66?'66세 이상':'60~65세'} 기준값 적용`:'기준값 정보 없음' })}
-      ${tile({ label:'신체 움직임 점수', value: master.bodyMovementIndex!=null?master.bodyMovementIndex:'-', unit:'/100', grade:null,
-        visual: plainBar(master.bodyMovementIndex,100,BR), caption:'움직임 종합 활동량 지표' })}
+      ${metric({ label:'신체 움직임 점수', grade:null,
+        visual: scoreBarWithValue(master.bodyMovementIndex,100,BR), caption:'움직임 종합 활동량 지표' })}
     </div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:9px;">
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);column-gap:20px;row-gap:20px;">
       ${[
-        {key:'nervousScore', label:'신경계 점수', color:'#6A1B9A', items:nervItems},
-        {key:'balanceScore', label:'통합 균형능력', color:'#00695C', items:balItems},
-        {key:'sensoryScore', label:'감각계 점수', color:'#E65100', items:sensItems}
-      ].map(it => tile({ label:it.label, value: master[it.key]!=null?master[it.key]:'-', unit:'/100', grade:null,
-        visual: `<div style="display:flex;justify-content:center;">${AssessVisuals.conicDonut(master[it.key], it.color, 100, 78, 10)}</div>`,
+        {key:'nervousScore', label:'신경계 점수', items:nervItems},
+        {key:'balanceScore', label:'통합 균형능력', items:balItems},
+        {key:'sensoryScore', label:'감각계 점수', items:sensItems}
+      ].map(it => metric({ label:it.label, grade:null,
+        visual: inbodyBar(master[it.key], 100, null, BR),
         caption: (it.items||[]).map(x=>'• '+x.label).join('<br>') })).join('')}
     </div>`;
   })()}
 
   ${sectionHead('💊','대사 · 생활 평가')}
-  <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:9px;">
-    ${tile({ label:'체성분 종합 점수', value: master.bodyCompScore!=null?master.bodyCompScore:'-', unit:'/100', grade:null,
-      visual: plainBar(master.bodyCompScore,100,BR), caption:'근육량이 많을 경우 100점을 초과할 수 있습니다.' })}
+  <div style="display:grid;grid-template-columns:repeat(2,1fr);column-gap:20px;">
+    ${metric({ label:'체성분 종합 점수', grade:null,
+      visual: scoreBarWithValue(master.bodyCompScore,100,BR), caption:'근육량이 많을 경우 100점을 초과할 수 있습니다.' })}
     ${(() => {
       const sGrade = AssessVisuals.calcStressIndex(master.stressScore);
-      return tile({ label:'스트레스 점수', value: master.stressScore!=null?master.stressScore:'-', unit:'점', grade:sGrade,
-        visual: master.stressScore!=null?rangeBar(master.stressScore,100,zonesStress):'', caption:'정상 · 초기 · 진행 · 만성 4단계 평가' });
+      return metric({ label:'스트레스 점수', grade:null,
+        visual: master.stressScore!=null?`
+          <div style="max-width:230px;margin:0 auto;">
+            <div style="text-align:center;margin-bottom:6px;">${AssessVisuals.stressScoreBadge(master.stressScore)}</div>
+            ${AssessVisuals.stressBar(master.stressScore)}
+          </div>`:'',
+        caption:'정상 · 초기 · 진행 · 만성 4단계 평가' });
     })()}
   </div>
 
   ${pageFooter()}
 </div>
 
-<!-- ===================== PAGE 3: 기간별 지표 변화 ===================== -->
-<div style="width:100%;min-height:100vh;height:100vh;padding:32px 38px 22px;box-sizing:border-box;page-break-after:always;font-family:'Noto Sans KR',sans-serif;display:flex;flex-direction:column;background:#fff;">
-  ${pageHeader('기간별 지표 변화', 3)}
-
-  ${sectionHead('🧠','인지')}
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:11px;">
-    ${trendCard('cogScore','인지점수','점',100)}
-    ${trendCard('depression','우울점수','점',60)}
-  </div>
-
-  ${sectionHead('🏃','움직임')}
-  <div style="display:grid;grid-template-columns:2fr 1fr;gap:11px;margin-bottom:9px;">
-    ${trendCard('cardioScore','심폐기능지수','',cardioMax)}
-    ${trendCard('bodyMovementIndex','신체움직임','점',100)}
-  </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:11px;">
-    ${trendCard('balanceScore','통합균형능력','점',100)}
-    ${trendCard('sensoryScore','감각계점수','점',100)}
-  </div>
-
-  ${sectionHead('💊','대사')}
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:11px;">
-    ${trendCard('bodyCompScore','체성분점수','점',100)}
-    ${trendCard('stressScore','스트레스점수','점',100)}
-  </div>
-
-  ${pageFooter()}
-</div>
-
-<!-- ===================== PAGE 4: 전문가 코멘트 ===================== -->
+<!-- ===================== PAGE 3: 기간별 지표 변화 · 전문가 소견 (통합) ===================== -->
 <div style="width:100%;min-height:100vh;height:100vh;padding:32px 38px 22px;box-sizing:border-box;font-family:'Noto Sans KR',sans-serif;display:flex;flex-direction:column;background:#fff;">
-  ${pageHeader('전문가 소견', 4)}
+  ${pageHeader('기간별 지표 변화 · 전문가 소견', 3, 3)}
 
-  <div style="display:flex;flex-direction:column;gap:14px;flex:1;margin-top:10px;">
+  ${sectionHead('📈','기간별 지표 변화')}
+  <div style="padding:0 2px;">${trendTable()}</div>
+
+  ${sectionHead('🗒️','전문가 소견')}
+  <div style="display:flex;flex-direction:column;">
     ${[
-      {n:'01', icon:'🧠', role:'인지 전문가 소견', text:master.cogComment},
-      {n:'02', icon:'🏃', role:'운동 전문가 소견', text:master.exComment},
-      {n:'03', icon:'💼', role:'케어 매니저 소견', text:master.cmComment}
-    ].map(item => `
-      <div style="position:relative;border:1px solid ${LINE};border-radius:10px;padding:18px 22px 18px 60px;background:${CREAM};flex:1;display:flex;flex-direction:column;overflow:hidden;">
-        <div style="position:absolute;left:14px;top:14px;font-size:30px;font-weight:800;color:${LINE};line-height:1;">${item.n}</div>
-        <div style="display:flex;align-items:center;gap:7px;margin-bottom:9px;">
-          <span style="font-size:14px;">${item.icon}</span>
-          <span style="font-size:12.5px;font-weight:800;color:${BR_DARK};">${item.role}</span>
+      {icon:'🧠', role:'인지 전문가 소견', text:master.cogComment},
+      {icon:'🏃', role:'운동 전문가 소견', text:master.exComment},
+      {icon:'💼', role:'케어 매니저 소견', text:master.cmComment}
+    ].map((item,i,arr) => `
+      <div style="padding:12px 4px;${i<arr.length-1?`border-bottom:1px solid ${CREAM2};`:''}">
+        <div style="text-align:center;margin-bottom:7px;">
+          <span style="font-size:12px;">${item.icon}</span>
+          <span style="font-size:12px;font-weight:800;color:${BR_DARK};letter-spacing:0.02em;margin-left:5px;">${item.role}</span>
         </div>
-        <div style="font-size:12.5px;line-height:1.85;color:${item.text?INK:G500};${item.text?'':'font-style:italic;'}white-space:pre-wrap;">${item.text || '작성된 소견이 없습니다.'}</div>
+        <div style="font-size:12px;line-height:1.8;color:${item.text?INK:G500};${item.text?'':'font-style:italic;'}white-space:pre-wrap;text-align:left;">${item.text || '작성된 소견이 없습니다.'}</div>
       </div>`).join('')}
   </div>
 
@@ -1197,11 +1193,10 @@ const ClientDetailPage = {
         @media print {
           body { print-color-adjust:exact; -webkit-print-color-adjust:exact; }
           #report-print-area > div {
-            page-break-before:always; page-break-after:always;
-            page-break-inside:avoid; width:100%; height:100vh; overflow:hidden; display:block;
+            page-break-inside:avoid;
+            break-inside:avoid;
+            width:100%;
           }
-          #report-print-area > div:first-child { page-break-before:avoid; }
-          #report-print-area > div:last-child  { page-break-after:avoid; }
           svg text { font-family:'Noto Sans KR','Malgun Gothic',sans-serif; }
         }
         svg text { font-family:'Noto Sans KR','Malgun Gothic',sans-serif; }
