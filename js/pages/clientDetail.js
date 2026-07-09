@@ -867,13 +867,13 @@ const ClientDetailPage = {
         <div style="width:96px;flex-shrink:0;">
           <div style="font-size:12.5px;font-weight:700;color:${INK};text-transform:uppercase;">${label}</div>
         </div>
-        <div style="flex:1;">
+        <div style="flex:1;min-width:0;">
           <div style="position:relative;height:11px;background:${CREAM2};border-radius:5px;">
             <div style="position:absolute;left:0;top:0;bottom:0;width:${pct||0}%;background:${fillColor};border-radius:5px;"></div>
             ${pct!=null?`<div style="position:absolute;left:calc(${pct}% - 3px);top:-1px;width:7px;height:7px;border-radius:50%;background:${INK};border:1.5px solid #fff;"></div>`:''}
           </div>
         </div>
-        <div style="flex-shrink:0;display:flex;align-items:center;gap:6px;">
+        <div style="width:108px;flex-shrink:0;display:flex;align-items:center;justify-content:flex-end;gap:6px;">
           <span style="font-size:16.5px;font-weight:800;color:${valColor(grade)};">${score!=null?score:'-'}</span>${unit?`<span style="font-size:10.5px;color:${G500};">${unit}</span>`:''}
           ${grade?statusPill(grade):''}
         </div>
@@ -1145,6 +1145,7 @@ const ClientDetailPage = {
       <span style="position:absolute;bottom:0;right:0;width:14px;height:14px;border-bottom:2px solid ${BR};border-right:2px solid ${BR};"></span>
       <div style="font-size:44px;font-weight:800;color:${INK};letter-spacing:-0.01em;">통합 건강 리포트</div>
     </div>
+    <div style="font-size:14px;font-weight:700;color:${BR_DARK};margin-top:14px;">${weekEvalLabel(master.round)} 리포트</div>
     <div style="width:44px;height:2px;background:${BR};margin:24px auto 20px;"></div>
     <div style="font-size:25px;font-weight:700;color:${INK};">${c.name} 님</div>
   </div>
@@ -1275,7 +1276,7 @@ const ClientDetailPage = {
           <div style="margin-bottom:5px;white-space:nowrap;display:flex;align-items:center;gap:7px;"><span style="font-size:21px;font-weight:800;color:${valColor(stressGrade)};">${master.stressScore??'-'}</span><span style="font-size:10.5px;color:${G500};">점</span>${statusPill(stressGrade)}</div>
           ${AssessVisuals.stressBar(master.stressScore)}
         </div>
-        <div style="width:112px;flex-shrink:0;">${legendCol(stressLegendItems(master.stressScore))}</div>
+        <div style="width:88px;flex-shrink:0;">${legendCol(stressLegendItems(master.stressScore))}</div>
       </div>
     </div>`;
     return categoryBox(sectionHead('💊','대사 · 생활 평가'), `
