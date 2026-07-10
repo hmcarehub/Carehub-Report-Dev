@@ -376,7 +376,7 @@ const ClientDetailPage = {
     const activeSubTab = this.activeDetailTab === 'trend' ? 'trend' : this.activeDetailTab === 'comment' ? 'comment' : 'scores';
     const subTabs = [
       {key:'scores',  icon:'📊', label:'평가 점수'},
-      {key:'trend',   icon:'📈', label:'변화 추이'},
+      {key:'trend',   icon:'📈', label:'기간별 지표 변화'},
       {key:'comment', icon:'💬', label:'전문가 코멘트'}
     ];
     content.innerHTML = `
@@ -396,14 +396,12 @@ const ClientDetailPage = {
 
   // 상위 회차탭(초기/4주차...) 클릭 시 현재 활성 서브탭(평가점수/변화추이/코멘트)에 맞게 다시 로드
   _loadRoundOrTrend: function() {
-    if (this.activeDetailTab === 'trend') {
-      const el = document.getElementById('round-content');
-      if (el) this._renderTrendInEl(el);
-    } else if (this.activeDetailTab === 'comment') {
-      this._loadRoundData('comment');
-    } else {
-      this._loadRoundData('scores');
-    }
+    const mode = this.activeDetailTab === 'trend' ? 'trend' : this.activeDetailTab === 'comment' ? 'comment' : 'scores';
+    this._loadRoundData(mode);
+  },
+
+  _hasAnyRoundData: function(data) {
+    return !!(data?.cognitive||data?.ergo||data?.everex||data?.fra||data?.inbody||data?.stress);
   },
 
   _loadRoundData: async function(mode) {
@@ -425,12 +423,19 @@ const ClientDetailPage = {
       return;
     }
 
-    const renderFn = mode === 'comment' ? this._renderCommentContent.bind(this) : this._renderRoundContent.bind(this);
+    // 변화추이/전문가 코멘트 탭: 선택된 회차 자체에 평가 데이터가 없으면 평가점수 탭과 동일한 안내 문구 표시
+    const noDataMsg = () => {
+      el.innerHTML = `<div class="empty-state" style="padding:36px;"><div class="empty-state-icon">📝</div><div class="empty-state-text">${this._weekEvalLabel(this.activeRound)} 데이터가 없습니다.</div></div>`;
+    };
+    const renderFn = mode === 'comment' ? this._renderCommentContent.bind(this)
+                    : mode === 'trend'   ? (() => this._renderTrendInEl(el))
+                    : this._renderRoundContent.bind(this);
 
     // ── 회차별 데이터 캐시: 이미 조회한 회차는 즉시 렌더 ──
     if (!this._roundDataCache) this._roundDataCache = {};
     const cached = this._roundDataCache[this.activeRound];
     if (cached) {
+      if (mode !== 'scores' && !this._hasAnyRoundData(cached)) { noDataMsg(); return; }
       renderFn(el, cached);
       return;
     }
@@ -441,6 +446,7 @@ const ClientDetailPage = {
       if (res.status === 'success') {
         // 캐시 저장 후 렌더
         this._roundDataCache[this.activeRound] = res.data;
+        if (mode !== 'scores' && !this._hasAnyRoundData(res.data)) { noDataMsg(); return; }
         renderFn(el, res.data);
       } else {
         el.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">${res.message}</div></div>`;
@@ -516,7 +522,7 @@ const ClientDetailPage = {
 
     const cogGridHtml = !cog ? '' : [
       itemCard('인지점수', AV.semiGauge(cog.cogScore, cogGrade?.color||'#1565C0', 100), AV.statusPill(cogGrade), AV.legendListRow(AV.cogLegendItems(cogGrade))),
-      itemCard('동연령대 상위 분포도', AV.percentileDistribution(cog.agePercentile), null, null),
+      itemCard('동연령대 상위 분포도', AV.percentileMini(cog.agePercentile), null, null),
       itemCard('시공간능력', AV.conicDonut(cog.spatial, spatialGrade?.color||'#888', 100, 90, 12), AV.statusPill(spatialGrade), AV.legendListRow(AV.subLegendItems(spatialGrade))),
       itemCard('기억력', AV.conicDonut(cog.memory, memoryGrade?.color||'#888', 100, 90, 12), AV.statusPill(memoryGrade), AV.legendListRow(AV.subLegendItems(memoryGrade))),
       itemCard('우울점수', AV.conicDonut(cog.depression, depGrade?.color||'#7B1FA2', 60, 90, 12), AV.statusPill(depGrade), AV.legendListRow(AV.depLegendItems(depGrade))),
@@ -525,7 +531,7 @@ const ClientDetailPage = {
         AV.statusPill(demGrade), AV.legendListRow(AV.demLegendItems(demGrade))),
     ].join('');
 
-    // ── 움직임평가: 심폐기능은 리포트와 동일한 그라데이션 막대 + 범례 1행 ──
+    // ── 움직임평가: 심폐기능은 리포트와 동일한 그라데이션 막대 + 범례 1행, FRA는 막대형 ──
     const cardioIdxLabel = ergo?.cardioScore!=null ? AV.calcCardioIndex(ergo.cardioScore, gender, birthDate) : null;
     const cardioGrade = cardioIdxLabel
       ? (() => { const m = AV._cardioGrades(gender).find(g=>cardioIdxLabel.includes(g.l)); return m?{label:cardioIdxLabel,color:m.color}:null; })()
@@ -534,17 +540,17 @@ const ClientDetailPage = {
       itemCard('심폐기능지수 (VO2peak)',
         ergo?.cardioScore!=null ? `<div style="width:100%;"><div style="text-align:center;margin-bottom:6px;"><span style="font-size:24px;font-weight:800;color:${cardioGrade?.color||INK};">${ergo.cardioScore}</span><span style="font-size:11px;color:${G500};"> ml/kg/min</span></div>${AV.cardioBar(ergo.cardioScore, gender, birthDate)}${AV.cardioBarLabels(ergo.cardioScore, gender, birthDate)}</div>` : '',
         null, ergo?.cardioScore!=null ? AV.legendListRow(AV.cardioLegendItems(ergo.cardioScore, gender, birthDate)) : null),
-      itemCard('신체움직임점수', AV.plainScoreOutOf100(evx?.bodyMovementIndex,'#0288D1'), null, null),
-      itemCard('신경계',       AV.fraItemBlock(fra?.nervousScore, BR, nervItems), null, null),
-      itemCard('통합균형능력', AV.fraItemBlock(fra?.balanceScore, BR, balItems), null, null),
-      itemCard('감각계',       AV.fraItemBlock(fra?.sensoryScore, BR, sensItems), null, null),
+      itemCard('신체움직임점수', AV.uiScoreWithBar(evx?.bodyMovementIndex, 100, '#0288D1'), null, null),
+      itemCard('신경계',       AV.fraBarBlock('신경계 점수', fra?.nervousScore, 100, nervItems), null, null),
+      itemCard('통합균형능력', AV.fraBarBlock('통합 균형능력', fra?.balanceScore, 100, balItems), null, null),
+      itemCard('감각계',       AV.fraBarBlock('감각계 점수', fra?.sensoryScore, 100, sensItems), null, null),
     ].join('');
 
     // ── 대사평가: 스트레스도 동일한 그라데이션 막대 + 범례 1행 ──
     const stressGrade = str?.stressScore!=null ? AV.calcStressIndex(str.stressScore) : null;
     const metaGridHtml = !(inb||str) ? '' : [
-      itemCard('체성분점수', AV.plainScoreOutOf100(inb?.bodyCompScore,'#2E7D32'), null,
-        inb?.bodyCompScore!=null ? `<div style="font-size:10.5px;color:${G500};margin-top:8px;text-align:center;">※ 근육량이 많을 경우 100점을 초과할 수 있습니다.</div>` : null),
+      itemCard('체성분점수', AV.uiScoreWithBar(inb?.bodyCompScore, 100, '#2E7D32',
+        inb?.bodyCompScore!=null ? '※ 근육량이 많을 경우 100점을 초과할 수 있습니다.' : null), null, null),
       itemCard('스트레스점수',
         str?.stressScore!=null ? `<div style="width:100%;"><div style="text-align:center;margin-bottom:6px;"><span style="font-size:24px;font-weight:800;color:${stressGrade?.color||INK};">${str.stressScore}</span><span style="font-size:11px;color:${G500};"> 점</span></div>${AV.stressBar(str.stressScore)}</div>` : '',
         null, str?.stressScore!=null ? AV.legendListRow(AV.stressLegendItems(str.stressScore)) : null),
@@ -630,11 +636,11 @@ const ClientDetailPage = {
 
       const metrics = [
         {key:'cogScore',     label:'인지점수'},
-        {key:'depression',   label:'우울점수'},
+        {key:'depression',   label:'우울점수', inverse:true},
         {key:'cardioScore',  label:'심폐기능'},
         {key:'balanceScore', label:'통합균형능력'},
         {key:'bodyCompScore',label:'체성분'},
-        {key:'stressScore',  label:'스트레스'}
+        {key:'stressScore',  label:'스트레스', inverse:true}
       ];
       const colTemplate = `96px repeat(${n},1fr) 64px`;
 
@@ -678,13 +684,17 @@ const ClientDetailPage = {
 
           const first = pts[0].v, last = pts[pts.length-1].v;
           const diff = pts.length>1 ? Math.round((last-first)*10)/10 : null;
+          // 우울/스트레스는 낮을수록 좋으므로 색상 로직을 반대로: 감소=파랑(좋음), 증가=빨강(주의)
+          const isGood = diff==null ? null : (met.inverse ? diff<0 : diff>0);
           changeHtml = diff==null ? `<span style="color:${G500};font-size:14px;">-</span>`
-            : diff>0 ? `<span style="color:#1D5FC4;font-weight:800;font-size:14px;white-space:nowrap;">▲ ${Math.abs(diff)}</span>`
-            : diff<0 ? `<span style="color:#C0392B;font-weight:800;font-size:14px;white-space:nowrap;">▼ ${Math.abs(diff)}</span>`
-            : `<span style="color:${G500};font-size:14px;">-</span>`;
+            : diff===0 ? `<span style="color:${G500};font-size:14px;">-</span>`
+            : `<span style="color:${isGood?'#1D5FC4':'#C0392B'};font-weight:800;font-size:14px;white-space:nowrap;">${diff>0?'▲':'▼'} ${Math.abs(diff)}</span>`;
         }
-        return `<div style="display:grid;grid-template-columns:${colTemplate};align-items:stretch;border-bottom:1px solid ${CREAM2};min-height:70px;">
-          <div style="grid-column:1;font-size:13px;font-weight:700;color:${INK};padding:12px 0;display:flex;align-items:center;">${met.label}</div>
+        return `<div style="display:grid;grid-template-columns:${colTemplate};align-items:stretch;border-bottom:1px solid ${CREAM2};min-height:100px;">
+          <div style="grid-column:1;padding:12px 0;display:flex;flex-direction:column;justify-content:center;">
+            <span style="font-size:13px;font-weight:700;color:${INK};">${met.label}</span>
+            ${met.inverse?`<span style="font-size:9px;color:${G500};margin-top:2px;">↓ 낮을수록 좋음</span>`:''}
+          </div>
           <div style="grid-column:2 / span ${n};">${chartHtml}</div>
           <div style="grid-column:${n+2};text-align:center;padding:12px 0;display:flex;align-items:center;justify-content:center;">${changeHtml}</div>
         </div>`;
@@ -693,7 +703,7 @@ const ClientDetailPage = {
       el.innerHTML = `
         <div style="padding:14px 18px;">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
-            <span style="font-size:16px;font-weight:800;color:${INK};">변화 추이 <span style="font-size:12px;font-weight:400;color:${G500};">(${this._weekLabelShort(1)} ~ ${this._weekLabelShort(currentRound)})</span></span>
+            <span style="font-size:16px;font-weight:800;color:${INK};">기간별 지표 변화 <span style="font-size:12px;font-weight:400;color:${G500};">(${this._weekLabelShort(1)} ~ ${this._weekLabelShort(currentRound)})</span></span>
           </div>
           <div style="background:#fff;border:1px solid ${CREAM2};border-radius:10px;padding:14px 18px;box-sizing:border-box;">
             ${headerRow}
@@ -1130,11 +1140,11 @@ const ClientDetailPage = {
 
       const metrics = [
         {key:'cogScore',     label:'인지점수'},
-        {key:'depression',   label:'우울점수'},
+        {key:'depression',   label:'우울점수', inverse:true},
         {key:'cardioScore',  label:'심폐기능'},
         {key:'balanceScore', label:'통합균형능력'},
         {key:'bodyCompScore',label:'체성분'},
-        {key:'stressScore',  label:'스트레스'}
+        {key:'stressScore',  label:'스트레스', inverse:true}
       ];
       const colTemplate = `96px repeat(${n},1fr) 64px`;
 
@@ -1180,15 +1190,18 @@ const ClientDetailPage = {
 
           const first = pts[0].v, last = pts[pts.length-1].v;
           const diff = pts.length>1 ? Math.round((last-first)*10)/10 : null;
-          // 값 변화 배지는 16px로 표기 (req2)
+          // 우울/스트레스는 낮을수록 좋으므로 색상 로직 반대 적용
+          const isGood = diff==null ? null : (met.inverse ? diff<0 : diff>0);
           changeHtml = diff==null ? `<span style="color:${G500};font-size:16px;">-</span>`
-            : diff>0 ? `<span style="color:#1D5FC4;font-weight:800;font-size:16px;white-space:nowrap;">▲ ${Math.abs(diff)}</span>`
-            : diff<0 ? `<span style="color:#C0392B;font-weight:800;font-size:16px;white-space:nowrap;">▼ ${Math.abs(diff)}</span>`
-            : `<span style="color:${G500};font-size:14px;">-</span>`;
+            : diff===0 ? `<span style="color:${G500};font-size:14px;">-</span>`
+            : `<span style="color:${isGood?'#1D5FC4':'#C0392B'};font-weight:800;font-size:16px;white-space:nowrap;">${diff>0?'▲':'▼'} ${Math.abs(diff)}</span>`;
         }
         // 차트 배경이 상하 여백 없이 행 전체를 채우도록 — 패딩은 라벨/변화 칸에만 적용 (req3)
         return `<div style="display:grid;grid-template-columns:${colTemplate};align-items:stretch;border-bottom:1px solid ${CREAM2};flex:1;">
-          <div style="grid-column:1;font-size:14px;font-weight:700;color:${INK};padding:15px 0;display:flex;align-items:center;">${met.label}</div>
+          <div style="grid-column:1;padding:15px 0;display:flex;flex-direction:column;justify-content:center;">
+            <span style="font-size:14px;font-weight:700;color:${INK};">${met.label}</span>
+            ${met.inverse?`<span style="font-size:9.5px;color:${G500};margin-top:2px;">↓ 낮을수록 좋음</span>`:''}
+          </div>
           <div style="grid-column:2 / span ${n};">${chartHtml}</div>
           <div style="grid-column:${n+2};text-align:center;padding:15px 0;display:flex;align-items:center;justify-content:center;">${changeHtml}</div>
         </div>`;
@@ -1199,8 +1212,9 @@ const ClientDetailPage = {
 
     return `
 <!-- ===================== PAGE 1: 표지 ===================== -->
-<div style="width:100%;min-height:1050px;position:relative;display:flex;flex-direction:column;justify-content:space-between;padding:68px 60px;box-sizing:border-box;page-break-after:always;background:#fff;">
+<div style="width:100%;min-height:1050px;position:relative;display:flex;flex-direction:column;padding:68px 60px;box-sizing:border-box;page-break-after:always;background:#fff;">
 
+  <div style="flex:1;display:flex;flex-direction:column;justify-content:space-between;">
   <div>
     <div style="display:flex;justify-content:flex-end;margin-bottom:34px;">
       <span style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;color:${G500};border:1px solid ${LINE};padding:4px 10px;border-radius:20px;">CONFIDENTIAL · 개인 건강정보</span>
@@ -1238,8 +1252,10 @@ const ClientDetailPage = {
         </div>`).join('')}
       </div>
     </div>
-    ${pageFooter(1, 5)}
   </div>
+  </div>
+
+  ${pageFooter(1, 5)}
 </div>
 
 <!-- ===================== PAGE 2: 평가 결과 ===================== -->
@@ -1395,8 +1411,9 @@ const ClientDetailPage = {
 </div>
 
 <!-- ===================== PAGE 5: 마무리 (간지) ===================== -->
-<div style="width:100%;min-height:100vh;position:relative;display:flex;flex-direction:column;justify-content:space-between;padding:68px 60px;box-sizing:border-box;font-family:'Noto Sans KR',sans-serif;background:#fff;">
+<div style="width:100%;min-height:100vh;position:relative;display:flex;flex-direction:column;padding:68px 60px;box-sizing:border-box;font-family:'Noto Sans KR',sans-serif;background:#fff;">
 
+  <div style="flex:1;display:flex;flex-direction:column;justify-content:space-between;">
   <div style="text-align:center;">
     ${logoSrc?`<img src="${logoSrc}" alt="Care Hub" style="max-width:130px;height:auto;object-fit:contain;opacity:0.9;">`:`<div style="font-size:15px;font-weight:800;letter-spacing:0.15em;color:${BR};">CARE HUB IN HANAM</div>`}
   </div>
@@ -1412,9 +1429,10 @@ const ClientDetailPage = {
     <div style="width:44px;height:2px;background:${BR};margin:28px auto 0;"></div>
   </div>
 
-  <div>
-    ${pageFooter(5, 5)}
+  <div></div>
   </div>
+
+  ${pageFooter(5, 5)}
 </div>
   `;
   },
