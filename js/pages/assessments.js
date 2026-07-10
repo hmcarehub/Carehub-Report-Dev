@@ -499,7 +499,7 @@ const AssessmentsPage = {
       (!hasData && score==null) ? emptyViz() : AssessVisuals.conicDonut(score, color, max, size, thickness);
     const gaugeCircle   = (score, color, max) =>
       (!hasData && score==null) ? emptyViz() : AssessVisuals.conicDonut(score, color||'#2E7D32', max||100, 100, 14);
-    const percentileBar = (pct) => AssessVisuals.percentileDistribution(pct);
+    const percentileBar = (pct) => AssessVisuals.percentileMini(pct);
     const subGradeColor = (score) => {
       const g = AssessVisuals.mapSubGrade(AssessVisuals.calcCogSubGrade(score));
       return g ? g.color : '#888';
@@ -964,11 +964,12 @@ const AssessmentsPage = {
           ${this._saveBtns(canWrite,!!d,'everex')}
         </div>
         <div class="assess-sub-section" style="display:flex;align-items:center;justify-content:center;">
-          <div id="viz-evx" style="text-align:center;">
-            <div style="display:flex;align-items:baseline;gap:6px;justify-content:center;">
+          <div id="viz-evx" style="text-align:center;width:100%;max-width:260px;">
+            <div style="display:flex;align-items:baseline;gap:6px;justify-content:center;margin-bottom:10px;">
               <span style="font-size:52px;font-weight:900;color:var(--color-primary-dark);">${score!=null?score:'-'}</span>
               <span style="font-size:18px;color:var(--color-gray-400);font-weight:600;">/ 100점</span>
             </div>
+            ${AssessVisuals.uiBarFull(score, 100, 10, 'var(--color-primary-dark)')}
           </div>
         </div>
       </div></div>`;
@@ -976,7 +977,8 @@ const AssessmentsPage = {
       area?.querySelector('#f-evx-idx')?.addEventListener('input',e=>{
         const viz=area.querySelector('#viz-evx');
         const val=e.target.value.trim();
-        if (viz) viz.innerHTML=`<div style="display:flex;align-items:baseline;gap:6px;justify-content:center;"><span style="font-size:52px;font-weight:900;color:var(--color-primary-dark);">${val||'-'}</span><span style="font-size:18px;color:var(--color-gray-400);font-weight:600;">/ 100점</span></div>`;
+        const num = val===''?null:Number(val);
+        if (viz) viz.innerHTML=`<div style="display:flex;align-items:baseline;gap:6px;justify-content:center;margin-bottom:10px;"><span style="font-size:52px;font-weight:900;color:var(--color-primary-dark);">${val||'-'}</span><span style="font-size:18px;color:var(--color-gray-400);font-weight:600;">/ 100점</span></div>${AssessVisuals.uiBarFull(num, 100, 10, 'var(--color-primary-dark)')}`;
       });
       area?.querySelectorAll('.sec-save-btn').forEach(b=>b.addEventListener('click',()=>this._saveEverex()));
       area?.querySelectorAll('.sec-del-btn[data-sec="everex"]').forEach(b=>b.addEventListener('click',()=>this._deleteSheet('everex')));
@@ -999,17 +1001,14 @@ const AssessmentsPage = {
     const balItems  = StandardsCache.get('inbodyFra_balance') || [{label:'통합 균형 능력 평가'},{label:'빠르게 무게중심 옮기기 평가'},{label:'과녁 따라 무게중심 옮기기 평가'}];
     const sensItems = StandardsCache.get('inbodyFra_sensory') || [{label:'감각계 평가'},{label:'체성감각 평가'},{label:'시각 평가'},{label:'전정감각 평가'}];
 
-    const donut=(score,color='#1565C0')=> AssessVisuals.conicDonut(score,color,100,90,12);
-    const fraCol = (id, label, score, color, items) => `
+    const fraViz = (score, label, items) => AssessVisuals.fraBarBlock(label, score, 100, items);
+    const fraCol = (id, label, score, items) => `
       <div style="padding:12px 14px;border-right:1px solid var(--color-gray-100);display:flex;flex-direction:column;align-items:center;">
         <div style="font-size:12px;font-weight:700;color:var(--color-gray-600);margin-bottom:6px;text-align:center;">${label}</div>
         <input type="number" id="${id}" class="form-control" value="${score??''}" placeholder="0~100" min="0" max="100" step="1" ${ro}
-          style="height:44px;font-size:18px;font-weight:700;text-align:center;margin-bottom:10px;width:100%;">
-        <div class="viz-fra-item" data-id="${id}" style="text-align:center;">
-          ${donut(score,color)}
-          <div style="font-size:11px;color:var(--color-gray-400);margin-top:4px;text-align:left;">
-            ${items.map(it=>`<div style="padding:1px 0;">• ${it.label}</div>`).join('')}
-          </div>
+          style="height:44px;font-size:18px;font-weight:700;text-align:center;margin-bottom:12px;width:100%;">
+        <div class="viz-fra-item" data-id="${id}" style="width:100%;">
+          ${fraViz(score, label, items)}
         </div>
       </div>`;
 
@@ -1020,19 +1019,16 @@ const AssessmentsPage = {
         <label class="assess-field-label">측정일 <span class="required">*</span></label>
         <input type="date" id="f-fra-date" class="form-control" value="${v.measureDate||AssessUtils._fmt(new Date())}" ${ro} style="max-width:200px;margin-top:4px;">
       </div>
-      <!-- 3열: 각 항목 입력+도넛 -->
+      <!-- 3열: 각 항목 입력+막대 -->
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;">
-        ${fraCol('f-fra-nerv','신경계 점수',v.nervousScore,'#6A1B9A',nervItems)}
-        ${fraCol('f-fra-bal','통합 균형능력 점수',v.balanceScore,'#00695C',balItems)}
+        ${fraCol('f-fra-nerv','신경계 점수',v.nervousScore,nervItems)}
+        ${fraCol('f-fra-bal','통합 균형능력 점수',v.balanceScore,balItems)}
         <div style="padding:12px 14px;display:flex;flex-direction:column;align-items:center;">
           <div style="font-size:12px;font-weight:700;color:var(--color-gray-600);margin-bottom:6px;text-align:center;">감각계 점수</div>
           <input type="number" id="f-fra-sens" class="form-control" value="${v.sensoryScore??''}" placeholder="0~100" min="0" max="100" step="1" ${ro}
-            style="height:44px;font-size:18px;font-weight:700;text-align:center;margin-bottom:10px;width:100%;">
-          <div class="viz-fra-item" data-id="f-fra-sens" style="text-align:center;">
-            ${donut(v.sensoryScore,'#E65100')}
-            <div style="font-size:11px;color:var(--color-gray-400);margin-top:4px;text-align:left;">
-              ${sensItems.map(it=>`<div style="padding:1px 0;">• ${it.label}</div>`).join('')}
-            </div>
+            style="height:44px;font-size:18px;font-weight:700;text-align:center;margin-bottom:12px;width:100%;">
+          <div class="viz-fra-item" data-id="f-fra-sens" style="width:100%;">
+            ${fraViz(v.sensoryScore, '감각계 점수', sensItems)}
           </div>
         </div>
       </div>
@@ -1043,18 +1039,15 @@ const AssessmentsPage = {
 
     if (canWrite) {
       const fraItems=[
-        {id:'#f-fra-nerv',color:'#6A1B9A',items:nervItems},
-        {id:'#f-fra-bal',color:'#00695C',items:balItems},
-        {id:'#f-fra-sens',color:'#E65100',items:sensItems}
+        {id:'#f-fra-nerv',label:'신경계 점수',items:nervItems},
+        {id:'#f-fra-bal',label:'통합 균형능력 점수',items:balItems},
+        {id:'#f-fra-sens',label:'감각계 점수',items:sensItems}
       ];
-      fraItems.forEach(({id,color,items})=>{
+      fraItems.forEach(({id,label,items})=>{
         area?.querySelector(id)?.addEventListener('input', e => {
           const val=parseFloat(e.target.value);
           const vizEl=area.querySelector(`.viz-fra-item[data-id="${id.replace('#','')}"]`);
-          if (vizEl) vizEl.innerHTML=`${donut(isNaN(val)?null:val,color)}
-            <div style="font-size:11px;color:var(--color-gray-400);margin-top:4px;text-align:left;">
-              ${items.map(it=>`<div style="padding:1px 0;">• ${it.label}</div>`).join('')}
-            </div>`;
+          if (vizEl) vizEl.innerHTML=fraViz(isNaN(val)?null:val, label, items);
         });
       });
       area?.querySelectorAll('.sec-save-btn').forEach(b=>b.addEventListener('click',()=>this._saveFra()));
@@ -1141,11 +1134,12 @@ const AssessmentsPage = {
           ${this._saveBtns(canWrite,!!d,'inbody')}
         </div>
         <div class="assess-sub-section" style="display:flex;flex-direction:column;align-items:center;justify-content:center;">
-          <div id="viz-inb" style="text-align:center;">
-            <div style="display:flex;align-items:baseline;gap:6px;justify-content:center;">
+          <div id="viz-inb" style="text-align:center;width:100%;max-width:260px;">
+            <div style="display:flex;align-items:baseline;gap:6px;justify-content:center;margin-bottom:10px;">
               <span style="font-size:52px;font-weight:900;color:#2E7D32;">${score!=null?score:'-'}</span>
               <span style="font-size:18px;color:var(--color-gray-400);font-weight:600;">/ 100점</span>
             </div>
+            ${AssessVisuals.uiBarFull(score, 100, 10, '#2E7D32')}
           </div>
           <div style="font-size:11px;color:var(--color-gray-400);margin-top:12px;text-align:center;max-width:160px;">
             ※ 근육이 매우 많을 경우 100점이 넘을 수 있습니다.
@@ -1156,7 +1150,8 @@ const AssessmentsPage = {
       area?.querySelector('#f-inb-score')?.addEventListener('input',e=>{
         const viz=area.querySelector('#viz-inb');
         const val=e.target.value.trim();
-        if (viz) viz.innerHTML=`<div style="display:flex;align-items:baseline;gap:6px;justify-content:center;"><span style="font-size:52px;font-weight:900;color:#2E7D32;">${val||'-'}</span><span style="font-size:18px;color:var(--color-gray-400);font-weight:600;">/ 100점</span></div>`;
+        const num = val===''?null:Number(val);
+        if (viz) viz.innerHTML=`<div style="display:flex;align-items:baseline;gap:6px;justify-content:center;margin-bottom:10px;"><span style="font-size:52px;font-weight:900;color:#2E7D32;">${val||'-'}</span><span style="font-size:18px;color:var(--color-gray-400);font-weight:600;">/ 100점</span></div>${AssessVisuals.uiBarFull(num, 100, 10, '#2E7D32')}`;
       });
       area?.querySelectorAll('.sec-save-btn[data-sec="inbody"]').forEach(b=>b.addEventListener('click',()=>this._saveInbody()));
       area?.querySelectorAll('.sec-del-btn[data-sec="inbody"]').forEach(b=>b.addEventListener('click',()=>this._deleteSheet('inbody')));
