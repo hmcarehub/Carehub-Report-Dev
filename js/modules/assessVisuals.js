@@ -425,6 +425,127 @@ const AssessVisuals = {
   gradeBadge: function(grade) {
     if (!grade) return '';
     return `<span style="background:${grade.bg||(grade.color+'22')};color:${grade.color};padding:3px 14px;border-radius:12px;font-size:13px;font-weight:700;">${grade.label}</span>`;
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // 3) 통합 리포트(PDF) UI 언어 — 고객상세/평가관리에서도 동일하게 사용
+  //    (브랜드 색상, 상태 배지, 범례, 카드 스타일)
+  // ══════════════════════════════════════════════════════════
+  UI_BR:     '#9B734B',
+  UI_BR_DARK:'#6B4E35',
+  UI_INK:    '#221D17',
+  UI_G500:   '#8B8377',
+  UI_CREAM:  '#FBF9F5',
+  UI_CREAM2: '#F2ECE2',
+  UI_LINE:   '#E6DCCB',
+  UI_ORANGE: '#D9822B', // 개선/중등도/관심/(치매·서브항목의)주의 공통색
+  UI_RED:    '#C0392B', // 인지점수 전용 "주의"
+
+  // 상태 배지(둥근 pill) — 리포트와 동일 스타일
+  statusPill: function(grade) {
+    if (!grade) return '';
+    const label = grade.label || grade.l;
+    const color = grade.color || grade.c;
+    const bg = grade.bg || grade.b || (color + '1A');
+    return `<span style="display:inline-block;background:${bg};color:${color};font-size:11px;font-weight:700;padding:3px 11px;border-radius:20px;white-space:nowrap;">${label}</span>`;
+  },
+
+  // 범례 리스트(● 라벨 : 범위) — 세로 1열. range 텍스트는 항상 회색.
+  legendListCol: function(items) {
+    return `<div style="display:flex;flex-direction:column;gap:5px;">
+      ${(items||[]).map(it=>`<div style="display:flex;align-items:center;gap:5px;white-space:nowrap;">
+        <span style="width:7px;height:7px;border-radius:50%;background:${it.color};flex-shrink:0;"></span>
+        <span style="font-size:11px;font-weight:${it.active?'800':'600'};color:${it.color};">${it.label}</span>
+        <span style="font-size:11px;color:${this.UI_G500};">: ${it.range}</span>
+      </div>`).join('')}
+    </div>`;
+  },
+  // 범례 리스트 — 가로 1행(줄바꿈 허용)
+  legendListRow: function(items) {
+    return `<div style="display:flex;gap:14px;flex-wrap:wrap;">
+      ${(items||[]).map(it=>`<div style="display:flex;align-items:center;gap:5px;white-space:nowrap;">
+        <span style="width:7px;height:7px;border-radius:50%;background:${it.color};flex-shrink:0;"></span>
+        <span style="font-size:11px;font-weight:${it.active?'800':'600'};color:${it.color};">${it.label}</span>
+        <span style="font-size:11px;color:${this.UI_G500};">: ${it.range}</span>
+      </div>`).join('')}
+    </div>`;
+  },
+
+  // 등급별 범례 데이터 — 리포트와 동일 임계값/색상
+  cogLegendItems: function(grade) {
+    return [
+      {label:'주의', range:'0~64',   color:this.UI_RED},
+      {label:'개선', range:'65~79',  color:this.UI_ORANGE},
+      {label:'양호', range:'80~89',  color:'#4C8C4A'},
+      {label:'최적', range:'90~100', color:'#2E6B2E'}
+    ].map(it=>({...it, active: grade && grade.label===it.label}));
+  },
+  subLegendItems: function(grade) {
+    return [
+      {label:'주의', range:'0~33',   color:this.UI_ORANGE},
+      {label:'관심', range:'34~66',  color:this.UI_ORANGE},
+      {label:'양호', range:'67~100', color:'#4C8C4A'}
+    ].map(it=>({...it, active: grade && grade.label===it.label}));
+  },
+  depLegendItems: function(grade) {
+    return [
+      {label:'경도',     range:'0~20',  color:'#4C8C4A'},
+      {label:'중등도',   range:'21~24', color:this.UI_ORANGE},
+      {label:'높은수준', range:'25~60', color:this.UI_RED}
+    ].map(it=>({...it, active: grade && (grade.label||'').startsWith(it.label)}));
+  },
+  demLegendItems: function(grade) {
+    return [
+      {label:'낮음', range:'0~29',   color:'#4C8C4A'},
+      {label:'주의', range:'30~59',  color:this.UI_ORANGE},
+      {label:'높음', range:'60~100', color:this.UI_RED}
+    ].map(it=>({...it, active: grade && grade.label===it.label}));
+  },
+  cardioLegendItems: function(score, gender, birthDate) {
+    const isMale = gender==='남자';
+    const age2 = birthDate ? new Date().getFullYear()-new Date(birthDate).getFullYear() : null;
+    const isOld = age2!=null && age2>=66;
+    const rowsMale = [['최우수','#1B5E20','40.0↑','37.0↑'],['우수','#2E7D32','36.0~39.9','33.0~37.0'],['평균이상','#388E3C','32.0~35.9','29.0~32.9'],['평균','#F57F17','29.0~31.9','26.0~28.9'],['평균이하','#E65100','25.0~28.9','22.0~25.9'],['최하위','#C62828','25.0↓','22.0↓']];
+    const rowsFemale = [['최우수','#1B5E20','33.0↑','32.0↑'],['우수','#2E7D32','29.0~32.9','28.0~32.0'],['평균이상','#388E3C','25.0~28.9','25.0~27.9'],['평균','#F57F17','22.0~24.9','22.0~24.9'],['평균이하','#E65100','19.0~21.9','19.0~21.9'],['최하위','#C62828','19.0↓','19.0↓']];
+    const rows = isMale?rowsMale:rowsFemale;
+    const cardioIdx = this.calcCardioIndex(score, gender, birthDate);
+    return rows.map(r=>({label:r[0],color:r[1],range: isOld?r[3]:r[2], active: cardioIdx===r[0]}));
+  },
+  stressLegendItems: function(score) {
+    const grades = this._stressGrades();
+    const current = this.calcStressIndex(score);
+    let prev = 0;
+    return grades.map((g,i)=>{
+      const range = i===grades.length-1 ? `${prev}↑` : `${prev}~${g.max}`;
+      prev = g.max+1;
+      return {label:g.l, range, color:g.color, active: current && current.label===g.l};
+    });
+  },
+
+  // 인지점수 전용 등급 색 오버라이드 — "주의"는 항상 빨강(다른 항목의 "주의"와 구분), "개선"은 주황
+  mapCogScoreGrade: function(grade) {
+    if (!grade) return grade;
+    if (grade.label === '개선') return {...grade, color:this.UI_ORANGE};
+    if (grade.label === '주의') return {...grade, color:this.UI_RED};
+    return grade;
+  },
+  // 그 외 인지 하위 항목(시공간/기억력/치매/우울) — 개선·중등도·주의·관심 공통 주황
+  mapSubGrade: function(grade) {
+    if (!grade) return grade;
+    const hit = ['개선','중등도','주의','관심'].some(l => (grade.label||'').includes(l));
+    return hit ? {...grade, color:this.UI_ORANGE} : grade;
+  },
+
+  // 카드 래퍼(흰 배경 + 연한 브라운 테두리) — 리포트 categoryBox와 동일 언어
+  uiCard: function(innerHtml, extraStyle) {
+    return `<div style="background:#fff;border:1px solid ${this.UI_CREAM2};border-radius:10px;padding:14px 16px;box-sizing:border-box;${extraStyle||''}">${innerHtml}</div>`;
+  },
+  // 카드 안 섹션 타이틀(아이콘 + 텍스트 + 우측 얇은 선)
+  uiSectionHead: function(icon, title) {
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+      <div style="font-size:15px;font-weight:800;color:${this.UI_INK};letter-spacing:0.02em;white-space:nowrap;">${icon} ${title}</div>
+      <div style="flex:1;height:1px;background:rgba(155,115,75,0.3);"></div>
+    </div>`;
   }
 };
 
