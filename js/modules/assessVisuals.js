@@ -540,6 +540,28 @@ const AssessVisuals = {
   uiCard: function(innerHtml, extraStyle) {
     return `<div style="background:#fff;border:1px solid ${this.UI_CREAM2};border-radius:10px;padding:14px 16px;box-sizing:border-box;${extraStyle||''}">${innerHtml}</div>`;
   },
+  // 인바디 스타일 가로 행(라벨-막대-값+배지) — 시공간능력/기억력 등에서 사용
+  inbodyRow: function(label, score, max, grade, unit) {
+    max = max || 100;
+    const pct = score!=null ? Math.min(100,Math.max(0,(Number(score)/max)*100)) : null;
+    const fillColor = grade ? grade.color : this.UI_BR;
+    return `<div style="display:flex;align-items:center;gap:12px;padding:6px 0;">
+      <div style="width:90px;flex-shrink:0;">
+        <div style="font-size:11px;font-weight:700;color:${this.UI_INK};text-transform:uppercase;">${label}</div>
+      </div>
+      <div style="flex:1;min-width:40px;">
+        <div style="position:relative;height:10px;background:${this.UI_CREAM2};border-radius:5px;">
+          <div style="position:absolute;left:0;top:0;bottom:0;width:${pct||0}%;background:${fillColor};border-radius:5px;"></div>
+          ${pct!=null?`<div style="position:absolute;left:calc(${pct}% - 3px);top:-1px;width:7px;height:7px;border-radius:50%;background:${this.UI_INK};border:1.5px solid #fff;"></div>`:''}
+        </div>
+      </div>
+      <div style="flex-shrink:0;display:flex;align-items:center;gap:6px;">
+        <span style="font-size:15px;font-weight:800;color:${grade?grade.color:this.UI_INK};">${score!=null?score:'-'}</span>${unit?`<span style="font-size:9.5px;color:${this.UI_G500};">${unit}</span>`:''}
+        ${grade?this.statusPill(grade):''}
+      </div>
+    </div>`;
+  },
+
   // 카드 안 섹션 타이틀(아이콘 + 텍스트 + 우측 얇은 선)
   uiSectionHead: function(icon, title) {
     return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
