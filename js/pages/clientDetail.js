@@ -1246,7 +1246,7 @@ const ClientDetailPage = {
     <div style="font-size:25px;font-weight:700;color:${INK};">${c.name} 님</div>
   </div>
 
-  <div>
+  <div style="margin-bottom:60px;">
     <div style="display:flex;justify-content:center;">
       <div style="display:grid;grid-template-columns:repeat(4,1fr);">
         ${[
