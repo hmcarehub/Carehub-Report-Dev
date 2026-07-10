@@ -1422,19 +1422,27 @@ const ClientDetailPage = {
 <div style="width:100%;min-height:100vh;position:relative;display:flex;flex-direction:column;padding:68px 60px;box-sizing:border-box;font-family:'Noto Sans KR',sans-serif;background:#fff;">
 
   <div style="flex:1;display:flex;flex-direction:column;justify-content:space-between;">
-  <div style="text-align:center;">
-    ${logoSrc?`<img src="${logoSrc}" alt="Care Hub" style="max-width:190px;height:auto;object-fit:contain;opacity:0.9;">`:`<div style="font-size:15px;font-weight:800;letter-spacing:0.15em;color:${BR};">CARE HUB IN HANAM</div>`}
+  <div>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:34px;">
+      <span style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;color:${G500};border:1px solid ${LINE};padding:4px 10px;border-radius:20px;">CONFIDENTIAL · 개인 건강정보</span>
+    </div>
+    <div style="text-align:center;">
+      ${logoSrc?`<img src="${logoSrc}" alt="Care Hub" style="max-width:190px;height:auto;object-fit:contain;">`:`<div style="font-size:18.5px;font-weight:800;letter-spacing:0.15em;color:${BR};">CARE HUB IN HANAM</div>`}
+    </div>
   </div>
 
   <div style="text-align:center;">
-    <div style="width:44px;height:2px;background:${BR};margin:0 auto 28px;"></div>
-    <div style="font-size:11px;letter-spacing:0.3em;color:${BR};font-weight:700;margin-bottom:16px;text-transform:uppercase;">End of Report</div>
-    <div style="font-size:24px;font-weight:800;color:${INK};letter-spacing:-0.01em;margin-bottom:16px;">감사합니다</div>
-    <div style="font-size:13px;color:${G500};line-height:1.9;max-width:430px;margin:0 auto;word-break:keep-all;">
-      본 리포트는 ${c.name} 님의 건강 상태를 종합적으로 기록한 자료입니다.<br>
-      궁금하신 점은 담당 케어 매니저에게 문의해 주세요.
+    <div style="font-size:12.5px;letter-spacing:0.3em;color:${BR};font-weight:700;margin-bottom:18px;text-transform:uppercase;">Integrated Health Report</div>
+    <div style="position:relative;display:inline-block;padding:12px 36px;">
+      <span style="position:absolute;top:0;left:0;width:14px;height:14px;border-top:2px solid ${BR};border-left:2px solid ${BR};"></span>
+      <span style="position:absolute;top:0;right:0;width:14px;height:14px;border-top:2px solid ${BR};border-right:2px solid ${BR};"></span>
+      <span style="position:absolute;bottom:0;left:0;width:14px;height:14px;border-bottom:2px solid ${BR};border-left:2px solid ${BR};"></span>
+      <span style="position:absolute;bottom:0;right:0;width:14px;height:14px;border-bottom:2px solid ${BR};border-right:2px solid ${BR};"></span>
+      <div style="font-size:44px;font-weight:800;color:${INK};letter-spacing:-0.01em;">검사별 상세 리포트</div>
     </div>
-    <div style="width:44px;height:2px;background:${BR};margin:28px auto 0;"></div>
+    <div style="font-size:14px;font-weight:700;color:${BR_DARK};margin-top:14px;">${weekEvalLabel(master.round)} 리포트</div>
+    <div style="width:44px;height:2px;background:${BR};margin:24px auto 20px;"></div>
+    <div style="font-size:25px;font-weight:700;color:${INK};">${c.name} 님</div>
   </div>
 
   <div></div>
