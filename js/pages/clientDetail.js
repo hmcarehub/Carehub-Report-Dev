@@ -1220,7 +1220,7 @@ const ClientDetailPage = {
 
     return `
 <!-- ===================== PAGE 1: 표지 ===================== -->
-<div style="width:100%;min-height:1050px;position:relative;display:flex;flex-direction:column;padding:68px 60px;box-sizing:border-box;page-break-after:always;background:#fff;">
+<div style="width:100%;min-height:100vh;position:relative;display:flex;flex-direction:column;padding:68px 60px;box-sizing:border-box;page-break-after:always;background:#fff;">
 
   <div style="flex:1;display:flex;flex-direction:column;justify-content:space-between;">
   <div>
@@ -1423,7 +1423,7 @@ const ClientDetailPage = {
 
   <div style="flex:1;display:flex;flex-direction:column;justify-content:space-between;">
   <div style="text-align:center;">
-    ${logoSrc?`<img src="${logoSrc}" alt="Care Hub" style="max-width:130px;height:auto;object-fit:contain;opacity:0.9;">`:`<div style="font-size:15px;font-weight:800;letter-spacing:0.15em;color:${BR};">CARE HUB IN HANAM</div>`}
+    ${logoSrc?`<img src="${logoSrc}" alt="Care Hub" style="max-width:190px;height:auto;object-fit:contain;opacity:0.9;">`:`<div style="font-size:15px;font-weight:800;letter-spacing:0.15em;color:${BR};">CARE HUB IN HANAM</div>`}
   </div>
 
   <div style="text-align:center;">
