@@ -546,6 +546,59 @@ const AssessVisuals = {
       <div style="font-size:15px;font-weight:800;color:${this.UI_INK};letter-spacing:0.02em;white-space:nowrap;">${icon} ${title}</div>
       <div style="flex:1;height:1px;background:rgba(155,115,75,0.3);"></div>
     </div>`;
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // 4) 리포트와 100% 동일한 시각화 — 고객상세/평가관리에서도 그대로 사용
+  //    (가로 막대, FRA 막대형, 동연령대 미니차트, 값+막대 조합)
+  // ══════════════════════════════════════════════════════════
+
+  // 가로 막대 그래프(리포트 barFull과 동일)
+  uiBarFull: function(score, max, thickness, color) {
+    max = max || 100; thickness = thickness || 10;
+    const pct = score!=null ? Math.min(100,Math.max(0,(Number(score)/max)*100)) : 0;
+    return `<div style="width:100%;height:${thickness}px;background:${this.UI_CREAM2};border-radius:${Math.round(thickness/2)}px;overflow:hidden;">
+      <div style="height:100%;width:${pct}%;background:${color||this.UI_BR};border-radius:${Math.round(thickness/2)}px;"></div>
+    </div>`;
+  },
+
+  // 큰 숫자 + 막대(리포트의 신체움직임/체성분 카드와 동일)
+  uiScoreWithBar: function(score, max, color, note) {
+    max = max || 100;
+    return `<div style="width:100%;">
+      <div style="text-align:center;white-space:nowrap;margin-bottom:8px;"><span style="font-size:24px;font-weight:800;color:${color||this.UI_INK};">${score!=null?score:'-'}</span><span style="font-size:11px;color:${this.UI_G500};">점 / ${max}점</span></div>
+      ${this.uiBarFull(score, max, 10, color)}
+      ${note?`<div style="font-size:10px;color:${this.UI_G500};margin-top:6px;text-align:center;">${note}</div>`:''}
+    </div>`;
+  },
+
+  // 인바디FRA 항목(신경계/균형/감각) — 리포트 fraBlock과 동일: 타이틀+값(같은 행) → 막대 → 기준항목 캡션
+  fraBarBlock: function(label, score, max, items) {
+    items = items || [];
+    max = max || 100;
+    return `<div style="width:100%;display:flex;flex-direction:column;gap:5px;">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;white-space:nowrap;gap:8px;">
+        <span style="font-size:11px;font-weight:700;color:${this.UI_G500};text-transform:uppercase;">${label}</span>
+        <span><span style="font-size:16px;font-weight:800;color:${this.UI_INK};">${score!=null?score:'-'}</span><span style="font-size:9.5px;color:${this.UI_G500};">점</span></span>
+      </div>
+      ${this.uiBarFull(score, max, 9)}
+      <div style="font-size:9.5px;color:${this.UI_G500};margin-top:2px;">${items.map(it=>it.label).join(', ')}</div>
+    </div>`;
+  },
+
+  // 동연령대 상위 분포도 — 리포트 percentileMini와 동일 (값 + 미니 히스토그램, 가로 flex, 중앙 정렬)
+  percentileMini: function(pct) {
+    if (pct==null) return `<div style="font-size:11.5px;color:${this.UI_G500};">데이터 없음</div>`;
+    const p = Math.min(100, Math.max(0, Number(pct)||0));
+    const heights=[14,21,29,38,29,21,14];
+    const barW=11, gap=4, n=heights.length, totalW=n*barW+(n-1)*gap, maxH=Math.max(...heights);
+    const idx=Math.min(n-1,Math.max(0,Math.round((100-p)/100*(n-1))));
+    let bars='';
+    heights.forEach((h,i)=>{ bars+=`<rect x="${i*(barW+gap)}" y="${maxH-h}" width="${barW}" height="${h}" rx="2" fill="${i===idx?this.UI_BR:this.UI_CREAM2}"/>`; });
+    return `<div style="display:flex;align-items:center;justify-content:center;gap:14px;width:100%;padding-top:6px;">
+      <div style="white-space:nowrap;"><span style="font-size:15px;font-weight:700;color:${this.UI_INK};">상위 ${p}%예요</span></div>
+      <svg width="${totalW}" height="${maxH}" viewBox="0 0 ${totalW} ${maxH}">${bars}</svg>
+    </div>`;
   }
 };
 
