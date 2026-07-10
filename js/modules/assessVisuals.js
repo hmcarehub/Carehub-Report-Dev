@@ -612,13 +612,13 @@ const AssessVisuals = {
   percentileMini: function(pct) {
     if (pct==null) return `<div style="font-size:11.5px;color:${this.UI_G500};">데이터 없음</div>`;
     const p = Math.min(100, Math.max(0, Number(pct)||0));
-    const heights=[14,21,29,38,29,21,14];
-    const barW=11, gap=4, n=heights.length, totalW=n*barW+(n-1)*gap, maxH=Math.max(...heights);
+    const heights=[21,32,44,57,44,32,21];
+    const barW=16, gap=6, n=heights.length, totalW=n*barW+(n-1)*gap, maxH=Math.max(...heights);
     const idx=Math.min(n-1,Math.max(0,Math.round((100-p)/100*(n-1))));
     let bars='';
-    heights.forEach((h,i)=>{ bars+=`<rect x="${i*(barW+gap)}" y="${maxH-h}" width="${barW}" height="${h}" rx="2" fill="${i===idx?this.UI_BR:this.UI_CREAM2}"/>`; });
-    return `<div style="display:flex;align-items:center;justify-content:center;gap:14px;width:100%;padding-top:6px;">
-      <div style="white-space:nowrap;"><span style="font-size:15px;font-weight:700;color:${this.UI_INK};">상위 ${p}%예요</span></div>
+    heights.forEach((h,i)=>{ bars+=`<rect x="${i*(barW+gap)}" y="${maxH-h}" width="${barW}" height="${h}" rx="3" fill="${i===idx?this.UI_BR:this.UI_CREAM2}"/>`; });
+    return `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;width:100%;padding-top:6px;">
+      <div style="white-space:nowrap;"><span style="font-size:16px;font-weight:700;color:${this.UI_INK};">상위 ${p}%예요</span></div>
       <svg width="${totalW}" height="${maxH}" viewBox="0 0 ${totalW} ${maxH}">${bars}</svg>
     </div>`;
   }
