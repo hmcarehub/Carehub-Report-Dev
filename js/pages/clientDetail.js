@@ -234,13 +234,13 @@ const ClientDetailPage = {
         <div class="card-header" style="padding:10px 16px;border-bottom:2px solid var(--color-gray-200);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;">
           <div style="display:flex;gap:0;align-items:stretch;flex-wrap:wrap;">
             ${Array.from({length:Math.min(c.totalRounds||0,7)},(_,i)=>i+1).map(n=>`
-              <button class="round-tab${(this.activeDetailTab==='rounds'||this.activeDetailTab==='trend')&&this.activeRound===n?' active':''}" data-main-tab="round" data-round="${n}" style="font-size:18px;padding:8px 14px;">${this._weekLabelShort(n)}</button>
+              <button class="round-tab${(this.activeDetailTab==='rounds'||this.activeDetailTab==='trend'||this.activeDetailTab==='comment')&&this.activeRound===n?' active':''}" data-main-tab="round" data-round="${n}" style="font-size:18px;padding:8px 14px;">${this._weekLabelShort(n)}</button>
             `).join('')}
             <button class="round-tab${this.activeDetailTab==='report'?' active':''}" data-main-tab="report" style="font-size:18px;padding:8px 14px;border-left:2px solid var(--color-gray-200);">📊 통합 리포트</button>
           </div>
           <!-- 우측 상태값: 리포트 상태 배지 (report 탭이 아닐 때 현재 선택 회차 상태 표시) -->
           <div style="flex-shrink:0;display:flex;align-items:center;gap:8px;margin-left:8px;" id="tab-status-area">
-            ${this.activeDetailTab!=='report'&&this.activeDetailTab!=='trend'?`<span id="round-report-status-badge"></span>`:``}
+            ${this.activeDetailTab!=='report'&&this.activeDetailTab!=='trend'&&this.activeDetailTab!=='comment'?`<span id="round-report-status-badge"></span>`:``}
           </div>
         </div>
         <div id="detail-tab-content" style="overflow:visible;padding-top:10px;padding-bottom:10px;box-sizing:border-box;"></div>
@@ -281,7 +281,7 @@ const ClientDetailPage = {
         // 상태 배지 갱신 (변화추이 탭에서는 표시 안 함)
         const sa = document.getElementById('tab-status-area');
         if (sa) {
-          if (this.activeDetailTab === 'report' || this.activeDetailTab === 'trend') {
+          if (this.activeDetailTab === 'report' || this.activeDetailTab === 'trend' || this.activeDetailTab === 'comment') {
             sa.innerHTML = '';
           } else {
             sa.innerHTML = '<span id="round-report-status-badge"></span>';
@@ -372,34 +372,42 @@ const ClientDetailPage = {
       return;
     }
 
-    // 서브탭(평가점수/변화추이)
-    const activeSubTab = this.activeDetailTab === 'trend' ? 'trend' : 'scores';
+    // 서브탭(평가점수/변화추이/전문가 코멘트)
+    const activeSubTab = this.activeDetailTab === 'trend' ? 'trend' : this.activeDetailTab === 'comment' ? 'comment' : 'scores';
+    const subTabs = [
+      {key:'scores',  icon:'📊', label:'평가 점수'},
+      {key:'trend',   icon:'📈', label:'변화 추이'},
+      {key:'comment', icon:'💬', label:'전문가 코멘트'}
+    ];
     content.innerHTML = `
       <div style="display:flex;gap:0;padding:0 16px;border-bottom:1px solid var(--color-gray-100);background:var(--color-gray-50);">
-        <button data-sub-tab="scores" style="padding:8px 16px;font-size:18px;font-weight:600;background:none;border:none;border-bottom:2px solid ${activeSubTab==='scores'?'var(--color-primary)':'transparent'};color:${activeSubTab==='scores'?'var(--color-primary)':'var(--color-gray-500)'};cursor:pointer;">📊 평가 점수</button>
-        <button data-sub-tab="trend"  style="padding:8px 16px;font-size:18px;font-weight:600;background:none;border:none;border-bottom:2px solid ${activeSubTab==='trend' ?'var(--color-primary)':'transparent'};color:${activeSubTab==='trend' ?'var(--color-primary)':'var(--color-gray-500)'};cursor:pointer;">📈 변화 추이</button>
+        ${subTabs.map(t=>`<button data-sub-tab="${t.key}" style="padding:8px 16px;font-size:18px;font-weight:600;background:none;border:none;border-bottom:2px solid ${activeSubTab===t.key?'var(--color-primary)':'transparent'};color:${activeSubTab===t.key?'var(--color-primary)':'var(--color-gray-500)'};cursor:pointer;">${t.icon} ${t.label}</button>`).join('')}
       </div>
       <div id="round-content"></div>`;
 
     content.querySelectorAll('[data-sub-tab]').forEach(btn=>{
       btn.addEventListener('click',()=>{
-        this.activeDetailTab = btn.dataset.subTab==='trend' ? 'trend' : 'rounds';
+        this.activeDetailTab = btn.dataset.subTab==='trend' ? 'trend' : btn.dataset.subTab==='comment' ? 'comment' : 'rounds';
         this._renderDetailTab();
       });
     });
     this._loadRoundOrTrend();
   },
 
+  // 상위 회차탭(초기/4주차...) 클릭 시 현재 활성 서브탭(평가점수/변화추이/코멘트)에 맞게 다시 로드
   _loadRoundOrTrend: function() {
     if (this.activeDetailTab === 'trend') {
       const el = document.getElementById('round-content');
       if (el) this._renderTrendInEl(el);
+    } else if (this.activeDetailTab === 'comment') {
+      this._loadRoundData('comment');
     } else {
-      this._loadRoundData();
+      this._loadRoundData('scores');
     }
   },
 
-  _loadRoundData: async function() {
+  _loadRoundData: async function(mode) {
+    mode = mode || 'scores';
     const el = document.getElementById('round-content');
     if (!el) return;
 
@@ -417,11 +425,13 @@ const ClientDetailPage = {
       return;
     }
 
+    const renderFn = mode === 'comment' ? this._renderCommentContent.bind(this) : this._renderRoundContent.bind(this);
+
     // ── 회차별 데이터 캐시: 이미 조회한 회차는 즉시 렌더 ──
     if (!this._roundDataCache) this._roundDataCache = {};
     const cached = this._roundDataCache[this.activeRound];
     if (cached) {
-      this._renderRoundContent(el, cached);
+      renderFn(el, cached);
       return;
     }
 
@@ -431,7 +441,7 @@ const ClientDetailPage = {
       if (res.status === 'success') {
         // 캐시 저장 후 렌더
         this._roundDataCache[this.activeRound] = res.data;
-        this._renderRoundContent(el, res.data);
+        renderFn(el, res.data);
       } else {
         el.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">${res.message}</div></div>`;
       }
@@ -455,7 +465,7 @@ const ClientDetailPage = {
     const str  = data?.stress;
     const cmt  = data?.comment;
 
-    const hasAny = !!(cog||ergo||evx||fra||inb||str||cmt);
+    const hasAny = !!(cog||ergo||evx||fra||inb||str);
     if (!hasAny) {
       el.innerHTML = `<div class="empty-state" style="padding:36px;"><div class="empty-state-icon">📝</div><div class="empty-state-text">${this._weekEvalLabel(round)} 데이터가 없습니다.</div></div>`;
       return;
@@ -464,13 +474,6 @@ const ClientDetailPage = {
     const AV = AssessVisuals;
     const BR = AV.UI_BR, INK = AV.UI_INK, G500 = AV.UI_G500, CREAM2 = AV.UI_CREAM2, BR_DARK = AV.UI_BR_DARK;
     const gender = this.client?.gender, birthDate = this.client?.birthDate;
-
-    // ── 코멘트 카드 — 통합 리포트와 동일한 카드 언어(흰 배경 + 연한 브라운 테두리) ──
-    const commentCard = (icon, title, text) => `
-      <div style="height:100%;min-height:140px;display:flex;flex-direction:column;padding:16px;border-radius:8px;background:${AV.UI_CREAM};border:1px solid ${CREAM2};box-sizing:border-box;">
-        <div style="font-size:13px;font-weight:700;color:${BR_DARK};margin-bottom:8px;flex-shrink:0;">${icon} ${title}</div>
-        <div style="font-size:13px;line-height:1.7;color:${text?INK:G500};white-space:pre-wrap;flex:1;overflow:visible;">${text || '등록된 코멘트가 없습니다.'}</div>
-      </div>`;
 
     // ── 평가항목 카드: 라벨(좌측정렬) → 시각화(값 내장) → 상태배지 → 범례(1행) ──
     const itemCard = (label, vizHtml, badgeHtml, legendHtml) => `
@@ -481,16 +484,11 @@ const ClientDetailPage = {
         ${legendHtml ? `<div style="width:100%;margin-top:10px;">${legendHtml}</div>` : ''}
       </div>`;
 
-    // ── 섹션 카드(흰 배경 + 연한 브라운 테두리, 좌:평가결과 그리드 / 우:코멘트) ──
-    const secCardSplit = (icon, title, gridItemsHtml, commentIcon, commentTitle, commentText) => `
+    // ── 섹션 카드(흰 배경 + 연한 브라운 테두리) — 평가결과 그리드만 (전문가 코멘트는 별도 탭으로 이동) ──
+    const secCard = (icon, title, gridItemsHtml) => `
       <div style="background:#fff;border:1px solid ${CREAM2};border-radius:10px;padding:14px 18px;box-sizing:border-box;margin-bottom:14px;">
         ${AV.uiSectionHead(icon, title)}
-        <div style="display:flex;gap:16px;">
-          <div style="flex:3 1 0;min-width:0;">
-            <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:stretch;">${gridItemsHtml}</div>
-          </div>
-          <div style="flex:1 1 260px;min-width:220px;">${commentCard(commentIcon, commentTitle, commentText)}</div>
-        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:stretch;">${gridItemsHtml}</div>
       </div>`;
 
     // 평가일 표시 헬퍼
@@ -560,13 +558,53 @@ const ClientDetailPage = {
         </div>
 
         <!-- 🧠 인지 평가 -->
-        ${cog ? secCardSplit('🧠',`인지 평가${dateTag(cogDate)}`, cogGridHtml, '🧠', '인지 전문가 코멘트', cmt?.cogComment) : ''}
+        ${cog ? secCard('🧠',`인지 평가${dateTag(cogDate)}`, cogGridHtml) : ''}
 
         <!-- 🏃 움직임 평가 -->
-        ${(ergo||evx||fra) ? secCardSplit('🏃',`움직임 평가${dateTag(moveDate)}`, moveGridHtml, '🏃', '운동 전문가 코멘트', cmt?.exComment) : ''}
+        ${(ergo||evx||fra) ? secCard('🏃',`움직임 평가${dateTag(moveDate)}`, moveGridHtml) : ''}
 
         <!-- 💊 대사 평가 -->
-        ${(inb||str) ? secCardSplit('💊',`대사(생활) 평가${dateTag(metaDate)}`, metaGridHtml, '💼', '케어 매니저 코멘트', cmt?.cmComment) : ''}
+        ${(inb||str) ? secCard('💊',`대사(생활) 평가${dateTag(metaDate)}`, metaGridHtml) : ''}
+      </div>`;
+
+    this._bindRoundButtons(el);
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // 전문가 코멘트 탭 — 선택된 회차의 코멘트 3종을 리포트 마지막 페이지와
+  // 동일한 카드 언어로 표시 (읽기 전용)
+  // ══════════════════════════════════════════════════════════
+  _renderCommentContent: function(el, data) {
+    const round = this.activeRound;
+    const cmt = data?.comment;
+    const AV = AssessVisuals;
+    const INK = AV.UI_INK, G500 = AV.UI_G500, CREAM2 = AV.UI_CREAM2, BR_DARK = AV.UI_BR_DARK;
+
+    const items = [
+      {icon:'🧠', role:'인지 전문가 코멘트',   text:cmt?.cogComment},
+      {icon:'🏃', role:'운동 전문가 코멘트',   text:cmt?.exComment},
+      {icon:'💼', role:'케어 매니저 코멘트',   text:cmt?.cmComment}
+    ];
+
+    el.innerHTML = `
+      <div style="padding:14px 18px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+          <span style="font-size:16px;font-weight:800;color:${INK};">${this._weekEvalLabel(round)} · 전문가 코멘트</span>
+          <span style="font-size:12px;color:${G500};margin-left:auto;">수정은 평가관리에서</span>
+        </div>
+        <div style="background:#fff;border:1px solid ${CREAM2};border-radius:10px;padding:14px 18px;box-sizing:border-box;">
+          ${AV.uiSectionHead('💬','전문가 코멘트')}
+          <div style="display:flex;flex-direction:column;">
+            ${items.map((item,i,arr)=>`
+              <div style="display:flex;flex-direction:column;padding:14px 2px;${i<arr.length-1?`border-bottom:1px solid ${CREAM2};`:''}">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+                  <span style="font-size:14px;">${item.icon}</span>
+                  <span style="font-size:13px;font-weight:800;color:${BR_DARK};letter-spacing:0.02em;">${item.role}</span>
+                </div>
+                <div style="font-size:13px;line-height:1.8;color:${item.text?INK:G500};white-space:pre-wrap;">${item.text || '등록된 코멘트가 없습니다.'}</div>
+              </div>`).join('')}
+          </div>
+        </div>
       </div>`;
 
     this._bindRoundButtons(el);
@@ -578,57 +616,91 @@ const ClientDetailPage = {
       UI.showLoading();
       // 캐시에서 우선 로드
       const masterList = this._masterListCache || (await API.getClientMasterList(this.client.clientId).then(r=>r.data?.masterList||[]));
-      const trendMasters = masterList.filter(m=>m.reportGenerated).sort((a,b)=>a.round-b.round);
-      if (!trendMasters.length) {
+      // 선택된 상위 회차(activeRound)까지만 — 예: 4주차 선택 시 초기~4주만 표시
+      const currentRound = this.activeRound;
+      const sorted = masterList.filter(m=>m.reportGenerated && m.round<=currentRound).sort((a,b)=>a.round-b.round);
+      if (!sorted.length) {
         el.innerHTML = `<div class="empty-state" style="padding:36px;"><div class="empty-state-icon">📈</div><div class="empty-state-text">리포트가 생성된 평가가 없습니다</div></div>`;
         return;
       }
 
-      const BR='rgba(155,115,75,0.8)',LC='#9B734B',AC='rgba(155,115,75,0.13)';
-      const yDef={cogScore:{max:100},depression:{max:60},cardioScore:{max:44},bodyMovementIndex:{max:100},balanceScore:{max:100},bodyCompScore:{max:100},stressScore:{max:100}};
+      const AV = AssessVisuals;
+      const BR = AV.UI_BR, BR_DARK = AV.UI_BR_DARK, INK = AV.UI_INK, G500 = AV.UI_G500, CREAM2 = AV.UI_CREAM2, G300 = '#CDC5B8';
+      const n = sorted.length;
 
-      const mkC=(field,label,unit='')=>{
-        const pts=trendMasters.map(m=>{const v=Number(m[field]);return isNaN(v)?null:{round:m.round,v};}).filter(Boolean);
-        if(!pts.length) return '';
-        const axMax=(yDef[field]||{max:100}).max,isSingle=pts.length===1;
-        const W=200,H=120,padL=4,padR=4,padT=26,padB=16;
-        const xPos=i=>isSingle?padL+(W-padL-padR)/2:padL+i*(W-padL-padR)/(pts.length-1);
-        const yPos=v=>padT+(1-Math.min(1,Math.max(0,v/axMax)))*(H-padT-padB);
-        const latest=pts[pts.length-1]?.v,first=pts[0]?.v;
-        const diff=pts.length>1?Math.round((latest-first)*10)/10:null;
-        const db=diff==null?'':diff>0?`<span style="font-size:18px;font-weight:800;color:#1D6FF2;margin-left:3px;">▲${diff}${unit}</span>`:diff<0?`<span style="font-size:18px;font-weight:800;color:#E53935;margin-left:3px;">▼${Math.abs(diff)}${unit}</span>`:'';
-        let pathD='',areaD='',svgG='',htmlL='';
-        pts.forEach((p,i)=>{const x=xPos(i),y=yPos(p.v);pathD+=(i===0?`M${x},${y}`:`L${x},${y}`);});
-        if(!isSingle){areaD=pathD+` L${xPos(pts.length-1)},${H-padB} L${xPos(0)},${H-padB} Z`;svgG+=`<path d="${areaD}" fill="${AC}" stroke="none"/><path d="${pathD}" fill="none" stroke="${LC}" stroke-width="2" stroke-linejoin="round"/>`;}
-        pts.forEach((p,i)=>{
-          const x=xPos(i),y=yPos(p.v),iL=i===pts.length-1;
-          if(iL){const sp=Array.from({length:5},(_,si)=>{const a=(si*72-90)*Math.PI/180,a2=((si*72+36)-90)*Math.PI/180;return`${x+5*Math.cos(a)},${y+5*Math.sin(a)} ${x+2*Math.cos(a2)},${y+2*Math.sin(a2)}`;}).join(' ');svgG+=`<polygon points="${sp}" fill="#F59E0B" stroke="#D97706" stroke-width="0.5"/>`;htmlL+=`<span style="position:absolute;right:${(100-x/W*100).toFixed(1)}%;bottom:${(100-y/H*100).toFixed(1)}%;transform:translateY(-14px);font-size:18px;font-weight:700;color:${LC};white-space:nowrap;">${p.v}${unit}</span>`;}
-          else{svgG+=`<circle cx="${x}" cy="${y}" r="2.5" fill="${LC}" stroke="white" stroke-width="1"/>`;htmlL+=`<span style="position:absolute;left:${(x/W*100).toFixed(1)}%;bottom:${(100-y/H*100).toFixed(1)}%;transform:translateY(-10px);font-size:18px;font-weight:500;color:#999;white-space:nowrap;">${p.v}${unit}</span>`;}
-          svgG+=`<text x="${x}" y="${H-2}" text-anchor="middle" font-family="sans-serif" font-size="7" fill="#bbb">${p.round===1?"초기":(p.round-1)*4+"주"}</text>`;
-        });
-        svgG+=`<line x1="${padL}" y1="${H-padB}" x2="${W-padR}" y2="${H-padB}" stroke="rgba(155,115,75,0.25)" stroke-width="0.8"/>`;
-        return `<div style="display:flex;flex-direction:column;flex:1;min-width:0;padding:8px 8px 6px;border:1px solid ${BR};border-radius:8px;background:rgba(155,115,75,0.03);">
-          <div style="font-size:18px;font-weight:700;color:#3A2A1A;margin-bottom:3px;display:flex;align-items:center;white-space:nowrap;">${label}${db}</div>
-          <div style="flex:1;min-height:90px;position:relative;">
-            <svg width="100%" height="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="display:block;">${svgG}</svg>${htmlL}
+      const metrics = [
+        {key:'cogScore',     label:'인지점수'},
+        {key:'depression',   label:'우울점수'},
+        {key:'cardioScore',  label:'심폐기능'},
+        {key:'balanceScore', label:'통합균형능력'},
+        {key:'bodyCompScore',label:'체성분'},
+        {key:'stressScore',  label:'스트레스'}
+      ];
+      const colTemplate = `96px repeat(${n},1fr) 64px`;
+
+      const weekHeadCells = sorted.map((m,i)=>`<div style="grid-column:${i+2};text-align:center;font-size:11px;font-weight:700;color:${G500};">${this._weekLabelShort(m.round)}</div>`).join('');
+      const headerRow = `<div style="display:grid;grid-template-columns:${colTemplate};align-items:end;padding-bottom:6px;border-bottom:2px solid ${BR};">
+        <div style="grid-column:1;font-size:12px;font-weight:700;color:${G500};letter-spacing:0.04em;text-transform:uppercase;">평가 항목</div>
+        ${weekHeadCells}
+        <div style="grid-column:${n+2};font-size:12px;font-weight:700;color:${G500};letter-spacing:0.04em;text-transform:uppercase;text-align:center;">변화</div>
+      </div>`;
+
+      const metricRows = metrics.map(met=>{
+        const pts = sorted.map((m,i)=>{ const v=Number(m[met.key]); return isNaN(v)?null:{i,v}; }).filter(Boolean);
+        let chartHtml = `<div style="font-size:11.5px;color:${G500};text-align:center;">-</div>`;
+        let changeHtml = `<span style="color:${G500};font-size:16px;">-</span>`;
+        if (pts.length) {
+          const vals = pts.map(p=>p.v);
+          const vMin = Math.min(...vals), vMax = Math.max(...vals);
+          const range = (vMax-vMin) || 1;
+          const H=54, padT=20, padB=14;
+          const yPos = v => padT + (1-((v-vMin)/range))*(H-padT-padB);
+          const xPct = i => n===1 ? 50 : ((i+0.5)/n*100);
+          let pathD='', areaD='';
+          pts.forEach((p,idx)=>{ const x=xPct(p.i), y=yPos(p.v); pathD += (idx===0?`M${x},${y}`:`L${x},${y}`); });
+          if (pts.length>1) areaD = pathD + ` L${xPct(pts[pts.length-1].i)},${H-padB} L${xPct(pts[0].i)},${H-padB} Z`;
+          let overlay = `<svg width="100%" height="100%" viewBox="0 0 100 ${H}" preserveAspectRatio="none" style="display:block;position:absolute;left:0;top:0;">
+            <rect x="0" y="0" width="100" height="${H}" fill="${CREAM2}" opacity="0.4"/>
+            ${Array.from({length:n},(_,ci)=>{ const x = n===1?50:((ci+0.5)/n*100); return `<line x1="${x}" y1="0" x2="${x}" y2="${H}" stroke="${G300}" stroke-width="1" stroke-dasharray="2,2" vector-effect="non-scaling-stroke"/>`; }).join('')}
+            <line x1="0" y1="${H-padB}" x2="100" y2="${H-padB}" stroke="${G300}" stroke-width="1" stroke-dasharray="2,2" vector-effect="non-scaling-stroke"/>
+            ${pts.length>1?`<path d="${areaD}" fill="${BR}18" stroke="none"/>`:''}
+            ${pts.length>1?`<path d="${pathD}" fill="none" stroke="${BR}" stroke-width="1.8" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/>`:''}
+          </svg>`;
+          pts.forEach((p,idx)=>{
+            const xp = xPct(p.i).toFixed(2);
+            const yp = yPos(p.v);
+            const ypPct = (yp/H*100).toFixed(2);
+            const isLatest = idx===pts.length-1;
+            overlay += `<div style="position:absolute;left:${xp}%;top:${ypPct}%;width:${isLatest?7:5}px;height:${isLatest?7:5}px;border-radius:50%;background:${BR};border:1px solid #fff;transform:translate(-50%,-50%);"></div>`;
+            overlay += `<span style="position:absolute;left:${xp}%;top:${ypPct}%;transform:translate(-50%,calc(-100% - 3px));font-size:${isLatest?'16px':'11px'};font-weight:800;color:${isLatest?BR_DARK:INK};white-space:nowrap;">${p.v}</span>`;
+          });
+          chartHtml = `<div style="position:relative;height:100%;min-height:${H}px;">${overlay}</div>`;
+
+          const first = pts[0].v, last = pts[pts.length-1].v;
+          const diff = pts.length>1 ? Math.round((last-first)*10)/10 : null;
+          changeHtml = diff==null ? `<span style="color:${G500};font-size:14px;">-</span>`
+            : diff>0 ? `<span style="color:#1D5FC4;font-weight:800;font-size:14px;white-space:nowrap;">▲ ${Math.abs(diff)}</span>`
+            : diff<0 ? `<span style="color:#C0392B;font-weight:800;font-size:14px;white-space:nowrap;">▼ ${Math.abs(diff)}</span>`
+            : `<span style="color:${G500};font-size:14px;">-</span>`;
+        }
+        return `<div style="display:grid;grid-template-columns:${colTemplate};align-items:stretch;border-bottom:1px solid ${CREAM2};min-height:70px;">
+          <div style="grid-column:1;font-size:13px;font-weight:700;color:${INK};padding:12px 0;display:flex;align-items:center;">${met.label}</div>
+          <div style="grid-column:2 / span ${n};">${chartHtml}</div>
+          <div style="grid-column:${n+2};text-align:center;padding:12px 0;display:flex;align-items:center;justify-content:center;">${changeHtml}</div>
+        </div>`;
+      }).join('');
+
+      el.innerHTML = `
+        <div style="padding:14px 18px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+            <span style="font-size:16px;font-weight:800;color:${INK};">변화 추이 <span style="font-size:12px;font-weight:400;color:${G500};">(${this._weekLabelShort(1)} ~ ${this._weekLabelShort(currentRound)})</span></span>
+          </div>
+          <div style="background:#fff;border:1px solid ${CREAM2};border-radius:10px;padding:14px 18px;box-sizing:border-box;">
+            ${headerRow}
+            ${metricRows}
+            <div style="font-size:11px;color:${G500};font-style:italic;text-align:left;margin-top:10px;">※ 변화는 초기 평가를 기준으로 산출됩니다.</div>
           </div>
         </div>`;
-      };
-      const row=(items,gap=8)=>`<div style="display:flex;gap:${gap}px;">${items.map(it=>mkC(it.f,it.l,it.u||'')).filter(Boolean).join('')}</div>`;
-      const secT=(icon,title,color,rowHtml)=>`<div style="margin-bottom:10px;">
-        <div style="font-size:18px;font-weight:800;color:${color};padding-bottom:3px;border-bottom:1px solid rgba(155,115,75,0.2);margin-bottom:6px;">${icon} ${title}</div>
-        ${rowHtml}
-      </div>`;
-
-      el.innerHTML=`<div style="padding:14px 16px;">
-        <!-- 1행: 인지 + 대사 -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
-          <div>${secT('🧠','인지','#1565C0',row([{f:'cogScore',l:'인지점수',u:'점'},{f:'depression',l:'우울점수',u:'점'}]))}</div>
-          <div>${secT('💊','대사','#E65100',row([{f:'bodyCompScore',l:'체성분점수',u:'점'},{f:'stressScore',l:'스트레스점수',u:'점'}]))}</div>
-        </div>
-        <!-- 2행: 움직임 -->
-        ${secT('🏃','움직임','#2E7D32',row([{f:'cardioScore',l:'심폐기능지수'},{f:'bodyMovementIndex',l:'신체움직임',u:'점'},{f:'balanceScore',l:'통합균형능력',u:'점'}]))}
-      </div>`;
     } catch(e) {
       el.innerHTML=`<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">${e.message||'오류'}</div></div>`;
     } finally { UI.hideLoading(); }
@@ -1166,11 +1238,7 @@ const ClientDetailPage = {
         </div>`).join('')}
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;margin-top:24px;">
-      <div style="font-size:11.5px;color:${G500};letter-spacing:0.03em;">CARE HUB IN HANAM · 케어허브 하남</div>
-      <div style="text-align:center;font-size:10.5px;font-weight:700;color:${G500};">1 / 4</div>
-      <div style="text-align:right;font-size:11.5px;color:${G300};">REPORT NO. ${reportNo}</div>
-    </div>
+    ${pageFooter(1, 5)}
   </div>
 </div>
 
@@ -1290,7 +1358,7 @@ const ClientDetailPage = {
       </div>`, 'flex:1;display:flex;flex-direction:column;');
   })()}
 
-  ${pageFooter(2, 4)}
+  ${pageFooter(2, 5)}
 </div>
 
 <!-- ===================== PAGE 3: 기간별 지표 변화 ===================== -->
@@ -1300,11 +1368,11 @@ const ClientDetailPage = {
   <div style="display:flex;flex-direction:column;flex:1;min-height:0;">${trendTableChart()}</div>
   <div style="font-size:10px;color:${G500};font-style:italic;text-align:left;margin:8px 0 0;">※ 변화는 초기 평가를 기준으로 산출됩니다.</div>
 
-  ${pageFooter(3, 4)}
+  ${pageFooter(3, 5)}
 </div>
 
 <!-- ===================== PAGE 4: 전문가 소견 ===================== -->
-<div style="width:100%;min-height:100vh;padding:30px 36px 20px;box-sizing:border-box;font-family:'Noto Sans KR',sans-serif;display:flex;flex-direction:column;background:#fff;">
+<div style="width:100%;min-height:100vh;padding:30px 36px 20px;box-sizing:border-box;page-break-after:always;font-family:'Noto Sans KR',sans-serif;display:flex;flex-direction:column;background:#fff;">
   ${pageHeader('전문가 소견')}
 
   ${categoryBox(sectionHead('🗒️','전문가 소견'), `
@@ -1323,7 +1391,30 @@ const ClientDetailPage = {
         </div>`).join('')}
     </div>`, 'flex:1;display:flex;flex-direction:column;')}
 
-  ${pageFooter(4, 4)}
+  ${pageFooter(4, 5)}
+</div>
+
+<!-- ===================== PAGE 5: 마무리 (간지) ===================== -->
+<div style="width:100%;min-height:100vh;position:relative;display:flex;flex-direction:column;justify-content:space-between;padding:68px 60px;box-sizing:border-box;font-family:'Noto Sans KR',sans-serif;background:#fff;">
+
+  <div style="text-align:center;">
+    ${logoSrc?`<img src="${logoSrc}" alt="Care Hub" style="max-width:130px;height:auto;object-fit:contain;opacity:0.9;">`:`<div style="font-size:15px;font-weight:800;letter-spacing:0.15em;color:${BR};">CARE HUB IN HANAM</div>`}
+  </div>
+
+  <div style="text-align:center;">
+    <div style="width:44px;height:2px;background:${BR};margin:0 auto 28px;"></div>
+    <div style="font-size:11px;letter-spacing:0.3em;color:${BR};font-weight:700;margin-bottom:16px;text-transform:uppercase;">End of Report</div>
+    <div style="font-size:24px;font-weight:800;color:${INK};letter-spacing:-0.01em;margin-bottom:16px;">감사합니다</div>
+    <div style="font-size:13px;color:${G500};line-height:1.9;max-width:360px;margin:0 auto;">
+      본 리포트는 ${c.name} 님의 건강 상태를 종합적으로 기록한 자료입니다.<br>
+      궁금하신 점은 담당 케어 매니저에게 문의해 주세요.
+    </div>
+    <div style="width:44px;height:2px;background:${BR};margin:28px auto 0;"></div>
+  </div>
+
+  <div>
+    ${pageFooter(5, 5)}
+  </div>
 </div>
   `;
   },
