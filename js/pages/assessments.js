@@ -500,7 +500,10 @@ const AssessmentsPage = {
     const gaugeCircle   = (score, color, max) =>
       (!hasData && score==null) ? emptyViz() : AssessVisuals.conicDonut(score, color||'#2E7D32', max||100, 100, 14);
     const percentileBar = (pct) => AssessVisuals.percentileDistribution(pct);
-    const subGradeColor = (score) => AssessVisuals.subGradeColor(score); 
+    const subGradeColor = (score) => {
+      const g = AssessVisuals.mapSubGrade(AssessVisuals.calcCogSubGrade(score));
+      return g ? g.color : '#888';
+    };
 
     area.innerHTML = `
       <div style="padding-bottom:80px;">
@@ -532,11 +535,7 @@ const AssessmentsPage = {
                     ${v.cogScore!=null?`<span style="background:${this._calcCogIndex(v.cogScore)?.bg};color:${this._calcCogIndex(v.cogScore)?.color};padding:3px 14px;border-radius:12px;font-size:13px;font-weight:700;display:inline-block;margin-top:4px;">${this._calcCogIndex(v.cogScore)?.label}</span>`:'<span style="font-size:10px;color:var(--color-gray-400);">점수 입력 시 등급</span>'}
                   </div>
                   <div style="display:flex;flex-direction:column;gap:4px;">
-                    ${[{l:'최적',c:'#1B5E20',t:'(90↑)'},{l:'양호',c:'#2E7D32',t:'(80~89)'},{l:'개선',c:'#F57F17',t:'(65~79)'},{l:'주의',c:'#C62828',t:'(~64)'}]
-                      .map(g=>`<div style="display:flex;align-items:center;gap:5px;">
-                        <span style="width:8px;height:8px;border-radius:50%;background:${g.c};flex-shrink:0;"></span>
-                        <span style="font-size:10px;color:${g.c};font-weight:700;">${g.l} ${g.t}</span>
-                      </div>`).join('')}
+                    ${AssessVisuals.legendListCol(AssessVisuals.cogLegendItems(this._calcCogIndex(v.cogScore) ? AssessVisuals.mapCogScoreGrade(this._calcCogIndex(v.cogScore)) : null))}
                   </div>
                 </div>
 
@@ -569,13 +568,7 @@ const AssessmentsPage = {
                   ${v.spatial!=null
                     ? `<span style="background:${subGradeColor(v.spatial)}22;color:${subGradeColor(v.spatial)};padding:3px 14px;border-radius:12px;font-size:13px;font-weight:700;margin-top:6px;">${this._calcCogSubGrade(v.spatial)?.label||''}</span>`
                     : '<span style="font-size:11px;color:var(--color-gray-400);margin-top:6px;">점수 입력 시 등급</span>'}
-                  <div style="display:flex;gap:8px;margin-top:8px;font-size:10px;flex-wrap:wrap;justify-content:center;">
-                    <span style="color:#C62828;font-weight:600;">주의 0~33</span>
-                    <span style="color:#ddd;">|</span>
-                    <span style="color:#F57F17;font-weight:600;">관심 34~66</span>
-                    <span style="color:#ddd;">|</span>
-                    <span style="color:#2E7D32;font-weight:600;">양호 67~100</span>
-                  </div>
+                  <div style="margin-top:8px;">${AssessVisuals.legendListRow(AssessVisuals.subLegendItems(AssessVisuals.mapSubGrade(this._calcCogSubGrade(v.spatial))))}</div>
                 </div>
               </div>
             </div>
@@ -592,13 +585,7 @@ const AssessmentsPage = {
                   ${v.memory!=null
                     ? `<span style="background:${subGradeColor(v.memory)}22;color:${subGradeColor(v.memory)};padding:3px 14px;border-radius:12px;font-size:13px;font-weight:700;margin-top:6px;">${this._calcCogSubGrade(v.memory)?.label||''}</span>`
                     : '<span style="font-size:11px;color:var(--color-gray-400);margin-top:6px;">점수 입력 시 등급</span>'}
-                  <div style="display:flex;gap:8px;margin-top:8px;font-size:10px;flex-wrap:wrap;justify-content:center;">
-                    <span style="color:#C62828;font-weight:600;">주의 0~33</span>
-                    <span style="color:#ddd;">|</span>
-                    <span style="color:#F57F17;font-weight:600;">관심 34~66</span>
-                    <span style="color:#ddd;">|</span>
-                    <span style="color:#2E7D32;font-weight:600;">양호 67~100</span>
-                  </div>
+                  <div style="margin-top:8px;">${AssessVisuals.legendListRow(AssessVisuals.subLegendItems(AssessVisuals.mapSubGrade(this._calcCogSubGrade(v.memory))))}</div>
                 </div>
               </div>
             </div>
@@ -617,16 +604,11 @@ const AssessmentsPage = {
                     const c=g?.color||'#7B1FA2';
                     return this._conicDonut(score,c,60,90,12);
                   })()}
-                  ${this._calcDepressionGrade(v.depression)
-                    ? `<span style="background:${this._calcDepressionGrade(v.depression).bg};color:${this._calcDepressionGrade(v.depression).color};padding:3px 14px;border-radius:12px;font-size:13px;font-weight:700;margin-top:6px;">${this._calcDepressionGrade(v.depression).label}</span>`
-                    : '<span style="font-size:11px;color:var(--color-gray-400);margin-top:6px;">점수 입력 시 등급</span>'}
-                  <div style="display:flex;gap:8px;margin-top:8px;font-size:10px;flex-wrap:wrap;justify-content:center;">
-                    <span style="color:#2E7D32;font-weight:600;">경도 0~20</span>
-                    <span style="color:#ddd;">|</span>
-                    <span style="color:#F57F17;font-weight:600;">중등도 21~24</span>
-                    <span style="color:#ddd;">|</span>
-                    <span style="color:#C62828;font-weight:600;">높은 수준 25~60</span>
-                  </div>
+                  ${(()=>{
+                    const g = AssessVisuals.mapSubGrade(this._calcDepressionGrade(v.depression));
+                    return g ? AssessVisuals.statusPill(g) : '<span style="font-size:11px;color:var(--color-gray-400);margin-top:6px;">점수 입력 시 등급</span>';
+                  })()}
+                  <div style="margin-top:8px;">${AssessVisuals.legendListRow(AssessVisuals.depLegendItems(AssessVisuals.mapSubGrade(this._calcDepressionGrade(v.depression))))}</div>
                 </div>
               </div>
             </div>
@@ -652,24 +634,15 @@ const AssessmentsPage = {
             
                     const p = Math.min(100, Math.max(0, Number(v.dementiaRisk)));
                     const display = p.toFixed(1);
-            
-                    const clr = p >= 60 ? '#C62828'
-                              : p >= 30 ? '#F57F17'
-                              : '#2E7D32';
-            
-                    const lvl = p >= 60 ? '높음'
-                              : p >= 30 ? '주의'
-                              : '낮음';
-            
+                    const grade = AssessVisuals.mapSubGrade(p>=60?{label:'높음',color:'#C0392B'}:p>=30?{label:'주의',color:'#C99A2E'}:{label:'낮음',color:'#4C8C4A'});
+                    const clr = grade.color;
+
                     return `
                       <div style="font-size:36px;font-weight:900;color:${clr};line-height:1;">
                         ${display}<span style="font-size:18px;">%</span>
                       </div>
-                      <div style="margin-top:8px;">
-                        <span style="background:${clr}22;color:${clr};padding:4px 14px;border-radius:10px;font-size:14px;font-weight:700;">
-                          ${lvl}
-                        </span>
-                      </div>
+                      <div style="margin-top:8px;">${AssessVisuals.statusPill(grade)}</div>
+                      <div style="margin-top:8px;">${AssessVisuals.legendListRow(AssessVisuals.demLegendItems(grade))}</div>
                     `;
                   })()}
                 </div>
@@ -720,8 +693,7 @@ const AssessmentsPage = {
       area?.querySelector('#f-cog-score')?.addEventListener('input', e => {
         const val=parseFloat(e.target.value), g=isNaN(val)?null:this._calcCogIndex(val), clr=g?.color||'#1565C0';
         const viz=area.querySelector('#viz-cog-score');
-        const legend=[{l:'최적',c:'#1B5E20',t:'(90↑)'},{l:'양호',c:'#2E7D32',t:'(80~89)'},{l:'개선',c:'#F57F17',t:'(65~79)'},{l:'주의',c:'#C62828',t:'(~64)'}]
-          .map(g=>`<div style="display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:50%;background:${g.c};flex-shrink:0;"></span><span style="font-size:12px;color:${g.c};font-weight:700;">${g.l} ${g.t}</span></div>`).join('');
+        const legend=AssessVisuals.legendListCol(AssessVisuals.cogLegendItems(g ? AssessVisuals.mapCogScoreGrade(g) : null));
         if (viz) viz.innerHTML=`<div style="text-align:center;">${gaugeHalf(isNaN(val)?null:val,clr)}${g?`<span style="background:${g.bg};color:${g.color};padding:3px 14px;border-radius:12px;font-size:13px;font-weight:700;display:inline-block;margin-top:4px;">${g.label}</span>`:'<span style="font-size:11px;color:var(--color-gray-400);">점수 입력 시 등급</span>'}</div><div style="display:flex;flex-direction:column;gap:4px;">${legend}</div>`;
         upd();
       });
@@ -731,7 +703,7 @@ const AssessmentsPage = {
         if (parseFloat(e.target.value) > 100) { e.target.value = 100; UI.toast('시공간능력은 100점 만점입니다.', 'warning'); }
         const val=parseFloat(e.target.value), c=isNaN(val)?'#888':subGradeColor(val), g=isNaN(val)?null:this._calcCogSubGrade(val);
         const viz=area.querySelector('#viz-spatial');
-        if (viz) viz.innerHTML=`${gaugeCircle(isNaN(val)?null:val,c)}${g?`<span style="background:${c}22;color:${c};padding:3px 14px;border-radius:12px;font-size:13px;font-weight:700;margin-top:6px;">${g.label}</span>`:'<span style="font-size:11px;color:var(--color-gray-400);margin-top:6px;">점수 입력 시 등급</span>'}<div style="display:flex;gap:8px;margin-top:8px;font-size:10px;flex-wrap:wrap;justify-content:center;"><span style="color:#C62828;font-weight:600;">주의 0~33</span><span style="color:#ddd;">|</span><span style="color:#F57F17;font-weight:600;">관심 34~66</span><span style="color:#ddd;">|</span><span style="color:#2E7D32;font-weight:600;">양호 67~100</span></div>`;
+        if (viz) viz.innerHTML=`${gaugeCircle(isNaN(val)?null:val,c)}${g?`<span style="background:${c}22;color:${c};padding:3px 14px;border-radius:12px;font-size:13px;font-weight:700;margin-top:6px;">${g.label}</span>`:'<span style="font-size:11px;color:var(--color-gray-400);margin-top:6px;">점수 입력 시 등급</span>'}<div style="margin-top:8px;">${AssessVisuals.legendListRow(AssessVisuals.subLegendItems(g?AssessVisuals.mapSubGrade(g):null))}</div>`;
         upd();
       });
 
@@ -740,7 +712,7 @@ const AssessmentsPage = {
         if (parseFloat(e.target.value) > 100) { e.target.value = 100; UI.toast('기억력은 100점 만점입니다.', 'warning'); }
         const val=parseFloat(e.target.value), c=isNaN(val)?'#888':subGradeColor(val), g=isNaN(val)?null:this._calcCogSubGrade(val);
         const viz=area.querySelector('#viz-memory');
-        if (viz) viz.innerHTML=`${gaugeCircle(isNaN(val)?null:val,c)}${g?`<span style="background:${c}22;color:${c};padding:3px 14px;border-radius:12px;font-size:13px;font-weight:700;margin-top:6px;">${g.label}</span>`:'<span style="font-size:11px;color:var(--color-gray-400);margin-top:6px;">점수 입력 시 등급</span>'}<div style="display:flex;gap:8px;margin-top:8px;font-size:10px;flex-wrap:wrap;justify-content:center;"><span style="color:#C62828;font-weight:600;">주의 0~33</span><span style="color:#ddd;">|</span><span style="color:#F57F17;font-weight:600;">관심 34~66</span><span style="color:#ddd;">|</span><span style="color:#2E7D32;font-weight:600;">양호 67~100</span></div>`;
+        if (viz) viz.innerHTML=`${gaugeCircle(isNaN(val)?null:val,c)}${g?`<span style="background:${c}22;color:${c};padding:3px 14px;border-radius:12px;font-size:13px;font-weight:700;margin-top:6px;">${g.label}</span>`:'<span style="font-size:11px;color:var(--color-gray-400);margin-top:6px;">점수 입력 시 등급</span>'}<div style="margin-top:8px;">${AssessVisuals.legendListRow(AssessVisuals.subLegendItems(g?AssessVisuals.mapSubGrade(g):null))}</div>`;
         upd();
       });
 
@@ -755,11 +727,12 @@ const AssessmentsPage = {
         if (parseFloat(e.target.value) > 60) { e.target.value = 60; UI.toast('우울점수는 60점 만점입니다.', 'warning'); }
         const val=parseFloat(e.target.value), viz=area.querySelector('#viz-dep');
         if (!viz) return;
-        const g=isNaN(val)?null:this._calcDepressionGrade(val), pct=isNaN(val)?0:Math.min(100,(val/60)*100);
+        const gRaw=isNaN(val)?null:this._calcDepressionGrade(val), pct=isNaN(val)?0:Math.min(100,(val/60)*100);
+        const g=AssessVisuals.mapSubGrade(gRaw);
         const clr=g?.color||'#7B1FA2';
         viz.innerHTML=this._conicDonut(isNaN(val)?null:val,clr,60,90,12)+`
-          ${g?`<span style="background:${g.bg};color:${g.color};padding:3px 14px;border-radius:12px;font-size:13px;font-weight:700;margin-top:6px;display:inline-block;">${g.label}</span>`:'<span style="font-size:11px;color:var(--color-gray-400);margin-top:6px;">점수 입력 시 등급</span>'}
-          <div style="display:flex;gap:8px;margin-top:8px;font-size:10px;flex-wrap:wrap;justify-content:center;"><span style="color:#2E7D32;font-weight:600;">경도 0~20</span><span style="color:#ddd;">|</span><span style="color:#F57F17;font-weight:600;">중등도 21~24</span><span style="color:#ddd;">|</span><span style="color:#C62828;font-weight:600;">높은 수준 25~60</span></div>`;
+          ${g?AssessVisuals.statusPill(g):'<span style="font-size:11px;color:var(--color-gray-400);margin-top:6px;">점수 입력 시 등급</span>'}
+          <div style="margin-top:8px;">${AssessVisuals.legendListRow(AssessVisuals.depLegendItems(g))}</div>`;
         upd();
       });
 
@@ -768,10 +741,11 @@ const AssessmentsPage = {
         const val=parseFloat(e.target.value), viz=area.querySelector('#viz-dem');
         if (!viz) return;
         if (isNaN(val)) { viz.innerHTML='<div style="font-size:13px;color:var(--color-gray-300);">값 입력 시 등급 표시</div>'; return; }
-        const pct=Math.min(100,Math.max(0,val)), clr=pct>=60?'#C62828':pct>=30?'#F57F17':'#2E7D32';
-        const lvl=pct>=60?'높음':pct>=30?'주의':'낮음';
-        viz.innerHTML=`<div style="font-size:36px;font-weight:900;color:${clr};line-height:1;">${pct}<span style="font-size:18px;">%</span></div>
-          <div style="margin-top:8px;"><span style="background:${clr}22;color:${clr};padding:4px 14px;border-radius:10px;font-size:14px;font-weight:700;">${lvl}</span></div>`;
+        const pct=Math.min(100,Math.max(0,val));
+        const grade=AssessVisuals.mapSubGrade(pct>=60?{label:'높음',color:'#C0392B'}:pct>=30?{label:'주의',color:'#C99A2E'}:{label:'낮음',color:'#4C8C4A'});
+        viz.innerHTML=`<div style="font-size:36px;font-weight:900;color:${grade.color};line-height:1;">${pct.toFixed(1)}<span style="font-size:18px;">%</span></div>
+          <div style="margin-top:8px;">${AssessVisuals.statusPill(grade)}</div>
+          <div style="margin-top:8px;">${AssessVisuals.legendListRow(AssessVisuals.demLegendItems(grade))}</div>`;
         upd();
       });
 
