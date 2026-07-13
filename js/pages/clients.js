@@ -517,7 +517,7 @@ phone:       get('cm-phone'),
 firstVisit:  get('cm-firstvisit'),
 admitDate:   get('cm-admitdate'),
 admitPeriod: get('cm-period'),
-roomNum:     get('cm-roomnum'),
+roomNum:     get('cm-roomnum') || null,
 note:        get('cm-note')
 };
 
@@ -681,7 +681,7 @@ phone:       get('em-phone'),
 firstVisit:  get('em-firstvisit'),
 admitDate:   get('em-admitdate'),
 admitPeriod: get('em-period'),
-roomNum:     get('em-roomnum'),
+roomNum:     get('em-roomnum') || null,   
 note:        get('em-note')
 };
 
