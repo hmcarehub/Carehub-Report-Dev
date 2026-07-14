@@ -553,7 +553,7 @@ login: async function(id, pw) {
         [c.ADMIT_DATE]:   d.admitDate,   [c.ADMIT_PERIOD]: d.admitPeriod,
         [c.END_DATE]:     endDate,       [c.TOTAL_ROUNDS]: totalRounds,
         [c.DONE_ROUNDS]:  0,             [c.STATUS]:       status,
-        [c.ROOM_NUM]:     d.roomNum||'', [c.NOTE]:         d.note||''
+        [c.ROOM_NUM]:     d.roomNum || null, [c.NOTE]:     d.note || ''
       });
       this._bust('getClients','getClientDetail','getInitialData');
       return { status:'success', data: { clientId: d.clientId, name: d.name, status, endDate, totalRounds, doneRounds: 0 } };
@@ -576,7 +576,7 @@ login: async function(id, pw) {
         [c.FIRST_VISIT]: d.firstVisit, [c.ADMIT_DATE]: d.admitDate,
         [c.ADMIT_PERIOD]: d.admitPeriod, [c.END_DATE]:  endDate,
         [c.TOTAL_ROUNDS]: totalRounds,   [c.DONE_ROUNDS]: doneRounds,
-        [c.STATUS]: status, [c.ROOM_NUM]: d.roomNum||'', [c.NOTE]: d.note||''
+        [c.STATUS]: status, [c.ROOM_NUM]: d.roomNum || null, [c.NOTE]: d.note || ''
       };
       if (d.newClientId && d.newClientId !== d.clientId) {
         const dup = await this._get(T, `${c.CLIENT_ID}=eq.${encodeURIComponent(d.newClientId)}&limit=1`);
