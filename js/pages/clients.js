@@ -681,7 +681,7 @@ phone:       get('em-phone'),
 firstVisit:  get('em-firstvisit'),
 admitDate:   get('em-admitdate'),
 admitPeriod: get('em-period'),
-roomNum:     get('em-roomnum') get('cm-roomnum') || null,   
+roomNum:     get('em-roomnum') get('em-roomnum') || null,   
 note:        get('em-note')
 };
 
