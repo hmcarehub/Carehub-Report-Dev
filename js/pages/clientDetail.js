@@ -1277,7 +1277,7 @@ const ClientDetailPage = {
     const demP = master.dementiaRisk!=null ? Math.min(100, Number(master.dementiaRisk)) : null;
     const demGrade = mapCogGrade(demP==null ? null : (demP>=60?{label:'높음',color:'#C0392B'}:demP>=30?{label:'주의',color:'#C99A2E'}:{label:'낮음',color:'#4C8C4A'}));
 
-    const cogChart = `<div style="max-width:84px;">${respSvg(AssessVisuals.semiGauge(master.cogScore, cogGrade?.color||'#1565C0', 100))}</div>`;
+    const cogChart = `<div style="max-width:140px;">${respSvg(AssessVisuals.semiGauge(master.cogScore, cogGrade?.color||'#1565C0', 100))}</div>`;
     const depChart = AssessVisuals.conicDonut(master.depression, depGrade?.color||'#7B1FA2', 60, 68, 9);
     const depChartOnly = `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;">${depChart}<div style="font-size:9.5px;color:${G500};white-space:nowrap;">만점 60점</div></div>`;
     // req2: 우울점수 상태값을 범례 위에 배치
@@ -1286,9 +1286,18 @@ const ClientDetailPage = {
       ${legendCol(depLegendItems(depGrade))}
     </div>`;
 
+    // 인지점수: 그래프+상태값만 크게(범례 없음, 아래쪽 시공간·기억력과 범례 공유)
+    const cogBigBlock = `<div style="display:flex;flex-direction:column;gap:8px;height:100%;">
+      ${groupTitle('인지 점수')}
+      <div style="flex:1;display:flex;align-items:center;justify-content:center;">
+        ${chartWithPill(cogChart, cogGrade)}
+      </div>
+    </div>`;
+
+    // 시공간능력·기억력: 인지점수와 등급 기준이 동일하므로 범례 하나로 통합
     const pairBlock = `<div style="display:flex;flex-direction:column;gap:14px;">
-      ${groupTitle('시공간능력·기억력')}
-      <div style="display:flex;justify-content:flex-end;">${legendRow(subLegendItems(spatialGrade||memoryGrade))}</div>
+      ${groupTitle('인지점수·시공간능력·기억력')}
+      <div style="display:flex;justify-content:flex-end;">${legendRow(cogLegendItems(cogGrade||spatialGrade||memoryGrade))}</div>
       <div style="display:flex;gap:22px;">
         <div style="flex:1;min-width:0;">${inbodyRow('시공간능력', master.spatial, 100, spatialGrade)}</div>
       </div>
@@ -1300,14 +1309,14 @@ const ClientDetailPage = {
     return categoryBox(sectionHead('🧠','인지 기능 평가'), `
       <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;column-gap:0;row-gap:0;">
-        ${vDivide(metricCell('인지 점수', chartWithPill(cogChart, cogGrade), legendCol(cogLegendItems(cogGrade))))}
+        ${vDivide(cogBigBlock)}
+        <div style="grid-column:span 2;">${padLeft(pairBlock)}</div>
+        ${hDivideRow(28)}
+        ${vDivide(metricCell('동연령대 상위 분포도', percentileMini(master.agePercentile), null))}
         ${padLeft(vDivide(metricCell('우울 점수', depChartOnly, depRight)))}
         ${padLeft(metricCell('치매 위험요인',
           `<div style="text-align:center;"><div><span style="font-size:26px;font-weight:800;color:${valColor(demGrade)};">${demP!=null?demP.toFixed(1):'-'}</span><span style="font-size:11.5px;color:${G500};">%</span></div>${demGrade?`<div style="margin-top:5px;">${statusPill(demGrade)}</div>`:''}</div>`,
           legendCol(demLegendItems(demGrade))))}
-        ${hDivideRow(28)}
-        ${vDivide(metricCell('동연령대 상위 분포도', percentileMini(master.agePercentile), null))}
-        <div style="grid-column:span 2;">${padLeft(pairBlock)}</div>
       </div>
       </div>`, 'flex:1.8;display:flex;flex-direction:column;');
   })()}
