@@ -21,14 +21,13 @@ const AssessVisuals = {
   // 1) 등급/색상 계산 (Assessment 원본 로직 그대로)
   // ══════════════════════════════════════════════════════════
 
-  // 인지점수 등급 (반원게이지용)
+  // 인지점수 등급 (반원게이지용) — 시공간능력/기억력과 동일한 3단계 기준
   calcCogIndex: function(score) {
     if (score===null||score===undefined||score===''||isNaN(score)) return null;
     const n = Number(score);
-    if (n>=90) return {label:'최적',color:'#1B5E20',bg:'#E8F5E9'};
-    if (n>=80) return {label:'양호',color:'#2E7D32',bg:'#C8E6C9'};
-    if (n>=65) return {label:'개선',color:'#F57F17',bg:'#FFF8E1'};
-    return {label:'주의',color:'#C62828',bg:'#FFEBEE'};
+    if (n >= 67) return {label:'양호', color:'#2E7D32', bg:'#E8F5E9'};
+    if (n >= 34) return {label:'관심', color:'#F57F17', bg:'#FFF8E1'};
+    return {label:'주의', color:'#C62828', bg:'#FFEBEE'};
   },
 
   // 시공간능력·기억력 등급 (0~33:주의, 34~66:관심, 67~100:양호)
@@ -474,10 +473,9 @@ const AssessVisuals = {
   // 등급별 범례 데이터 — 리포트와 동일 임계값/색상
   cogLegendItems: function(grade) {
     return [
-      {label:'주의', range:'0~64',   color:this.UI_RED},
-      {label:'개선', range:'65~79',  color:this.UI_ORANGE},
-      {label:'양호', range:'80~89',  color:'#4C8C4A'},
-      {label:'최적', range:'90~100', color:'#2E6B2E'}
+      {label:'주의', range:'0~33',   color:this.UI_RED},
+      {label:'관심', range:'34~66',  color:this.UI_ORANGE},
+      {label:'양호', range:'67~100', color:'#4C8C4A'}
     ].map(it=>({...it, active: grade && grade.label===it.label}));
   },
   subLegendItems: function(grade) {
@@ -525,7 +523,7 @@ const AssessVisuals = {
   // 인지점수 전용 등급 색 오버라이드 — "주의"는 항상 빨강(다른 항목의 "주의"와 구분), "개선"은 주황
   mapCogScoreGrade: function(grade) {
     if (!grade) return grade;
-    if (grade.label === '개선') return {...grade, color:this.UI_ORANGE};
+    if (grade.label === '관심') return {...grade, color:this.UI_ORANGE};
     if (grade.label === '주의') return {...grade, color:this.UI_RED};
     return grade;
   },
