@@ -1306,7 +1306,8 @@ const ClientDetailPage = {
       </div>
     </div>`;
 
-    return categoryBox(sectionHead('🧠','인지 기능 평가', legendRow(cogLegendItems(cogGrade||spatialGrade||memoryGrade))), `
+    return categoryBox(sectionHead('🧠','인지 기능 평가'), `
+      <div style="display:flex;justify-content:flex-end;margin-bottom:14px;">${legendRow(cogLegendItems(cogGrade||spatialGrade||memoryGrade))}</div>
       <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;column-gap:0;row-gap:0;">
         ${vDivide(cogBigBlock)}
