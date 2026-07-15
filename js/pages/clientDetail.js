@@ -1065,7 +1065,7 @@ const ClientDetailPage = {
     // 지표 카드(가로 flex: 시각화(값 내장/등급 배지) 좌측 / 범례 우측 1열)
     const metricCell = (label, visualHtml, legendHtml) => `<div style="display:flex;flex-direction:column;gap:6px;min-width:0;">
       <div style="font-size:14px;font-weight:700;color:${INK};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">${label}</div>
-      <div style="display:flex;align-items:center;justify-content:${legendHtml?'space-between':'flex-start'};gap:12px;">
+      <div style="display:flex;align-items:center;justify-content:${legendHtml?'space-between':'flex-start'};gap:24px;">
         <div style="${legendHtml?'flex-shrink:0;':'flex:1;min-width:0;'}">${visualHtml}</div>
         ${legendHtml?`<div style="flex:1;min-width:0;">${legendHtml}</div>`:''}
       </div>
