@@ -1065,7 +1065,7 @@ const ClientDetailPage = {
     // 지표 카드(가로 flex: 시각화(값 내장/등급 배지) 좌측 / 범례 우측 1열)
     const metricCell = (label, visualHtml, legendHtml) => `<div style="display:flex;flex-direction:column;gap:6px;min-width:0;">
       <div style="font-size:14px;font-weight:700;color:${INK};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">${label}</div>
-      <div style="display:flex;align-items:center;justify-content:${legendHtml?'space-between':'flex-start'};gap:12px;${legendHtml?'padding:0 10px;':''}">
+      <div style="display:flex;align-items:center;justify-content:${legendHtml?'space-between':'flex-start'};gap:12px;">
         <div style="${legendHtml?'flex-shrink:0;':'flex:1;min-width:0;'}">${visualHtml}</div>
         ${legendHtml?`<div style="flex:1;min-width:0;">${legendHtml}</div>`:''}
       </div>
@@ -1084,11 +1084,12 @@ const ClientDetailPage = {
     const padLeft = (html) => `<div style="padding-left:28px;box-sizing:border-box;height:100%;min-width:0;">${html}</div>`;
     const hDivideRow = (margin) => `<div style="grid-column:1/-1;height:1px;background:${DIVIDER};margin:${margin||16}px 0;"></div>`;
 
-    // 섹션 제목(좌측 정렬 + 우측 구분선)
-    const sectionHead = (icon, title) => `
+    // 섹션 제목(좌측 정렬 + 우측 구분선 + 선택적 우측 콘텐츠(범례 등) — 구분선이 flex:1이라 좌우 GAP이 최대로 벌어짐)
+    const sectionHead = (icon, title, rightHtml) => `
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
         <div style="font-size:17px;font-weight:800;color:${INK};letter-spacing:0.02em;white-space:nowrap;">${icon} ${title}</div>
         <div style="flex:1;height:1px;background:rgba(155,115,75,0.3);"></div>
+        ${rightHtml?`<div style="flex-shrink:0;">${rightHtml}</div>`:''}
       </div>`;
 
     // 카테고리 박스: 배경 흰색 + 테두리 #F2ECE2
@@ -1294,10 +1295,9 @@ const ClientDetailPage = {
       </div>
     </div>`;
 
-    // 시공간능력·기억력: 인지점수와 등급 기준이 동일하므로 범례 하나로 통합
+    // 시공간능력·기억력: 인지점수와 등급 기준이 동일하므로 범례는 섹션 상단(제목 옆)으로 통합 이동
     const pairBlock = `<div style="display:flex;flex-direction:column;gap:14px;">
       ${groupTitle('인지점수·시공간능력·기억력')}
-      <div style="display:flex;justify-content:flex-end;">${legendRow(cogLegendItems(cogGrade||spatialGrade||memoryGrade))}</div>
       <div style="display:flex;gap:22px;">
         <div style="flex:1;min-width:0;">${inbodyRow('시공간능력', master.spatial, 100, spatialGrade)}</div>
       </div>
@@ -1306,7 +1306,7 @@ const ClientDetailPage = {
       </div>
     </div>`;
 
-    return categoryBox(sectionHead('🧠','인지 기능 평가'), `
+    return categoryBox(sectionHead('🧠','인지 기능 평가', legendRow(cogLegendItems(cogGrade||spatialGrade||memoryGrade))), `
       <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;column-gap:0;row-gap:0;">
         ${vDivide(cogBigBlock)}
