@@ -940,7 +940,7 @@ const ClientDetailPage = {
     // 인지점수 전용: 주의=빨강, 개선=주황, 양호/최적=원래 색 유지 (req9)
     const mapCogScoreGrade = (grade) => {
       if (!grade) return grade;
-      if (grade.label === '개선') return {...grade, color:ORANGE};
+      if (grade.label === '관심') return {...grade, color:ORANGE};
       if (grade.label === '주의') return {...grade, color:'#C0392B'};
       return grade;
     };
@@ -1021,10 +1021,9 @@ const ClientDetailPage = {
 
     // ── 등급별 범례 데이터(기존 계산식 임계값 그대로, 개선·중등도·관심은 주황 / 인지점수의 주의만 빨강) ──
     const cogLegendItems = (grade) => [
-      {label:'주의',range:'0~64',color:'#C0392B'},
-      {label:'개선',range:'65~79',color:ORANGE},
-      {label:'양호',range:'80~89',color:'#4C8C4A'},
-      {label:'최적',range:'90~100',color:'#2E6B2E'}
+      {label:'주의',range:'0~33',color:'#C0392B'},
+      {label:'관심',range:'34~66',color:ORANGE},
+      {label:'양호',range:'67~100',color:'#4C8C4A'}
     ].map(it=>({...it, active: grade && grade.label===it.label}));
     const subLegendItems = (grade) => [
       {label:'주의',range:'0~33',color:ORANGE},
