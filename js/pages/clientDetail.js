@@ -511,17 +511,6 @@ const ClientDetailPage = {
     const sensItems = (typeof StandardsCache!=='undefined'&&StandardsCache.get('inbodyFra_sensory'))||
       [{label:'감각계 평가'},{label:'체성감각 평가'},{label:'시각 평가'},{label:'전정감각 평가'}];
 
-    // ── 인지평가: 6개 지표(주의집중력/언어능력/시공간기능/기억력(언어)/기억력(시각)/집행기능) 막대 표시 ──
-    const cogGridHtml = !cog ? '' : AV.COG6_KEYS.map((key,i) => {
-      const val = cog[key];
-      const pct = val!=null ? Math.min(100,Math.max(0,Number(val))) : null;
-      const barHtml = `<div style="width:100%;">
-        <div style="text-align:center;margin-bottom:6px;"><span style="font-size:22px;font-weight:800;color:${INK};">${pct!=null?pct:'-'}</span><span style="font-size:11px;color:${G500};">%</span></div>
-        <div style="height:12px;background:${CREAM2};border-radius:6px;overflow:hidden;"><div style="height:100%;width:${pct||0}%;background:#4A90D9;border-radius:6px;"></div></div>
-      </div>`;
-      return itemCard(AV.COG6_LABELS[i], barHtml, null, null);
-    }).join('');
-
     // ── 움직임평가: 심폐기능은 리포트와 동일한 그라데이션 막대 + 범례 1행, FRA는 막대형 ──
     const cardioIdxLabel = ergo?.cardioScore!=null ? AV.calcCardioIndex(ergo.cardioScore, gender, birthDate) : null;
     const cardioGrade = cardioIdxLabel
@@ -554,9 +543,11 @@ const ClientDetailPage = {
           <span style="font-size:12px;color:${G500};margin-left:auto;">수정은 평가관리에서</span>
         </div>
 
-        <!-- 🧠 인지 평가 -->
-        ${cog ? secCard('🧠',`인지 평가${dateTag(cogDate)}`, cogGridHtml) : ''}
-        ${cog ? `<div style="background:#fff;border:1px solid ${CREAM2};border-radius:10px;padding:14px 18px;box-sizing:border-box;margin-bottom:14px;display:flex;justify-content:center;">${AV.cog6RadarChart(cog)}</div>${AV.cog6FootNote()}` : ''}
+        <!-- 🧠 인지 평가: 좌 Progress List(2) : 우 Radar Chart(1) -->
+        ${cog ? `<div style="background:#fff;border:1px solid ${CREAM2};border-radius:16px;padding:24px;box-sizing:border-box;margin-bottom:14px;">
+          ${AV.uiSectionHead('🧠',`인지 평가${dateTag(cogDate)}`)}
+          ${AV.cog6ReportBlock(cog)}
+        </div>` : ''}
 
         <!-- 🏃 움직임 평가 -->
         ${(ergo||evx||fra) ? secCard('🏃',`움직임 평가${dateTag(moveDate)}`, moveGridHtml) : ''}
@@ -1262,34 +1253,10 @@ const ClientDetailPage = {
 <div style="width:100%;min-height:100vh;position:relative;padding:24px 36px 56px;box-sizing:border-box;page-break-after:always;font-family:'Noto Sans KR',sans-serif;display:flex;flex-direction:column;background:#fff;">
   ${pageHeader(`${weekEvalLabel(master.round)} 평가 결과`)}
 
-  ${(() => {
-    const cogFields = [
-      {key:'attention',    label:'주의집중력'},
-      {key:'language',     label:'언어능력'},
-      {key:'spatial',      label:'시공간기능'},
-      {key:'memoryVerbal', label:'기억력(언어)'},
-      {key:'memoryVisual', label:'기억력(시각)'},
-      {key:'executive',    label:'집행기능'}
-    ];
-    const cogCell = (label, val) => {
-      const pct = val!=null ? Math.min(100,Math.max(0,Number(val))) : null;
-      return `<div style="display:flex;flex-direction:column;gap:6px;">
-        <div style="font-size:14px;font-weight:700;color:${INK};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">${label}</div>
-        <div style="white-space:nowrap;text-align:right;"><span style="font-size:21px;font-weight:800;color:${INK};">${pct!=null?pct:'-'}</span><span style="font-size:10.5px;color:${G500};">%</span></div>
-        ${barFull(pct,100,12)}
-      </div>`;
-    };
-    const cogGridHtml = `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;column-gap:28px;row-gap:16px;">
-      ${cogFields.map(f=>cogCell(f.label, master[f.key])).join('')}
-    </div>`;
-    return categoryBox(sectionHead('🧠','인지 기능 평가'), `
-      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
-        ${cogGridHtml}
-        <div style="margin-top:14px;font-size:9.5px;color:${G500};line-height:1.5;">
-          * 환산지표(%)는 각 검사의 결과를 0~100%로 변환한 참고 지표이며, 또래 규준과 비교한 백분위 점수가 아닙니다.
-        </div>
-      </div>`, 'flex:1.8;display:flex;flex-direction:column;');
-  })()}
+  ${categoryBox(sectionHead('🧠','인지 기능 평가'), `
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
+      ${AssessVisuals.cog6ReportBlockFixed(master)}
+    </div>`, 'flex:1.8;display:flex;flex-direction:column;')}
 
   ${(() => {
     const cardioIdxLabel = AssessVisuals.calcCardioIndex(master.cardioScore, c.gender, c.birthDate);
