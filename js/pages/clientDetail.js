@@ -1429,6 +1429,7 @@ const ClientDetailPage = {
           svg text { font-family:'Noto Sans KR','Malgun Gothic',sans-serif; }
         }
         svg text { font-family:'Noto Sans KR','Malgun Gothic',sans-serif; }
+        ${AssessVisuals._cog6StyleCSS ? AssessVisuals._cog6StyleCSS() : ''}
       </style>
     </head><body><div id="report-print-area">${reportHtml}</div>
     <script>window.onload=function(){setTimeout(function(){window.print();window.close();},600);};<\/script>
