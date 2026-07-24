@@ -511,25 +511,16 @@ const ClientDetailPage = {
     const sensItems = (typeof StandardsCache!=='undefined'&&StandardsCache.get('inbodyFra_sensory'))||
       [{label:'감각계 평가'},{label:'체성감각 평가'},{label:'시각 평가'},{label:'전정감각 평가'}];
 
-    // ── 인지평가: 인지점수 "주의"는 항상 빨강, 개선/관심/중등도는 주황, 범례는 리포트와 동일 포맷 ──
-    const cogGrade    = AV.mapCogScoreGrade(AV.calcCogIndex(cog?.cogScore));
-    const spatialGrade = AV.mapSubGrade(AV.calcCogSubGrade(cog?.spatial));
-    const memoryGrade  = AV.mapSubGrade(AV.calcCogSubGrade(cog?.memory));
-    const depGrade     = AV.mapSubGrade(AV.calcDepressionGrade(cog?.depression));
-    const demScoreRaw  = cog?.dementiaRisk;
-    const demGradeRaw  = demScoreRaw==null ? null : (Number(demScoreRaw)>=60?{label:'높음',color:'#C0392B'}:Number(demScoreRaw)>=30?{label:'주의',color:'#C99A2E'}:{label:'낮음',color:'#4C8C4A'});
-    const demGrade      = AV.mapSubGrade(demGradeRaw);
-
-    const cogGridHtml = !cog ? '' : [
-      itemCard('인지점수', AV.semiGauge(cog.cogScore, cogGrade?.color||'#1565C0', 100), AV.statusPill(cogGrade), AV.legendListRow(AV.cogLegendItems(cogGrade))),
-      itemCard('동연령대 상위 분포도', AV.percentileMini(cog.agePercentile), null, null),
-      itemCard('시공간능력', AV.conicDonut(cog.spatial, spatialGrade?.color||'#888', 100, 90, 12), AV.statusPill(spatialGrade), AV.legendListRow(AV.subLegendItems(spatialGrade))),
-      itemCard('기억력', AV.conicDonut(cog.memory, memoryGrade?.color||'#888', 100, 90, 12), AV.statusPill(memoryGrade), AV.legendListRow(AV.subLegendItems(memoryGrade))),
-      itemCard('우울점수', AV.conicDonut(cog.depression, depGrade?.color||'#7B1FA2', 60, 90, 12), AV.statusPill(depGrade), AV.legendListRow(AV.depLegendItems(depGrade))),
-      itemCard('치매위험요인',
-        cog.dementiaRisk!=null ? `<div style="text-align:center;"><span style="font-size:26px;font-weight:800;color:${demGrade?.color||INK};">${Number(cog.dementiaRisk).toFixed(1)}</span><span style="font-size:11px;color:${G500};">%</span></div>` : '',
-        AV.statusPill(demGrade), AV.legendListRow(AV.demLegendItems(demGrade))),
-    ].join('');
+    // ── 인지평가: 6개 지표(주의집중력/언어능력/시공간기능/기억력(언어)/기억력(시각)/집행기능) 막대 표시 ──
+    const cogGridHtml = !cog ? '' : AV.COG6_KEYS.map((key,i) => {
+      const val = cog[key];
+      const pct = val!=null ? Math.min(100,Math.max(0,Number(val))) : null;
+      const barHtml = `<div style="width:100%;">
+        <div style="text-align:center;margin-bottom:6px;"><span style="font-size:22px;font-weight:800;color:${INK};">${pct!=null?pct:'-'}</span><span style="font-size:11px;color:${G500};">%</span></div>
+        <div style="height:12px;background:${CREAM2};border-radius:6px;overflow:hidden;"><div style="height:100%;width:${pct||0}%;background:#4A90D9;border-radius:6px;"></div></div>
+      </div>`;
+      return itemCard(AV.COG6_LABELS[i], barHtml, null, null);
+    }).join('');
 
     // ── 움직임평가: 심폐기능은 리포트와 동일한 그라데이션 막대 + 범례 1행, FRA는 막대형 ──
     const cardioIdxLabel = ergo?.cardioScore!=null ? AV.calcCardioIndex(ergo.cardioScore, gender, birthDate) : null;
@@ -565,6 +556,7 @@ const ClientDetailPage = {
 
         <!-- 🧠 인지 평가 -->
         ${cog ? secCard('🧠',`인지 평가${dateTag(cogDate)}`, cogGridHtml) : ''}
+        ${cog ? `<div style="background:#fff;border:1px solid ${CREAM2};border-radius:10px;padding:14px 18px;box-sizing:border-box;margin-bottom:14px;display:flex;justify-content:center;">${AV.cog6RadarChart(cog)}</div>${AV.cog6FootNote()}` : ''}
 
         <!-- 🏃 움직임 평가 -->
         ${(ergo||evx||fra) ? secCard('🏃',`움직임 평가${dateTag(moveDate)}`, moveGridHtml) : ''}
@@ -635,8 +627,8 @@ const ClientDetailPage = {
       const n = sorted.length;
 
       const metrics = [
-        {key:'cogScore',     label:'인지점수'},
-        {key:'depression',   label:'우울점수', inverse:true},
+        {key:'attention',    label:'주의집중력'},
+        {key:'executive',    label:'집행기능'},
         {key:'cardioScore',  label:'심폐기능'},
         {key:'balanceScore', label:'통합균형능력'},
         {key:'bodyCompScore',label:'체성분'},
@@ -1145,8 +1137,8 @@ const ClientDetailPage = {
       if (!n) return `<div style="text-align:center;color:${G500};font-size:14px;padding:20px 0;">측정 데이터가 없습니다.</div>`;
 
       const metrics = [
-        {key:'cogScore',     label:'인지점수'},
-        {key:'depression',   label:'우울점수', inverse:true},
+        {key:'attention',    label:'주의집중력'},
+        {key:'executive',    label:'집행기능'},
         {key:'cardioScore',  label:'심폐기능'},
         {key:'balanceScore', label:'통합균형능력'},
         {key:'bodyCompScore',label:'체성분'},
@@ -1271,54 +1263,31 @@ const ClientDetailPage = {
   ${pageHeader(`${weekEvalLabel(master.round)} 평가 결과`)}
 
   ${(() => {
-    const cogGrade     = mapCogScoreGrade(AssessVisuals.calcCogIndex(master.cogScore));
-    const spatialGrade = mapCogGrade(AssessVisuals.calcCogSubGrade(master.spatial));
-    const memoryGrade  = mapCogGrade(AssessVisuals.calcCogSubGrade(master.memory));
-    const depGrade     = mapCogGrade(AssessVisuals.calcDepressionGrade(master.depression));
-    const demP = master.dementiaRisk!=null ? Math.min(100, Number(master.dementiaRisk)) : null;
-    const demGrade = mapCogGrade(demP==null ? null : (demP>=60?{label:'높음',color:'#C0392B'}:demP>=30?{label:'주의',color:'#C99A2E'}:{label:'낮음',color:'#4C8C4A'}));
-
-    const cogChart = `<div style="max-width:140px;">${respSvg(AssessVisuals.semiGauge(master.cogScore, cogGrade?.color||'#1565C0', 100))}</div>`;
-    const depChart = AssessVisuals.conicDonut(master.depression, depGrade?.color||'#7B1FA2', 60, 68, 9);
-    const depChartOnly = `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;">${depChart}<div style="font-size:9.5px;color:${G500};white-space:nowrap;">만점 60점</div></div>`;
-    // req2: 우울점수 상태값을 범례 위에 배치
-    const depRight = `<div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start;min-width:0;">
-      ${depGrade?statusPill(depGrade):''}
-      ${legendCol(depLegendItems(depGrade))}
+    const cogFields = [
+      {key:'attention',    label:'주의집중력'},
+      {key:'language',     label:'언어능력'},
+      {key:'spatial',      label:'시공간기능'},
+      {key:'memoryVerbal', label:'기억력(언어)'},
+      {key:'memoryVisual', label:'기억력(시각)'},
+      {key:'executive',    label:'집행기능'}
+    ];
+    const cogCell = (label, val) => {
+      const pct = val!=null ? Math.min(100,Math.max(0,Number(val))) : null;
+      return `<div style="display:flex;flex-direction:column;gap:6px;">
+        <div style="font-size:14px;font-weight:700;color:${INK};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">${label}</div>
+        <div style="white-space:nowrap;text-align:right;"><span style="font-size:21px;font-weight:800;color:${INK};">${pct!=null?pct:'-'}</span><span style="font-size:10.5px;color:${G500};">%</span></div>
+        ${barFull(pct,100,12)}
+      </div>`;
+    };
+    const cogGridHtml = `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;column-gap:28px;row-gap:16px;">
+      ${cogFields.map(f=>cogCell(f.label, master[f.key])).join('')}
     </div>`;
-
-    // 인지점수: 그래프+상태값만 크게(범례 없음, 아래쪽 시공간·기억력과 범례 공유)
-    const cogBigBlock = `<div style="display:flex;flex-direction:column;gap:8px;height:100%;">
-      ${groupTitle('인지 점수')}
-      <div style="flex:1;display:flex;align-items:center;justify-content:center;">
-        ${chartWithPill(cogChart, cogGrade)}
-      </div>
-    </div>`;
-
-    // 시공간능력·기억력: 인지점수와 등급 기준이 동일하므로 범례는 섹션 상단(제목 옆)으로 통합 이동
-    const pairBlock = `<div style="display:flex;flex-direction:column;gap:14px;">
-      ${groupTitle('인지점수·시공간능력·기억력')}
-      <div style="display:flex;gap:22px;">
-        <div style="flex:1;min-width:0;">${inbodyRow('시공간능력', master.spatial, 100, spatialGrade)}</div>
-      </div>
-      <div style="display:flex;gap:22px;">
-        <div style="flex:1;min-width:0;">${inbodyRow('기억력', master.memory, 100, memoryGrade)}</div>
-      </div>
-    </div>`;
-
     return categoryBox(sectionHead('🧠','인지 기능 평가'), `
-      <div style="display:flex;justify-content:flex-end;margin-bottom:14px;">${legendRow(cogLegendItems(cogGrade||spatialGrade||memoryGrade))}</div>
       <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;column-gap:0;row-gap:0;">
-        ${vDivide(cogBigBlock)}
-        <div style="grid-column:span 2;">${padLeft(pairBlock)}</div>
-        ${hDivideRow(28)}
-        ${vDivide(metricCell('동연령대 상위 분포도', percentileMini(master.agePercentile), null))}
-        ${padLeft(vDivide(metricCell('우울 점수', depChartOnly, depRight)))}
-        ${padLeft(metricCell('치매 위험요인',
-          `<div style="text-align:center;"><div><span style="font-size:26px;font-weight:800;color:${valColor(demGrade)};">${demP!=null?demP.toFixed(1):'-'}</span><span style="font-size:11.5px;color:${G500};">%</span></div>${demGrade?`<div style="margin-top:5px;">${statusPill(demGrade)}</div>`:''}</div>`,
-          legendCol(demLegendItems(demGrade))))}
-      </div>
+        ${cogGridHtml}
+        <div style="margin-top:14px;font-size:9.5px;color:${G500};line-height:1.5;">
+          * 환산지표(%)는 각 검사의 결과를 0~100%로 변환한 참고 지표이며, 또래 규준과 비교한 백분위 점수가 아닙니다.
+        </div>
       </div>`, 'flex:1.8;display:flex;flex-direction:column;');
   })()}
 
