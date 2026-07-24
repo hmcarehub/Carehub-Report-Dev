@@ -645,12 +645,9 @@ const AssessVisuals = {
   },
 
   // 인앱 화면(고객상세/평가관리)에서 쓰는 반응형 2:1 그리드용 스타일을 1회만 주입
-  _ensureCog6Styles: function() {
-    if (typeof document === 'undefined') return;
-    if (document.getElementById('cog6-styles')) return;
-    const style = document.createElement('style');
-    style.id = 'cog6-styles';
-    style.textContent = `
+  // ✅ 인쇄(window.open)용 새 창에도 동일하게 심을 수 있도록 CSS 텍스트 자체를 분리
+  _cog6StyleCSS: function() {
+    return `
       .cog6-grid{ display:grid; grid-template-columns:1fr 1fr; gap:24px; align-items:center; }
       @media (max-width:1024px){ .cog6-grid{ grid-template-columns:1fr; } }
       .cog6-bar-row{ margin-bottom:14px; }
@@ -666,6 +663,14 @@ const AssessVisuals = {
       .cog6-preview-label{ font-size:15px; font-weight:600; color:#221D17; min-width:96px; }
       .cog6-preview-value{ font-size:18px; font-weight:800; color:${this.COG6_COLOR}; }
     `;
+  },
+
+  _ensureCog6Styles: function() {
+    if (typeof document === 'undefined') return;
+    if (document.getElementById('cog6-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'cog6-styles';
+    style.textContent = this._cog6StyleCSS();
     document.head.appendChild(style);
   },
 
