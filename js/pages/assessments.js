@@ -479,6 +479,23 @@ const AssessmentsPage = {
     else if (cat==='comment')    this._renderComment(area);
   },
 
+  // ✅ 2026-07 개편: 인지관리 6개 지표(주의집중력/언어능력/시공간기능/기억력(언어)/기억력(시각)/집행기능, 전부 %)
+  _COG6_FIELDS: [
+    { id:'f-cog-attention', key:'attention',    label:'주의집중력' },
+    { id:'f-cog-language',  key:'language',     label:'언어능력' },
+    { id:'f-cog-spatial',   key:'spatial',      label:'시공간기능' },
+    { id:'f-cog-memv',      key:'memoryVerbal', label:'기억력(언어)' },
+    { id:'f-cog-memvis',    key:'memoryVisual', label:'기억력(시각)' },
+    { id:'f-cog-exec',      key:'executive',    label:'집행기능' }
+  ],
+
+  _cog6BarRow: function(val) {
+    const pct = (val!=null && val!=='' && !isNaN(val)) ? Math.min(100,Math.max(0,Number(val))) : 0;
+    return `<div style="height:14px;background:#EEE;border-radius:7px;overflow:hidden;margin-top:10px;">
+      <div style="height:100%;width:${pct}%;background:#4A90D9;border-radius:7px;"></div>
+    </div>`;
+  },
+
   _renderCognitive: function(area) {
     if (!area) return;
     const canWrite = this._canWrite('cognitive');
@@ -486,24 +503,19 @@ const AssessmentsPage = {
     const v = d || {};
     const ro = canWrite ? '' : 'readonly';
     const today = AssessUtils._fmt(new Date());
-    const hasData = !!d; // ✅ 데이터 유무 플래그
+    const FIELDS = this._COG6_FIELDS;
 
-   // 차트 SVG 생성 함수들 — 데이터 없으면 빈 placeholder 반환
-    const emptyViz = (msg='점수 입력 시 표시') =>
-      `<div style="height:90px;display:flex;align-items:center;justify-content:center;color:var(--color-gray-300);font-size:12px;">${msg}</div>`;
-
-    // ⬇ 모두 AssessVisuals(공통 컴포넌트)로 위임 — ClientDetail과 동일 함수 사용
-    const gaugeHalf     = (score, color='#1565C0', max=100) =>
-      (!hasData && score==null) ? emptyViz() : AssessVisuals.semiGauge(score, color, max);
-    const conicDonut    = (score, color, max, size, thickness) =>
-      (!hasData && score==null) ? emptyViz() : AssessVisuals.conicDonut(score, color, max, size, thickness);
-    const gaugeCircle   = (score, color, max) =>
-      (!hasData && score==null) ? emptyViz() : AssessVisuals.conicDonut(score, color||'#2E7D32', max||100, 100, 14);
-    const percentileBar = (pct) => AssessVisuals.percentileMini(pct);
-    const subGradeColor = (score) => {
-      const g = AssessVisuals.mapSubGrade(AssessVisuals.calcCogSubGrade(score));
-      return g ? g.color : '#888';
-    };
+    const fieldCard = (f) => `
+      <div class="assess-sub-card">
+        <div class="assess-sub-card-header">${f.label} (%)</div>
+        <div style="padding:14px 16px;">
+          <input type="number" id="${f.id}" class="form-control" value="${v[f.key]??''}"
+            placeholder="0~100" min="0" max="100" step="1" ${ro}
+            style="font-size:22px;height:52px;font-weight:700;text-align:center;">
+          <div id="${f.id}-viz">${this._cog6BarRow(v[f.key])}</div>
+          <div id="${f.id}-val" style="text-align:right;font-size:13px;font-weight:700;color:var(--color-gray-700);margin-top:6px;">${v[f.key]!=null&&v[f.key]!==''?v[f.key]+'%':'-'}</div>
+        </div>
+      </div>`;
 
     area.innerHTML = `
       <div style="padding-bottom:80px;">
@@ -511,157 +523,28 @@ const AssessmentsPage = {
         <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px;padding:12px 16px;background:var(--color-gray-50);border-radius:10px;">
           <label class="assess-field-label" style="white-space:nowrap;margin:0;">측정일 <span class="required">*</span></label>
           <input type="date" id="f-cog-date" class="form-control" value="${v.measureDate||today}" ${ro} style="max-width:200px;">
-          
         </div>
 
-        <!-- 이미지와 동일한 2열 레이아웃 -->
-        <div style="display:grid;grid-template-columns:1fr 2fr;gap:14px;">
+        <!-- 6개 지표 카드 그리드 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+          ${FIELDS.map(fieldCard).join('')}
+        </div>
 
-          <!-- ── 좌측: 인지점수 + 동연령대 통합 카드 ── -->
-          <div>
-            <div class="assess-sub-card" style="height:100%;">
-              <div class="assess-sub-card-header">인지점수 <span class="required">*</span></div>
-              <div style="padding:14px 16px;">
-
-                <!-- 인지점수 입력 -->
-                <input type="number" id="f-cog-score" class="form-control" value="${v.cogScore??''}"
-                  placeholder="0~100" min="0" max="100" step="1" ${ro}
-                  style="font-size:22px;height:52px;font-weight:700;text-align:center;margin-bottom:10px;">
-
-                <!-- 반원게이지 + 우측 범례 -->
-                <div id="viz-cog-score" style="display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:14px;">
-                  <div style="text-align:center;">
-                    ${gaugeHalf(v.cogScore, this._calcCogIndex(v.cogScore)?.color||'#1565C0')}
-                    ${v.cogScore!=null?`<span style="background:${this._calcCogIndex(v.cogScore)?.bg};color:${this._calcCogIndex(v.cogScore)?.color};padding:3px 14px;border-radius:12px;font-size:13px;font-weight:700;display:inline-block;margin-top:4px;">${this._calcCogIndex(v.cogScore)?.label}</span>`:'<span style="font-size:10px;color:var(--color-gray-400);">점수 입력 시 등급</span>'}
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:4px;">
-                    ${AssessVisuals.legendListCol(AssessVisuals.cogLegendItems(this._calcCogIndex(v.cogScore) ? AssessVisuals.mapCogScoreGrade(this._calcCogIndex(v.cogScore)) : null))}
-                  </div>
-                </div>
-
-                <!-- 구분선 -->
-                <div style="border-top:1px solid var(--color-gray-100);margin-bottom:12px;"></div>
-
-                <!-- 동연령대 상위 분포도 입력 -->
-                <div style="font-size:12px;font-weight:700;color:var(--color-gray-600);margin-bottom:6px;">동연령대 상위 분포도 (%)</div>
-                <input type="number" id="f-cog-pct" class="form-control" value="${v.agePercentile??''}"
-                  placeholder="예) 25" min="0" max="100" step="1" ${ro}
-                  style="height:44px;font-size:18px;font-weight:700;text-align:center;margin-bottom:10px;">
-                <div id="viz-pct" style="margin-top:20px;">${percentileBar(v.agePercentile)}</div>
-
-              </div>
-            </div>
-          </div>
-
-          <!-- ── 우측: 2×2 그리드 (시공간/기억력/우울/치매) ── -->
-          <div style="display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto;gap:12px;">
-
-            <!-- 시공간능력 -->
-            <div class="assess-sub-card">
-              <div class="assess-sub-card-header">시공간능력 (0~100)</div>
-              <div style="padding:14px 16px;">
-                <input type="number" id="f-cog-spatial" class="form-control" value="${v.spatial??''}"
-                  placeholder="0~100" min="0" max="100" step="1" ${ro}
-                  style="font-size:20px;height:48px;font-weight:700;text-align:center;margin-bottom:10px;">
-                <div id="viz-spatial" style="display:flex;flex-direction:column;align-items:center;">
-                  ${gaugeCircle(v.spatial, subGradeColor(v.spatial))}
-                  ${v.spatial!=null
-                    ? `<span style="background:${subGradeColor(v.spatial)}22;color:${subGradeColor(v.spatial)};padding:3px 14px;border-radius:12px;font-size:13px;font-weight:700;margin-top:6px;">${this._calcCogSubGrade(v.spatial)?.label||''}</span>`
-                    : '<span style="font-size:11px;color:var(--color-gray-400);margin-top:6px;">점수 입력 시 등급</span>'}
-                  <div style="margin-top:8px;">${AssessVisuals.legendListRow(AssessVisuals.subLegendItems(AssessVisuals.mapSubGrade(this._calcCogSubGrade(v.spatial))))}</div>
-                </div>
-              </div>
-            </div>
-
-            <!-- 기억력 -->
-            <div class="assess-sub-card">
-              <div class="assess-sub-card-header">기억력 (0~100)</div>
-              <div style="padding:14px 16px;">
-                <input type="number" id="f-cog-memory" class="form-control" value="${v.memory??''}"
-                  placeholder="0~100" min="0" max="100" step="1" ${ro}
-                  style="font-size:20px;height:48px;font-weight:700;text-align:center;margin-bottom:10px;">
-                <div id="viz-memory" style="display:flex;flex-direction:column;align-items:center;">
-                  ${gaugeCircle(v.memory, subGradeColor(v.memory))}
-                  ${v.memory!=null
-                    ? `<span style="background:${subGradeColor(v.memory)}22;color:${subGradeColor(v.memory)};padding:3px 14px;border-radius:12px;font-size:13px;font-weight:700;margin-top:6px;">${this._calcCogSubGrade(v.memory)?.label||''}</span>`
-                    : '<span style="font-size:11px;color:var(--color-gray-400);margin-top:6px;">점수 입력 시 등급</span>'}
-                  <div style="margin-top:8px;">${AssessVisuals.legendListRow(AssessVisuals.subLegendItems(AssessVisuals.mapSubGrade(this._calcCogSubGrade(v.memory))))}</div>
-                </div>
-              </div>
-            </div>
-
-            <!-- 우울점수 -->
-            <div class="assess-sub-card">
-              <div class="assess-sub-card-header">우울점수 (0~60점)</div>
-              <div style="padding:14px 16px;">
-                <input type="number" id="f-cog-dep" class="form-control" value="${v.depression??''}" max="60"
-                  placeholder="0~60 입력" min="0" max="60" step="1" ${ro}
-                  style="height:48px;font-size:20px;font-weight:700;text-align:center;margin-bottom:10px;">
-                <div id="viz-dep" style="display:flex;flex-direction:column;align-items:center;">
-                  ${(()=>{
-                    const score=v.depression;
-                    const g=this._calcDepressionGrade(score);
-                    const c=g?.color||'#7B1FA2';
-                    return this._conicDonut(score,c,60,90,12);
-                  })()}
-                  ${(()=>{
-                    const g = AssessVisuals.mapSubGrade(this._calcDepressionGrade(v.depression));
-                    return g ? AssessVisuals.statusPill(g) : '<span style="font-size:11px;color:var(--color-gray-400);margin-top:6px;">점수 입력 시 등급</span>';
-                  })()}
-                  <div style="margin-top:8px;">${AssessVisuals.legendListRow(AssessVisuals.depLegendItems(AssessVisuals.mapSubGrade(this._calcDepressionGrade(v.depression))))}</div>
-                </div>
-              </div>
-            </div>
-
-            <!-- 치매위험요인: 숫자+등급만 표기 (시각화 없음) -->
-            <div class="assess-sub-card">
-              <div class="assess-sub-card-header">치매위험요인 (%)</div>
-              <div style="padding:14px 16px;">
-                <input type="number" id="f-cog-dem" class="form-control"
-                  value="${v.dementiaRisk??''}"
-                  placeholder="예) 12.5"
-                  min="0"
-                  max="100"
-                  step="0.1"
-                  ${ro}
-                  style="height:48px;font-size:20px;font-weight:700;text-align:center;margin-bottom:10px;">
-            
-                <div id="viz-dem" style="text-align:center;padding:8px 0;margin-top:20px;">
-                  ${(() => {
-                    if (v.dementiaRisk == null || v.dementiaRisk === '') {
-                      return '<div style="font-size:13px;color:var(--color-gray-300);">값 입력 시 등급 표시</div>';
-                    }
-            
-                    const p = Math.min(100, Math.max(0, Number(v.dementiaRisk)));
-                    const display = p.toFixed(1);
-                    const grade = AssessVisuals.mapSubGrade(p>=60?{label:'높음',color:'#C0392B'}:p>=30?{label:'주의',color:'#C99A2E'}:{label:'낮음',color:'#4C8C4A'});
-                    const clr = grade.color;
-
-                    return `
-                      <div style="font-size:36px;font-weight:900;color:${clr};line-height:1;">
-                        ${display}<span style="font-size:18px;">%</span>
-                      </div>
-                      <div style="margin-top:8px;">${AssessVisuals.statusPill(grade)}</div>
-                      <div style="margin-top:8px;">${AssessVisuals.legendListRow(AssessVisuals.demLegendItems(grade))}</div>
-                    `;
-                  })()}
-                </div>
-              </div>
-            </div>
-
-          </div>
+        <!-- 종합 미리보기: 막대그래프 + 레이더차트 -->
+        <div style="margin-top:20px;padding:16px;background:var(--color-gray-50);border-radius:10px;">
+          <div style="font-size:12px;font-weight:700;color:var(--color-gray-500);margin-bottom:10px;">종합 미리보기</div>
+          <div id="cog6-preview">${AssessVisuals.cog6FullBlock(v)}</div>
         </div>
 
         <!-- 항목 입력 현황 -->
         <div style="background:var(--color-gray-50);border-radius:10px;padding:10px 16px;margin-top:14px;">
           <div style="font-size:12px;font-weight:700;color:var(--color-gray-500);margin-bottom:6px;">항목 입력 현황</div>
           <div id="viz-progress" style="display:flex;gap:14px;flex-wrap:wrap;">
-            ${['인지점수','시공간능력','기억력','동연령대','우울점수','치매위험요인'].map((label,i)=>{
-              const vals=[v.cogScore,v.spatial,v.memory,v.agePercentile,v.depression,v.dementiaRisk];
-              const filled=vals[i]!=null&&vals[i]!=='';
+            ${FIELDS.map(f=>{
+              const filled = v[f.key]!=null && v[f.key]!=='';
               return `<div style="display:flex;align-items:center;gap:4px;">
                 <span style="width:18px;height:18px;border-radius:50%;background:${filled?'#4CAF50':'#E0E0E0'};display:flex;align-items:center;justify-content:center;font-size:10px;color:white;font-weight:700;">${filled?'✓':''}</span>
-                <span style="font-size:12px;color:${filled?'#2E7D32':'var(--color-gray-400)'};">${label}</span>
+                <span style="font-size:12px;color:${filled?'#2E7D32':'var(--color-gray-400)'};">${f.label}</span>
               </div>`;
             }).join('')}
           </div>
@@ -681,82 +564,35 @@ const AssessmentsPage = {
         </div>`:''}
       </div>`;
 
-
     if (canWrite) {
-      const upd = () => this._updateCogProgress(area, {
-        cogScore:this._gn('f-cog-score'), spatial:this._gn('f-cog-spatial'),
-        memory:this._gn('f-cog-memory'), agePercentile:this._gn('f-cog-pct'),
-        depression:this._gn('f-cog-dep'), dementiaRisk:this._gn('f-cog-dem')
+      const gv = () => {
+        const obj = {};
+        FIELDS.forEach(f => { obj[f.key] = this._gn(f.id); });
+        return obj;
+      };
+      const upd = () => this._updateCogProgress(area, gv());
+      const updPreview = () => {
+        const prev = area.querySelector('#cog6-preview');
+        if (prev) prev.innerHTML = AssessVisuals.cog6FullBlock(gv());
+      };
+
+      FIELDS.forEach(f => {
+        area?.querySelector('#'+f.id)?.addEventListener('input', e => {
+          let val = parseFloat(e.target.value);
+          if (val > 100) { e.target.value = 100; val = 100; UI.toast(`${f.label}은 100% 만점입니다.`, 'warning'); }
+          const vizEl = area.querySelector(`#${f.id}-viz`);
+          const valEl = area.querySelector(`#${f.id}-val`);
+          if (vizEl) vizEl.innerHTML = this._cog6BarRow(isNaN(val)?null:val);
+          if (valEl) valEl.textContent = isNaN(val) ? '-' : val+'%';
+          upd();
+          updPreview();
+        });
       });
 
-      // 인지점수 → 반원게이지 + 범례
-      area?.querySelector('#f-cog-score')?.addEventListener('input', e => {
-        const val=parseFloat(e.target.value), g=isNaN(val)?null:this._calcCogIndex(val), clr=g?.color||'#1565C0';
-        const viz=area.querySelector('#viz-cog-score');
-        const legend=AssessVisuals.legendListCol(AssessVisuals.cogLegendItems(g ? AssessVisuals.mapCogScoreGrade(g) : null));
-        if (viz) viz.innerHTML=`<div style="text-align:center;">${gaugeHalf(isNaN(val)?null:val,clr)}${g?`<span style="background:${g.bg};color:${g.color};padding:3px 14px;border-radius:12px;font-size:13px;font-weight:700;display:inline-block;margin-top:4px;">${g.label}</span>`:'<span style="font-size:11px;color:var(--color-gray-400);">점수 입력 시 등급</span>'}</div><div style="display:flex;flex-direction:column;gap:4px;">${legend}</div>`;
-        upd();
-      });
-
-      // 시공간능력
-      area?.querySelector('#f-cog-spatial')?.addEventListener('input', e => {
-        if (parseFloat(e.target.value) > 100) { e.target.value = 100; UI.toast('시공간능력은 100점 만점입니다.', 'warning'); }
-        const val=parseFloat(e.target.value), c=isNaN(val)?'#888':subGradeColor(val), g=isNaN(val)?null:this._calcCogSubGrade(val);
-        const viz=area.querySelector('#viz-spatial');
-        if (viz) viz.innerHTML=`${gaugeCircle(isNaN(val)?null:val,c)}${g?`<span style="background:${c}22;color:${c};padding:3px 14px;border-radius:12px;font-size:13px;font-weight:700;margin-top:6px;">${g.label}</span>`:'<span style="font-size:11px;color:var(--color-gray-400);margin-top:6px;">점수 입력 시 등급</span>'}<div style="margin-top:8px;">${AssessVisuals.legendListRow(AssessVisuals.subLegendItems(g?AssessVisuals.mapSubGrade(g):null))}</div>`;
-        upd();
-      });
-
-      // 기억력
-      area?.querySelector('#f-cog-memory')?.addEventListener('input', e => {
-        if (parseFloat(e.target.value) > 100) { e.target.value = 100; UI.toast('기억력은 100점 만점입니다.', 'warning'); }
-        const val=parseFloat(e.target.value), c=isNaN(val)?'#888':subGradeColor(val), g=isNaN(val)?null:this._calcCogSubGrade(val);
-        const viz=area.querySelector('#viz-memory');
-        if (viz) viz.innerHTML=`${gaugeCircle(isNaN(val)?null:val,c)}${g?`<span style="background:${c}22;color:${c};padding:3px 14px;border-radius:12px;font-size:13px;font-weight:700;margin-top:6px;">${g.label}</span>`:'<span style="font-size:11px;color:var(--color-gray-400);margin-top:6px;">점수 입력 시 등급</span>'}<div style="margin-top:8px;">${AssessVisuals.legendListRow(AssessVisuals.subLegendItems(g?AssessVisuals.mapSubGrade(g):null))}</div>`;
-        upd();
-      });
-
-      // 동연령대
-      area?.querySelector('#f-cog-pct')?.addEventListener('input', e => {
-        const val=parseFloat(e.target.value), viz=area.querySelector('#viz-pct');
-        if (viz) viz.innerHTML=percentileBar(isNaN(val)?null:val);
-      });
-
-      // 우울점수 (60점 만점 - 60 초과 입력 방지)
-      area?.querySelector('#f-cog-dep')?.addEventListener('input', e => {
-        if (parseFloat(e.target.value) > 60) { e.target.value = 60; UI.toast('우울점수는 60점 만점입니다.', 'warning'); }
-        const val=parseFloat(e.target.value), viz=area.querySelector('#viz-dep');
-        if (!viz) return;
-        const gRaw=isNaN(val)?null:this._calcDepressionGrade(val), pct=isNaN(val)?0:Math.min(100,(val/60)*100);
-        const g=AssessVisuals.mapSubGrade(gRaw);
-        const clr=g?.color||'#7B1FA2';
-        viz.innerHTML=this._conicDonut(isNaN(val)?null:val,clr,60,90,12)+`
-          ${g?AssessVisuals.statusPill(g):'<span style="font-size:11px;color:var(--color-gray-400);margin-top:6px;">점수 입력 시 등급</span>'}
-          <div style="margin-top:8px;">${AssessVisuals.legendListRow(AssessVisuals.depLegendItems(g))}</div>`;
-        upd();
-      });
-
-      // 치매위험요인: 숫자+등급만 표시
-      area?.querySelector('#f-cog-dem')?.addEventListener('input', e => {
-        const val=parseFloat(e.target.value), viz=area.querySelector('#viz-dem');
-        if (!viz) return;
-        if (isNaN(val)) { viz.innerHTML='<div style="font-size:13px;color:var(--color-gray-300);">값 입력 시 등급 표시</div>'; return; }
-        const pct=Math.min(100,Math.max(0,val));
-        const grade=AssessVisuals.mapSubGrade(pct>=60?{label:'높음',color:'#C0392B'}:pct>=30?{label:'주의',color:'#C99A2E'}:{label:'낮음',color:'#4C8C4A'});
-        viz.innerHTML=`<div style="font-size:36px;font-weight:900;color:${grade.color};line-height:1;">${pct.toFixed(1)}<span style="font-size:18px;">%</span></div>
-          <div style="margin-top:8px;">${AssessVisuals.statusPill(grade)}</div>
-          <div style="margin-top:8px;">${AssessVisuals.legendListRow(AssessVisuals.demLegendItems(grade))}</div>`;
-        upd();
-      });
-
-      area?.querySelectorAll('.sec-save-btn[data-sec="cognitive"]').forEach(b=>b.addEventListener('click',()=>this._saveCognitive()));
-      area?.querySelectorAll('.sec-del-btn[data-sec="cognitive"]').forEach(b=>b.addEventListener('click',()=>this._deleteSheet('cognitive')));
       area?.querySelector('#cog-all-save-btn')?.addEventListener('click',()=>this._saveCognitive());
       area?.querySelector('#cog-all-del-btn')?.addEventListener('click',()=>this._deleteSheet('cognitive'));
     }
   },
-
-  _calcDepressionGrade: function(score) { return AssessVisuals.calcDepressionGrade(score); },
 
   _gn: function(id) {
     const v = document.getElementById(id)?.value?.trim();
@@ -766,12 +602,12 @@ const AssessmentsPage = {
   _updateCogProgress: function(area, vals) {
     const viz = area?.querySelector('#viz-progress');
     if (!viz) return;
-    const labels = ['인지점수','시공간능력','기억력','동연령대','우울점수','치매위험요인'];
-    const values = [vals.cogScore, vals.spatial, vals.memory, vals.agePercentile, vals.depression, vals.dementiaRisk];
-    viz.innerHTML = labels.map((label, i) => {
-      const filled = values[i] != null && !isNaN(values[i]);
+    const FIELDS = this._COG6_FIELDS;
+    viz.innerHTML = FIELDS.map(f => {
+      const val = vals[f.key];
+      const filled = val != null && !isNaN(val);
       return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-        <span style="font-size:12px;color:var(--color-gray-600);width:90px;">${label}</span>
+        <span style="font-size:12px;color:var(--color-gray-600);width:90px;">${f.label}</span>
         <div style="flex:1;height:8px;background:#E0E0E0;border-radius:4px;overflow:hidden;">
           <div style="height:100%;width:${filled?'100%':'0%'};background:${filled?'#4CAF50':'#E0E0E0'};border-radius:4px;"></div>
         </div>
@@ -781,19 +617,19 @@ const AssessmentsPage = {
   },
   _saveCognitive: async function() {
     const gn = id => this._gn(id);
-    const date  = document.getElementById('f-cog-date')?.value?.trim();
-    const score = gn('f-cog-score');
-    if (!date)        { UI.toast('측정일을 입력해주세요.','error'); return; }
-    if (score===null) { UI.toast('인지점수를 입력해주세요.','error'); return; }
+    const date      = document.getElementById('f-cog-date')?.value?.trim();
+    const attention = gn('f-cog-attention');
+    if (!date)           { UI.toast('측정일을 입력해주세요.','error'); return; }
+    if (attention===null){ UI.toast('주의집중력을 입력해주세요.','error'); return; }
     await this._callSave(() => API.saveCognitive(
       this.selectedClient.clientId, this.activeRound, {
-        measureDate:   date,
-        cogScore:      score,
-        spatial:       gn('f-cog-spatial'),
-        memory:        gn('f-cog-memory'),
-        agePercentile: gn('f-cog-pct'),
-        depression:    gn('f-cog-dep'),
-        dementiaRisk:  gn('f-cog-dem')
+        measureDate:  date,
+        attention:    attention,
+        language:     gn('f-cog-language'),
+        spatial:      gn('f-cog-spatial'),
+        memoryVerbal: gn('f-cog-memv'),
+        memoryVisual: gn('f-cog-memvis'),
+        executive:    gn('f-cog-exec')
       }
     ));
   },
