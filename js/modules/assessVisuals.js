@@ -13,6 +13,10 @@
 //   - pages/clientDetail.js  → 이 컴포넌트만 그대로 호출해 읽기전용 리포트 출력
 //
 // 로드 순서: config.js(AppConfig) → assessVisuals.js → assessments.js / clientDetail.js
+//
+// ✅ 2026-07 개편: 인지관리 평가영역 6개 지표로 전면 변경
+//    (주의집중력/언어능력/시공간기능/기억력(언어)/기억력(시각)/집행기능, 전부 %)
+//    → 하단 "5) 인지관리 6개 지표 시각화" 섹션 참고
 // ============================================================
 
 const AssessVisuals = {
@@ -619,6 +623,90 @@ const AssessVisuals = {
       <div style="white-space:nowrap;"><span style="font-size:16px;font-weight:700;color:${this.UI_INK};">상위 ${p}%예요</span></div>
       <svg width="${totalW}" height="${maxH}" viewBox="0 0 ${totalW} ${maxH}">${bars}</svg>
     </div>`;
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // 5) 인지관리 6개 지표 시각화 (환산지표 %, 2026-07 개편)
+  //    항목: 주의집중력 / 언어능력 / 시공간기능 / 기억력(언어) / 기억력(시각) / 집행기능
+  //    data 파라미터 형태: { attention, language, spatial, memoryVerbal, memoryVisual, executive }
+  //    (api.js의 _rowToCognitive / _rowToMaster 리턴 필드명과 동일하게 맞춰져 있어
+  //     master 객체나 cognitive 객체를 그대로 넘기면 됩니다)
+  // ══════════════════════════════════════════════════════════
+
+  COG6_LABELS: ['주의집중력','언어능력','시공간기능','기억력(언어)','기억력(시각)','집행기능'],
+  COG6_KEYS:   ['attention','language','spatial','memoryVerbal','memoryVisual','executive'],
+
+  // 하단 공통 안내 문구
+  cog6FootNote: function() {
+    return `<div style="text-align:center;font-size:11px;color:var(--color-gray-400,#999);margin-top:10px;line-height:1.5;">
+      * 환산지표(%)는 각 검사의 결과를 0~100%로 변환한 참고 지표이며,<br>또래 규준과 비교한 백분위 점수가 아닙니다.
+    </div>`;
+  },
+
+  // (A) 가로 막대그래프 6개
+  cog6BarChart: function(data) {
+    const rows = this.COG6_LABELS.map((label, i) => {
+      const key = this.COG6_KEYS[i];
+      const v = data && data[key] != null ? Math.min(100, Math.max(0, Number(data[key]))) : null;
+      const pct = v != null ? v : 0;
+      return `<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+        <div style="width:90px;flex-shrink:0;font-size:13px;color:${this.UI_INK};font-weight:600;">${label}</div>
+        <div style="flex:1;height:14px;background:#EEE;border-radius:7px;overflow:hidden;">
+          <div style="height:100%;width:${pct}%;background:#4A90D9;border-radius:7px;"></div>
+        </div>
+        <div style="width:44px;text-align:right;font-size:13px;font-weight:700;color:${this.UI_INK};">${v != null ? v + '%' : '-'}</div>
+      </div>`;
+    }).join('');
+    return `<div style="width:100%;max-width:420px;">${rows}</div>`;
+  },
+
+  // (B) 레이더 차트(6각형)
+  cog6RadarChart: function(data) {
+    const size = 260, cx = size/2, cy = size/2, r = 90;
+    const n = this.COG6_LABELS.length;
+    const angleFor = i => (Math.PI * 2 * i / n) - Math.PI/2;
+
+    // 배경 격자 (20/40/60/80/100)
+    let grid = '';
+    [20,40,60,80,100].forEach(step => {
+      const rr = r * step/100;
+      const pts = this.COG6_LABELS.map((_, i) => {
+        const a = angleFor(i);
+        return `${cx + rr*Math.cos(a)},${cy + rr*Math.sin(a)}`;
+      }).join(' ');
+      grid += `<polygon points="${pts}" fill="none" stroke="#E5E5E5" stroke-width="1"/>`;
+    });
+    // 축선 + 라벨
+    let axes = '', labels = '';
+    this.COG6_LABELS.forEach((label, i) => {
+      const a = angleFor(i);
+      const x = cx + r*Math.cos(a), y = cy + r*Math.sin(a);
+      axes += `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="#E5E5E5" stroke-width="1"/>`;
+      const lx = cx + (r+22)*Math.cos(a), ly = cy + (r+22)*Math.sin(a);
+      labels += `<text x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="middle" font-size="12" fill="${this.UI_INK||'#333'}">${label}</text>`;
+    });
+    // 데이터 폴리곤
+    const pts = this.COG6_KEYS.map((key, i) => {
+      const v = data && data[key] != null ? Math.min(100, Math.max(0, Number(data[key]))) : 0;
+      const a = angleFor(i);
+      const rr = r * v/100;
+      return `${cx + rr*Math.cos(a)},${cy + rr*Math.sin(a)}`;
+    }).join(' ');
+
+    return `<svg width="${size}" height="${size+20}" viewBox="0 0 ${size} ${size+20}">
+      ${grid}${axes}
+      <polygon points="${pts}" fill="#4A90D9" fill-opacity="0.35" stroke="#4A90D9" stroke-width="2"/>
+      ${labels}
+    </svg>`;
+  },
+
+  // (C) 두 시각화 + 안내문구를 한번에 렌더링 (이미지처럼 좌우 배치)
+  cog6FullBlock: function(data) {
+    return `<div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start;justify-content:center;">
+        <div>${this.cog6BarChart(data)}</div>
+        <div>${this.cog6RadarChart(data)}</div>
+      </div>
+      ${this.cog6FootNote()}`;
   }
 };
 
