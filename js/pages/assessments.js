@@ -507,6 +507,9 @@ const AssessmentsPage = {
     style.textContent = `
       .cog-input-grid{ display:grid; grid-template-columns:2fr 1fr; gap:24px; align-items:start; }
       @media (max-width:1024px){ .cog-input-grid{ grid-template-columns:1fr; } }
+      .cog-field-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+      @media (max-width:900px){ .cog-field-grid{ grid-template-columns:repeat(2,1fr); } }
+      @media (max-width:560px){ .cog-field-grid{ grid-template-columns:1fr; } }
     `;
     document.head.appendChild(style);
   },
@@ -545,7 +548,7 @@ const AssessmentsPage = {
         <div class="cog-input-grid">
           <div>
             <!-- 6개 지표 카드 그리드 -->
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="cog-field-grid">
               ${FIELDS.map(fieldCard).join('')}
             </div>
 
@@ -577,10 +580,10 @@ const AssessmentsPage = {
             </div>`:''}
           </div>
 
-          <!-- 종합 미리보기 -->
+          <!-- 종합 미리보기: 값 없이 레이더차트만 크게 표시 -->
           <div style="background:#fff;border-radius:16px;padding:24px;border:1px solid var(--color-gray-100);">
             <div style="font-size:12px;font-weight:700;color:var(--color-gray-500);margin-bottom:14px;">종합 미리보기</div>
-            <div id="cog6-preview">${AssessVisuals.cog6FullBlock(v)}</div>
+            <div id="cog6-preview" style="display:flex;flex-direction:column;align-items:center;">${AssessVisuals.cog6RadarChart(v, 320)}${AssessVisuals.cog6FootNote()}</div>
           </div>
         </div>
       </div>`;
@@ -594,7 +597,7 @@ const AssessmentsPage = {
       const upd = () => this._updateCogProgress(area, gv());
       const updPreview = () => {
         const prev = area.querySelector('#cog6-preview');
-        if (prev) prev.innerHTML = AssessVisuals.cog6FullBlock(gv());
+        if (prev) prev.innerHTML = AssessVisuals.cog6RadarChart(gv(), 320) + AssessVisuals.cog6FootNote();
       };
 
       FIELDS.forEach(f => {
