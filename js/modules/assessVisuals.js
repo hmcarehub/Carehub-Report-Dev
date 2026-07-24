@@ -635,36 +635,78 @@ const AssessVisuals = {
 
   COG6_LABELS: ['주의집중력','언어능력','시공간기능','기억력(언어)','기억력(시각)','집행기능'],
   COG6_KEYS:   ['attention','language','spatial','memoryVerbal','memoryVisual','executive'],
+  COG6_COLOR:  '#9B734B', // ✅ 2026-07 리디자인: 인지 6개 지표 브랜드 컬러
 
   // 하단 공통 안내 문구
   cog6FootNote: function() {
-    return `<div style="text-align:center;font-size:11px;color:var(--color-gray-400,#999);margin-top:10px;line-height:1.5;">
+    return `<div style="text-align:center;font-size:11px;color:var(--color-gray-400,#999);margin-top:14px;line-height:1.5;">
       * 환산지표(%)는 각 검사의 결과를 0~100%로 변환한 참고 지표이며,<br>또래 규준과 비교한 백분위 점수가 아닙니다.
     </div>`;
   },
 
-  // (A) 가로 막대그래프 6개
-  cog6BarChart: function(data) {
-    const rows = this.COG6_LABELS.map((label, i) => {
-      const key = this.COG6_KEYS[i];
-      const v = data && data[key] != null ? Math.min(100, Math.max(0, Number(data[key]))) : null;
-      const pct = v != null ? v : 0;
-      return `<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
-        <div style="width:90px;flex-shrink:0;font-size:13px;color:${this.UI_INK};font-weight:600;">${label}</div>
-        <div style="flex:1;height:14px;background:#EEE;border-radius:7px;overflow:hidden;">
-          <div style="height:100%;width:${pct}%;background:#4A90D9;border-radius:7px;"></div>
-        </div>
-        <div style="width:44px;text-align:right;font-size:13px;font-weight:700;color:${this.UI_INK};">${v != null ? v + '%' : '-'}</div>
-      </div>`;
-    }).join('');
-    return `<div style="width:100%;max-width:420px;">${rows}</div>`;
+  // 인앱 화면(고객상세/평가관리)에서 쓰는 반응형 2:1 그리드용 스타일을 1회만 주입
+  _ensureCog6Styles: function() {
+    if (typeof document === 'undefined') return;
+    if (document.getElementById('cog6-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'cog6-styles';
+    style.textContent = `
+      .cog6-grid{ display:grid; grid-template-columns:2fr 1fr; gap:24px; align-items:center; }
+      @media (max-width:1024px){ .cog6-grid{ grid-template-columns:1fr; } }
+      .cog6-bar-row{ margin-bottom:22px; }
+      .cog6-bar-row:last-child{ margin-bottom:0; }
+      .cog6-bar-head{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:8px; }
+      .cog6-bar-label{ font-size:17px; font-weight:700; color:#221D17; }
+      .cog6-bar-value{ font-size:34px; font-weight:800; color:${this.COG6_COLOR}; line-height:1; }
+      .cog6-bar-value .cog6-pct-sign{ font-size:16px; font-weight:700; color:${this.COG6_COLOR}; margin-left:2px; }
+      .cog6-bar-track{ height:13px; border-radius:999px; background:#ECE7DF; overflow:hidden; }
+      .cog6-bar-fill{ height:100%; border-radius:999px; background:${this.COG6_COLOR}; transition:width .3s ease; }
+      .cog6-preview-text{ display:flex; flex-direction:column; gap:14px; justify-content:center; }
+      .cog6-preview-row{ display:flex; align-items:baseline; gap:14px; }
+      .cog6-preview-label{ font-size:15px; font-weight:600; color:#221D17; min-width:96px; }
+      .cog6-preview-value{ font-size:18px; font-weight:800; color:${this.COG6_COLOR}; }
+    `;
+    document.head.appendChild(style);
   },
 
-  // (B) 레이더 차트(6각형)
+  // (A) 좌측 컬럼: 항목명 + 퍼센트 + Progress Bar (라벨 16~18px / 퍼센트 34~38px, #9B734B)
+  cog6ProgressList: function(data) {
+    this._ensureCog6Styles();
+    const rows = this.COG6_LABELS.map((label, i) => {
+      const key = this.COG6_KEYS[i];
+      const v = data && data[key] != null && data[key] !== '' ? Math.min(100, Math.max(0, Number(data[key]))) : null;
+      const pct = v != null ? v : 0;
+      return `<div class="cog6-bar-row">
+        <div class="cog6-bar-head">
+          <span class="cog6-bar-label">${label}</span>
+          <span class="cog6-bar-value">${v != null ? v : '-'}<span class="cog6-pct-sign">%</span></span>
+        </div>
+        <div class="cog6-bar-track"><div class="cog6-bar-fill" style="width:${pct}%;"></div></div>
+      </div>`;
+    }).join('');
+    return `<div style="width:100%;">${rows}</div>`;
+  },
+
+  // (A-2) 종합 미리보기 전용: 항목명+퍼센트만 세로 나열 (막대 없음)
+  cog6TextList: function(data) {
+    this._ensureCog6Styles();
+    const rows = this.COG6_LABELS.map((label, i) => {
+      const key = this.COG6_KEYS[i];
+      const v = data && data[key] != null && data[key] !== '' ? Math.min(100, Math.max(0, Number(data[key]))) : null;
+      return `<div class="cog6-preview-row">
+        <span class="cog6-preview-label">${label}</span>
+        <span class="cog6-preview-value">${v != null ? v + '%' : '-'}</span>
+      </div>`;
+    }).join('');
+    return `<div class="cog6-preview-text">${rows}</div>`;
+  },
+
+  // (B) 레이더 차트(6각형) — 형태·계산방식·축은 그대로, 색상만 브랜드 컬러(#9B734B)로 변경
   cog6RadarChart: function(data) {
     const size = 260, cx = size/2, cy = size/2, r = 90;
     const n = this.COG6_LABELS.length;
     const angleFor = i => (Math.PI * 2 * i / n) - Math.PI/2;
+    const COLOR = this.COG6_COLOR;
 
     // 배경 격자 (20/40/60/80/100)
     let grid = '';
@@ -695,15 +737,36 @@ const AssessVisuals = {
 
     return `<svg width="${size}" height="${size+20}" viewBox="0 0 ${size} ${size+20}">
       ${grid}${axes}
-      <polygon points="${pts}" fill="#4A90D9" fill-opacity="0.35" stroke="#4A90D9" stroke-width="2"/>
+      <polygon points="${pts}" fill="${COLOR}" fill-opacity="0.35" stroke="${COLOR}" stroke-width="2"/>
       ${labels}
     </svg>`;
   },
 
-  // (C) 두 시각화 + 안내문구를 한번에 렌더링 (이미지처럼 좌우 배치)
+  // (C) 리포트/고객상세 화면용: 좌 Progress List : 우 Radar = 2:1, 반응형(≤1024px → 1열)
+  //     인앱 화면(브라우저 창 리사이즈에 반응)에서 사용
+  cog6ReportBlock: function(data) {
+    this._ensureCog6Styles();
+    return `<div class="cog6-grid">
+        <div>${this.cog6ProgressList(data)}</div>
+        <div style="display:flex;align-items:center;justify-content:center;">${this.cog6RadarChart(data)}</div>
+      </div>
+      ${this.cog6FootNote()}`;
+  },
+
+  // (C-2) PDF 출력용: 별도 창(고정 폭)에서도 항상 2:1 유지 — 미디어쿼리 미사용
+  cog6ReportBlockFixed: function(data) {
+    return `<div style="display:grid;grid-template-columns:2fr 1fr;gap:24px;align-items:center;">
+        <div>${this.cog6ProgressList(data)}</div>
+        <div style="display:flex;align-items:center;justify-content:center;">${this.cog6RadarChart(data)}</div>
+      </div>
+      ${this.cog6FootNote()}`;
+  },
+
+  // (D) 평가관리 "종합 미리보기" 전용: 텍스트 리스트 + 30px gap + 레이더차트 (막대 없음)
   cog6FullBlock: function(data) {
-    return `<div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start;justify-content:center;">
-        <div>${this.cog6BarChart(data)}</div>
+    this._ensureCog6Styles();
+    return `<div style="display:flex;gap:30px;flex-wrap:wrap;align-items:center;justify-content:center;">
+        <div>${this.cog6TextList(data)}</div>
         <div>${this.cog6RadarChart(data)}</div>
       </div>
       ${this.cog6FootNote()}`;
