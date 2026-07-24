@@ -202,10 +202,12 @@ const API = {
       reportId:          this._safeStr(row[c.REPORT_ID]),
       clientId:          this._safeStr(row[c.CLIENT_ID]),
       round:             Number(row[c.ROUND] || 0),
-      cogScore:          this._safeNum(row[c.COG_SCORE]),
-      agePercentile:     this._safeNum(row[c.AGE_PERCENTILE]),
-      depression:        this._safeNum(row[c.DEPRESSION]),
-      dementiaRisk:      this._safeNum(row[c.DEMENTIA_RISK]),
+      attention:         this._safeNum(row[c.ATTENTION]),
+      language:          this._safeNum(row[c.LANGUAGE]),
+      spatial:           this._safeNum(row[c.SPATIAL]),
+      memoryVerbal:      this._safeNum(row[c.MEMORY_VERBAL]),
+      memoryVisual:      this._safeNum(row[c.MEMORY_VISUAL]),
+      executive:         this._safeNum(row[c.EXECUTIVE]),
       cardioScore:       this._safeNum(row[c.CARDIO_SCORE]),
       cardioIndex:       this._safeStr(row[c.CARDIO_INDEX]),
       bodyMovementIndex: this._safeNum(row[c.BODY_MOVEMENT_INDEX]),
@@ -231,17 +233,17 @@ const API = {
   _rowToCognitive: function(row) {
     const c = AppConfig.COG_COLS;
     return {
-      assessId:      this._safeStr(row[c.ASSESS_ID]),
-      clientId:      this._safeStr(row[c.CLIENT_ID]),
-      measureDate:   this._safeDateStr(row[c.MEASURE_DATE]),
-      round:         Number(row[c.ROUND] || 0),
-      cogScore:      this._safeNum(row[c.COG_SCORE]),
-      spatial:       this._safeNum(row[c.SPATIAL]),
-      memory:        this._safeNum(row[c.MEMORY]),
-      agePercentile: this._safeNum(row[c.AGE_PERCENTILE]),
-      depression:    this._safeNum(row[c.DEPRESSION]),
-      dementiaRisk:  this._safeNum(row[c.DEMENTIA_RISK]),
-      createdAt:     this._safeStr(row[c.CREATED_AT])
+      assessId:     this._safeStr(row[c.ASSESS_ID]),
+      clientId:     this._safeStr(row[c.CLIENT_ID]),
+      measureDate:  this._safeDateStr(row[c.MEASURE_DATE]),
+      round:        Number(row[c.ROUND] || 0),
+      attention:    this._safeNum(row[c.ATTENTION]),
+      language:     this._safeNum(row[c.LANGUAGE]),
+      spatial:      this._safeNum(row[c.SPATIAL]),
+      memoryVerbal: this._safeNum(row[c.MEMORY_VERBAL]),
+      memoryVisual: this._safeNum(row[c.MEMORY_VISUAL]),
+      executive:    this._safeNum(row[c.EXECUTIVE]),
+      createdAt:    this._safeStr(row[c.CREATED_AT])
     };
   },
   _rowToErgo: function(row) {
@@ -693,19 +695,11 @@ login: async function(id, pw) {
   getClientMasterList: async function(cid) {
     try {
       const mc = AppConfig.MASTER_COLS;
-      const cc = AppConfig.COG_COLS;
-      const [masterRows, cogRows] = await Promise.all([
-        this._get(AppConfig.TABLES.ASSESS_MASTER, `${mc.CLIENT_ID}=eq.${encodeURIComponent(cid)}&select=*&order=${mc.ROUND}.asc`),
-        this._get(AppConfig.TABLES.COGNITIVE,     `${cc.CLIENT_ID}=eq.${encodeURIComponent(cid)}&select=${cc.ROUND},${cc.SPATIAL},${cc.MEMORY}`)
-      ]);
-      const cogByRound = {};
-      cogRows.forEach(r => { cogByRound[Number(r[cc.ROUND])] = r; });
-      const masterList = masterRows.map(row => {
-        const m = this._rowToMaster(row);
-        const cogRow = cogByRound[m.round];
-        if (cogRow) { m.spatial = this._safeNum(cogRow[cc.SPATIAL]); m.memory = this._safeNum(cogRow[cc.MEMORY]); }
-        return m;
-      });
+      const masterRows = await this._get(AppConfig.TABLES.ASSESS_MASTER,
+        `${mc.CLIENT_ID}=eq.${encodeURIComponent(cid)}&select=*&order=${mc.ROUND}.asc`);
+      // ✅ 인지 6개 지표(주의집중력/언어능력/시공간기능/기억력(언어)/기억력(시각)/집행기능)가
+      //    이제 평가_Master 에 전부 캐시되어 있으므로, 인지_실비아 테이블과 별도 join이 필요 없습니다.
+      const masterList = masterRows.map(row => this._rowToMaster(row));
       return { status:'success', data: { masterList } };
     } catch(e) { return { status:'error', message:'Master 목록 조회 오류: ' + e.message }; }
   },
@@ -730,10 +724,7 @@ login: async function(id, pw) {
       ]);
 
       const masterData = masterRows.length ? this._rowToMaster(masterRows[0]) : null;
-      if (masterData && cogRows.length) {
-        masterData.spatial = this._safeNum(cogRows[0][cc.SPATIAL]);
-        masterData.memory  = this._safeNum(cogRows[0][cc.MEMORY]);
-      }
+      // ✅ 인지 6개 지표는 이제 masterData에 이미 포함되어 있으므로 cogRows에서 재할당하지 않습니다.
       return { status:'success', data: {
         master:    masterData,
         cognitive: cogRows.length    ? this._rowToCognitive(cogRows[0])    : null,
@@ -798,9 +789,13 @@ login: async function(id, pw) {
       const row = {
         [c.CLIENT_ID]: String(cid), [c.MEASURE_DATE]: String(d.measureDate||''),
         [c.ROUND]: Number(round),
-        [c.COG_SCORE]: n(d.cogScore), [c.SPATIAL]: n(d.spatial), [c.MEMORY]: n(d.memory),
-        [c.AGE_PERCENTILE]: n(d.agePercentile), [c.DEPRESSION]: n(d.depression),
-        [c.DEMENTIA_RISK]: n(d.dementiaRisk), [c.CREATED_AT]: now
+        [c.ATTENTION]:     n(d.attention),
+        [c.LANGUAGE]:      n(d.language),
+        [c.SPATIAL]:       n(d.spatial),
+        [c.MEMORY_VERBAL]: n(d.memoryVerbal),
+        [c.MEMORY_VISUAL]: n(d.memoryVisual),
+        [c.EXECUTIVE]:     n(d.executive),
+        [c.CREATED_AT]: now
       };
       const existing = await this._get(AppConfig.TABLES.COGNITIVE, `${c.CLIENT_ID}=eq.${enc(cid)}&${c.ROUND}=eq.${round}&limit=1`);
       if (existing.length) {
@@ -810,8 +805,13 @@ login: async function(id, pw) {
       }
       const flags = await this._refreshMasterFlags(cid, round);
       await this._patch(AppConfig.TABLES.ASSESS_MASTER, `${mc.CLIENT_ID}=eq.${enc(cid)}&${mc.ROUND}=eq.${round}`, {
-        [mc.COG_SCORE]: n(d.cogScore), [mc.AGE_PERCENTILE]: n(d.agePercentile),
-        [mc.DEPRESSION]: n(d.depression), [mc.DEMENTIA_RISK]: n(d.dementiaRisk), ...flags
+        [mc.ATTENTION]:     n(d.attention),
+        [mc.LANGUAGE]:      n(d.language),
+        [mc.SPATIAL]:       n(d.spatial),
+        [mc.MEMORY_VERBAL]: n(d.memoryVerbal),
+        [mc.MEMORY_VISUAL]: n(d.memoryVisual),
+        [mc.EXECUTIVE]:     n(d.executive),
+        ...flags
       });
       this._bust('getRoundData','getClientMasterList','getAssessOverview','getInitialData');
       return { status:'success', data: { message:'인지평가가 저장되었습니다.' } };
