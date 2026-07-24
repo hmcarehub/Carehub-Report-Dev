@@ -489,15 +489,31 @@ const AssessmentsPage = {
     { id:'f-cog-exec',      key:'executive',    label:'집행기능' }
   ],
 
+  _COG6_BRAND: '#9B734B',
+
   _cog6BarRow: function(val) {
     const pct = (val!=null && val!=='' && !isNaN(val)) ? Math.min(100,Math.max(0,Number(val))) : 0;
-    return `<div style="height:14px;background:#EEE;border-radius:7px;overflow:hidden;margin-top:10px;">
-      <div style="height:100%;width:${pct}%;background:#4A90D9;border-radius:7px;"></div>
+    return `<div style="height:13px;background:#ECE7DF;border-radius:999px;overflow:hidden;margin-top:10px;">
+      <div style="height:100%;width:${pct}%;background:${this._COG6_BRAND};border-radius:999px;transition:width .3s ease;"></div>
     </div>`;
+  },
+
+  // 평가입력/종합미리보기 2:1 반응형 그리드 스타일을 1회만 주입 (assessVisuals의 cog6-grid와 동일 규칙)
+  _ensureCogLayoutStyles: function() {
+    if (typeof document === 'undefined') return;
+    if (document.getElementById('cog-layout-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'cog-layout-styles';
+    style.textContent = `
+      .cog-input-grid{ display:grid; grid-template-columns:2fr 1fr; gap:24px; align-items:start; }
+      @media (max-width:1024px){ .cog-input-grid{ grid-template-columns:1fr; } }
+    `;
+    document.head.appendChild(style);
   },
 
   _renderCognitive: function(area) {
     if (!area) return;
+    this._ensureCogLayoutStyles();
     const canWrite = this._canWrite('cognitive');
     const d = this.roundData?.cognitive || null;
     const v = d || {};
@@ -513,7 +529,7 @@ const AssessmentsPage = {
             placeholder="0~100" min="0" max="100" step="1" ${ro}
             style="font-size:22px;height:52px;font-weight:700;text-align:center;">
           <div id="${f.id}-viz">${this._cog6BarRow(v[f.key])}</div>
-          <div id="${f.id}-val" style="text-align:right;font-size:13px;font-weight:700;color:var(--color-gray-700);margin-top:6px;">${v[f.key]!=null&&v[f.key]!==''?v[f.key]+'%':'-'}</div>
+          <div id="${f.id}-val" style="text-align:right;font-size:15px;font-weight:800;color:${this._COG6_BRAND};margin-top:6px;">${v[f.key]!=null&&v[f.key]!==''?v[f.key]+'%':'-'}</div>
         </div>
       </div>`;
 
@@ -525,43 +541,48 @@ const AssessmentsPage = {
           <input type="date" id="f-cog-date" class="form-control" value="${v.measureDate||today}" ${ro} style="max-width:200px;">
         </div>
 
-        <!-- 6개 지표 카드 그리드 -->
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
-          ${FIELDS.map(fieldCard).join('')}
-        </div>
+        <!-- 좌: 평가 입력 (2) / 우: 종합 미리보기 (1) -->
+        <div class="cog-input-grid">
+          <div>
+            <!-- 6개 지표 카드 그리드 -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+              ${FIELDS.map(fieldCard).join('')}
+            </div>
 
-        <!-- 종합 미리보기: 막대그래프 + 레이더차트 -->
-        <div style="margin-top:20px;padding:16px;background:var(--color-gray-50);border-radius:10px;">
-          <div style="font-size:12px;font-weight:700;color:var(--color-gray-500);margin-bottom:10px;">종합 미리보기</div>
-          <div id="cog6-preview">${AssessVisuals.cog6FullBlock(v)}</div>
-        </div>
+            <!-- 항목 입력 현황 -->
+            <div style="background:var(--color-gray-50);border-radius:10px;padding:10px 16px;margin-top:14px;">
+              <div style="font-size:12px;font-weight:700;color:var(--color-gray-500);margin-bottom:6px;">항목 입력 현황</div>
+              <div id="viz-progress" style="display:flex;gap:14px;flex-wrap:wrap;">
+                ${FIELDS.map(f=>{
+                  const filled = v[f.key]!=null && v[f.key]!=='';
+                  return `<div style="display:flex;align-items:center;gap:4px;">
+                    <span style="width:18px;height:18px;border-radius:50%;background:${filled?'#4CAF50':'#E0E0E0'};display:flex;align-items:center;justify-content:center;font-size:10px;color:white;font-weight:700;">${filled?'✓':''}</span>
+                    <span style="font-size:12px;color:${filled?'#2E7D32':'var(--color-gray-400)'};">${f.label}</span>
+                  </div>`;
+                }).join('')}
+              </div>
+            </div>
 
-        <!-- 항목 입력 현황 -->
-        <div style="background:var(--color-gray-50);border-radius:10px;padding:10px 16px;margin-top:14px;">
-          <div style="font-size:12px;font-weight:700;color:var(--color-gray-500);margin-bottom:6px;">항목 입력 현황</div>
-          <div id="viz-progress" style="display:flex;gap:14px;flex-wrap:wrap;">
-            ${FIELDS.map(f=>{
-              const filled = v[f.key]!=null && v[f.key]!=='';
-              return `<div style="display:flex;align-items:center;gap:4px;">
-                <span style="width:18px;height:18px;border-radius:50%;background:${filled?'#4CAF50':'#E0E0E0'};display:flex;align-items:center;justify-content:center;font-size:10px;color:white;font-weight:700;">${filled?'✓':''}</span>
-                <span style="font-size:12px;color:${filled?'#2E7D32':'var(--color-gray-400)'};">${f.label}</span>
-              </div>`;
-            }).join('')}
+            <!-- 임시 저장/수정 + 리포트 생성 시 삭제 -->
+            ${canWrite?`<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;">
+              ${this.roundData?.master?.reportGenerated&&!!d?`
+              <button id="cog-all-del-btn"
+                style="background:transparent;color:#E53935;border:1px solid #E53935;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer;">
+                삭제
+              </button>`:''}
+              <button id="cog-all-save-btn"
+                style="background:transparent;color:var(--color-primary-dark);border:1.5px solid var(--color-primary-dark);border-radius:8px;padding:10px 28px;font-size:14px;font-weight:700;cursor:pointer;">
+                전체 임시저장
+              </button>
+            </div>`:''}
+          </div>
+
+          <!-- 종합 미리보기 -->
+          <div style="background:#fff;border-radius:16px;padding:24px;border:1px solid var(--color-gray-100);">
+            <div style="font-size:12px;font-weight:700;color:var(--color-gray-500);margin-bottom:14px;">종합 미리보기</div>
+            <div id="cog6-preview">${AssessVisuals.cog6FullBlock(v)}</div>
           </div>
         </div>
-
-        <!-- 임시 저장/수정 + 리포트 생성 시 삭제 -->
-        ${canWrite?`<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;">
-          ${this.roundData?.master?.reportGenerated&&!!d?`
-          <button id="cog-all-del-btn"
-            style="background:transparent;color:#E53935;border:1px solid #E53935;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer;">
-            삭제
-          </button>`:''}
-          <button id="cog-all-save-btn"
-            style="background:transparent;color:var(--color-primary-dark);border:1.5px solid var(--color-primary-dark);border-radius:8px;padding:10px 28px;font-size:14px;font-weight:700;cursor:pointer;">
-            전체 임시저장
-          </button>
-        </div>`:''}
       </div>`;
 
     if (canWrite) {
