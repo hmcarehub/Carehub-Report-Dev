@@ -212,6 +212,7 @@ const ReportsPage = {
           #report-print-area > div { page-break-after:always !important; page-break-inside:avoid; height:100vh !important; overflow:hidden !important; }
           #report-print-area > div:last-child { page-break-after:avoid !important; }
         }
+        ${AssessVisuals._cog6StyleCSS ? AssessVisuals._cog6StyleCSS() : ''}
       </style>
     </head><body><div id="report-print-area">${reportHtml}</div>
     <script>
