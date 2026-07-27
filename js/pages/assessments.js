@@ -1105,12 +1105,15 @@ const AssessmentsPage = {
     const canSeeEx  = true;
     const canSeeCm  = true;
   
-    const COMMENT_MAX = 500;
+    // ✅ 항목별 글자수 제한: 인지/운동 전문가 750자, 케어 매니저 300자
+    const COMMENT_MAX_BY_ID = { 'f-cmt-cog': 750, 'f-cmt-ex': 750, 'f-cmt-cm': 300 };
   
     // 공백(띄어쓰기, 줄바꿈, 탭) 제외 글자수 계산
     const getCommentLength = text => (text || '').replace(/\s/g, '').length;
   
-    const block = (id, label, val, editable, updated, saveable) => `
+    const block = (id, label, val, editable, updated, saveable) => {
+      const max = COMMENT_MAX_BY_ID[id] || 500;
+      return `
       <div class="assess-sub-section">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
           <div class="assess-sub-title" style="margin-bottom:0;">${label}</div>
@@ -1127,7 +1130,7 @@ const AssessmentsPage = {
   
         <div id="${id}-count"
              style="text-align:right;font-size:12px;color:var(--color-gray-400);margin-top:4px;">
-          ${getCommentLength(val)} / ${COMMENT_MAX}자 (공백 제외)
+          ${getCommentLength(val)} / ${max}자 (공백 제외)
         </div>
   
         ${
@@ -1155,6 +1158,7 @@ const AssessmentsPage = {
         }
       </div>
     `;
+    };
   
     area.innerHTML = `
       <div class="assess-form-card">
@@ -1193,11 +1197,12 @@ const AssessmentsPage = {
   
         ta.addEventListener('input', () => {
   
+          const max = COMMENT_MAX_BY_ID[ta.id] || 500;
           let value = ta.value;
           let count = getCommentLength(value);
   
-          // 공백 제외 500자 제한
-          while (count > COMMENT_MAX) {
+          // 공백 제외 항목별 글자수 제한
+          while (count > max) {
             value = value.slice(0, -1);
             count = getCommentLength(value);
           }
@@ -1206,9 +1211,9 @@ const AssessmentsPage = {
             ta.value = value;
           }
   
-          counter.textContent = `${count} / ${COMMENT_MAX}자 (공백 제외)`;
+          counter.textContent = `${count} / ${max}자 (공백 제외)`;
           counter.style.color =
-            count >= COMMENT_MAX
+            count >= max
               ? '#E53935'
               : 'var(--color-gray-400)';
         });
