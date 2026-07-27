@@ -150,7 +150,7 @@ const AppConfig = {
     MEMORY_VISUAL:       '기억력(시각)',
     EXECUTIVE:           '집행기능',
     CARDIO_SCORE:        '심폐기능 점수',
-    CARDIO_INDEX:        '심폐 기능 지수',
+    CARDIO_INDEX:        '심폐기능지수',
     BODY_MOVEMENT_INDEX: '신체 움직임 지수',
     NERVOUS_SCORE:       '신경계 점수',
     BALANCE_SCORE:       '통합 균형능력 점수',
