@@ -1422,10 +1422,14 @@ const ClientDetailPage = {
         @media print {
           body { print-color-adjust:exact; -webkit-print-color-adjust:exact; }
           #report-print-area > div {
+            page-break-after:always !important;
             page-break-inside:avoid;
             break-inside:avoid;
             width:100%;
+            height:100vh !important;
+            overflow:hidden !important;
           }
+          #report-print-area > div:last-child { page-break-after:avoid !important; }
           svg text { font-family:'Noto Sans KR','Malgun Gothic',sans-serif; }
         }
         svg text { font-family:'Noto Sans KR','Malgun Gothic',sans-serif; }
