@@ -1201,6 +1201,13 @@ const ClientDetailPage = {
       return `${headerRow}${metricRows}`;
     };
 
+    // ✅ 초기(1회차) 리포트는 비교 대상 회차가 없어 "기간별 지표 변화" 페이지를 제외합니다.
+    const isInitialRound = master.round === 1;
+    const totalPages = isInitialRound ? 4 : 5;
+    const pTrend  = 3;
+    const pExpert = isInitialRound ? 3 : 4;
+    const pEnd    = isInitialRound ? 4 : 5;
+
     return `
 <!-- ===================== PAGE 1: 표지 ===================== -->
 <div style="width:100%;min-height:100vh;position:relative;display:flex;flex-direction:column;padding:68px 60px;box-sizing:border-box;page-break-after:always;background:#fff;">
@@ -1246,7 +1253,7 @@ const ClientDetailPage = {
   </div>
   </div>
 
-  ${pageFooter(1, 5, 60)}
+  ${pageFooter(1, totalPages, 60)}
 </div>
 
 <!-- ===================== PAGE 2: 평가 결과 ===================== -->
@@ -1327,9 +1334,10 @@ const ClientDetailPage = {
       </div>`, 'flex:1;display:flex;flex-direction:column;');
   })()}
 
-  ${pageFooter(2, 5, 36)}
+  ${pageFooter(2, totalPages, 36)}
 </div>
 
+${isInitialRound ? '' : `
 <!-- ===================== PAGE 3: 기간별 지표 변화 ===================== -->
 <div style="width:100%;min-height:100vh;position:relative;padding:30px 36px 56px;box-sizing:border-box;page-break-after:always;font-family:'Noto Sans KR',sans-serif;display:flex;flex-direction:column;background:#fff;">
   ${pageHeader('기간별 지표 변화')}
@@ -1337,8 +1345,8 @@ const ClientDetailPage = {
   <div style="display:flex;flex-direction:column;flex:1;min-height:0;">${trendTableChart()}</div>
   <div style="font-size:10px;color:${G500};font-style:italic;text-align:left;margin:8px 0 0;">※ 변화는 초기 평가를 기준으로 산출됩니다.</div>
 
-  ${pageFooter(3, 5, 36)}
-</div>
+  ${pageFooter(pTrend, totalPages, 36)}
+</div>`}
 
 <!-- ===================== PAGE 4: 전문가 소견 ===================== -->
 <div style="width:100%;min-height:100vh;position:relative;padding:30px 36px 56px;box-sizing:border-box;page-break-after:always;font-family:'Noto Sans KR',sans-serif;display:flex;flex-direction:column;background:#fff;">
@@ -1360,7 +1368,7 @@ const ClientDetailPage = {
         </div>`).join('')}
     </div>`, 'flex:1;display:flex;flex-direction:column;')}
 
-  ${pageFooter(4, 5, 36)}
+  ${pageFooter(pExpert, totalPages, 36)}
 </div>
 
 <!-- ===================== PAGE 5: 마무리 (간지) ===================== -->
@@ -1393,7 +1401,7 @@ const ClientDetailPage = {
   <div></div>
   </div>
 
-  ${pageFooter(5, 5, 60)}
+  ${pageFooter(pEnd, totalPages, 60)}
 </div>
   `;
   },
