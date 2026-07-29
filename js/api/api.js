@@ -129,11 +129,76 @@ const API = {
   },
   _calcEndDate: function(admitDateStr, period) {
     const days = AppConfig.PERIOD_DAYS[period] || 0;
+    return this._calcEndDateFromDays(admitDateStr, days);
+  },
+  _calcEndDateFromDays: function(admitDateStr, days) {
     if (!admitDateStr || !days) return '';
     const d = new Date(admitDateStr);
     d.setDate(d.getDate() + days - 1);
     const p = n => String(n).padStart(2,'0');
     return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // ✅ 관리자 페이지("고객관리 기준" 탭)에서 설정한 입소기간을
+  //    실제 고객 등록/수정 로직에서 사용하기 위한 캐시.
+  //    DB에 값이 없으면 config.js의 PERIOD_DAYS/PERIOD_ROUNDS로 자동 폴백합니다.
+  // ══════════════════════════════════════════════════════════
+  _periodMapCache: null,
+  _periodMapPromise: null,
+
+  // roundLabel(예: '초기','4주차') → 총 회차수(예:1,2) 변환
+  // (평가/리포트 화면 전반에서 쓰는 n===1?'초기':(n-1)*4+'주차' 공식의 역변환)
+  _roundLabelToCount: function(label) {
+    if (!label) return 0;
+    const s = String(label).trim();
+    if (s === '초기') return 1;
+    const m = s.match(/^(\d+)\s*주차$/);
+    if (m) return Math.floor(Number(m[1]) / 4) + 1;
+    const n = Number(s);
+    return isNaN(n) ? 0 : n;
+  },
+
+  _fallbackPeriodMap: function() {
+    const map = {};
+    Object.keys(AppConfig.PERIOD_DAYS || {}).forEach(p => {
+      map[p] = { days: AppConfig.PERIOD_DAYS[p], roundLabel:'', totalRounds: AppConfig.PERIOD_ROUNDS[p] || 0 };
+    });
+    return map;
+  },
+
+  getPeriodMap: async function() {
+    if (this._periodMapCache) return this._periodMapCache;
+    if (this._periodMapPromise) return this._periodMapPromise;
+    this._periodMapPromise = (async () => {
+      try {
+        const res  = await this.getStandards();
+        const rows = (res.status === 'success' && res.data.standards?.clientPeriod_period) || [];
+        const map  = {};
+        rows.forEach(row => {
+          let obj = null;
+          try { obj = JSON.parse(row.label); } catch { obj = null; }
+          if (!obj || !obj.period) return;
+          map[obj.period] = {
+            days: Number(obj.days) || 0,
+            roundLabel: obj.roundLabel || '',
+            totalRounds: this._roundLabelToCount(obj.roundLabel)
+          };
+        });
+        // DB에 설정된 입소기간이 하나도 없으면(초기 배포 등) config.js 값으로 폴백
+        this._periodMapCache = Object.keys(map).length ? map : this._fallbackPeriodMap();
+        return this._periodMapCache;
+      } catch (e) {
+        this._periodMapCache = this._fallbackPeriodMap();
+        return this._periodMapCache;
+      }
+    })();
+    return this._periodMapPromise;
+  },
+
+  _bustPeriodMap: function() {
+    this._periodMapCache = null;
+    this._periodMapPromise = null;
   },
   // _calcClientStatus: function(admitDateStr, endDateStr) {
   //   const today = new Date(); today.setHours(0,0,0,0);
@@ -545,8 +610,10 @@ login: async function(id, pw) {
       const T = AppConfig.TABLES.CLIENTS;
       const exists = await this._get(T, `${c.CLIENT_ID}=eq.${encodeURIComponent(d.clientId)}&limit=1`);
       if (exists.length) return { status:'error', message:'이미 사용 중인 고객 ID입니다.' };
-      const endDate     = this._calcEndDate(d.admitDate, d.admitPeriod);
-      const totalRounds = AppConfig.PERIOD_ROUNDS[d.admitPeriod] || 0;
+      const periodMap    = await this.getPeriodMap();
+      const periodInfo   = periodMap[d.admitPeriod] || { days:0, totalRounds:0 };
+      const endDate      = this._calcEndDateFromDays(d.admitDate, periodInfo.days);
+      const totalRounds  = periodInfo.totalRounds;
       const status      = this._calcClientStatus(d.admitDate, endDate);
       await this._post(T, {
         [c.CLIENT_ID]:    d.clientId,    [c.NAME]:         d.name,
@@ -566,8 +633,10 @@ login: async function(id, pw) {
     try {
       const c = AppConfig.CLIENT_COLS;
       const T = AppConfig.TABLES.CLIENTS;
-      const endDate     = this._calcEndDate(d.admitDate, d.admitPeriod);
-      const totalRounds = AppConfig.PERIOD_ROUNDS[d.admitPeriod] || 0;
+      const periodMap    = await this.getPeriodMap();
+      const periodInfo   = periodMap[d.admitPeriod] || { days:0, totalRounds:0 };
+      const endDate      = this._calcEndDateFromDays(d.admitDate, periodInfo.days);
+      const totalRounds  = periodInfo.totalRounds;
       const status      = this._calcClientStatus(d.admitDate, endDate);
       const rows = await this._get(T, `${c.CLIENT_ID}=eq.${encodeURIComponent(d.clientId)}&select=${c.DONE_ROUNDS}&limit=1`);
       const existDone = rows.length ? Number(rows[0][c.DONE_ROUNDS] || 0) : 0;
@@ -1099,6 +1168,9 @@ login: async function(id, pw) {
         ));
       }
       this._bust('getStandards');
+      // ✅ 관리자가 "고객관리 기준(입소기간)"을 저장하면, 다음 고객 등록/수정부터
+      //    바로 새 값이 적용되도록 캐시를 초기화합니다.
+      if (cat === 'clientPeriod_period') this._bustPeriodMap();
       return { status:'success', data: { message:'기준값이 저장되었습니다.' } };
     } catch(e) { return { status:'error', message:'기준값 저장 오류: ' + e.message }; }
   }
