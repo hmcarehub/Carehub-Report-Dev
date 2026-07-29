@@ -618,8 +618,9 @@ const ClientDetailPage = {
       const n = sorted.length;
 
       const metrics = [
-        {key:'attention',    label:'주의집중력'},
-        {key:'executive',    label:'집행기능'},
+        {key:'memoryVerbal', label:'기억력(언어)'},
+        {key:'memoryVisual', label:'기억력(시각)'},
+        {key:'spatial',      label:'시공간기능'},
         {key:'cardioScore',  label:'심폐기능'},
         {key:'balanceScore', label:'통합균형능력'},
         {key:'bodyCompScore',label:'체성분'},
@@ -1128,8 +1129,9 @@ const ClientDetailPage = {
       if (!n) return `<div style="text-align:center;color:${G500};font-size:14px;padding:20px 0;">측정 데이터가 없습니다.</div>`;
 
       const metrics = [
-        {key:'attention',    label:'주의집중력'},
-        {key:'executive',    label:'집행기능'},
+        {key:'memoryVerbal', label:'기억력(언어)'},
+        {key:'memoryVisual', label:'기억력(시각)'},
+        {key:'spatial',      label:'시공간기능'},
         {key:'cardioScore',  label:'심폐기능'},
         {key:'balanceScore', label:'통합균형능력'},
         {key:'bodyCompScore',label:'체성분'},
@@ -1153,7 +1155,7 @@ const ClientDetailPage = {
           const vals = pts.map(p=>p.v);
           const vMin = Math.min(...vals), vMax = Math.max(...vals);
           const range = (vMax-vMin) || 1;
-          const H=54, padT=20, padB=14;
+          const H=44, padT=16, padB=11;
           const yPos = v => padT + (1-((v-vMin)/range))*(H-padT-padB);
           const xPct = i => n===1 ? 50 : ((i+0.5)/n*100);
           let pathD='', areaD='';
@@ -1187,11 +1189,11 @@ const ClientDetailPage = {
         }
         // 차트 배경이 상하 여백 없이 행 전체를 채우도록 — 패딩은 라벨/변화 칸에만 적용 (req3)
         return `<div style="display:grid;grid-template-columns:${colTemplate};align-items:stretch;border-bottom:1px solid ${CREAM2};flex:1;">
-          <div style="grid-column:1;padding:15px 0;display:flex;align-items:center;">
+          <div style="grid-column:1;padding:10px 0;display:flex;align-items:center;">
             <span style="font-size:14px;font-weight:700;color:${INK};">${met.label}</span>
           </div>
           <div style="grid-column:2 / span ${n};">${chartHtml}</div>
-          <div style="grid-column:${n+2};text-align:center;padding:15px 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;">
+          <div style="grid-column:${n+2};text-align:center;padding:10px 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;">
             ${changeHtml}
             ${met.inverse?`<span style="font-size:9px;color:${G500};">↓ 낮을수록 좋음</span>`:''}
           </div>
