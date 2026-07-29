@@ -617,15 +617,7 @@ const ClientDetailPage = {
       const BR = AV.UI_BR, BR_DARK = AV.UI_BR_DARK, INK = AV.UI_INK, G500 = AV.UI_G500, CREAM2 = AV.UI_CREAM2, G300 = '#CDC5B8';
       const n = sorted.length;
 
-      const metrics = [
-        {key:'memoryVerbal', label:'기억력(언어)'},
-        {key:'memoryVisual', label:'기억력(시각)'},
-        {key:'spatial',      label:'시공간기능'},
-        {key:'cardioScore',  label:'심폐기능'},
-        {key:'balanceScore', label:'통합균형능력'},
-        {key:'bodyCompScore',label:'체성분'},
-        {key:'stressScore',  label:'스트레스', inverse:true}
-      ];
+      const metrics = await API.getTrendMetrics();
       const colTemplate = `96px repeat(${n},1fr) 76px`;
 
       const weekHeadCells = sorted.map((m,i)=>`<div style="grid-column:${i+2};text-align:center;font-size:11px;font-weight:700;color:${G500};">${this._weekLabelShort(m.round)}</div>`).join('');
@@ -736,7 +728,7 @@ const ClientDetailPage = {
           const m = completed.find(x=>x.round===round);
           if (!m) return;
           const masterListFull = this._masterListCache || (await API.getClientMasterList(c.clientId).catch(()=>null))?.data?.masterList || [m];
-          const html = this._buildReportHTML(m, masterListFull);
+          const html = await this._buildReportHTML(m, masterListFull);
           const wrap = document.createElement('div');
           wrap.className='modal-backdrop';
           wrap.innerHTML=`<div class="modal" style="max-width:820px;max-height:92vh;display:flex;flex-direction:column;">
@@ -766,7 +758,7 @@ const ClientDetailPage = {
           if (!m) return;
           const masterListFull = this._masterListCache || (await API.getClientMasterList(c.clientId).catch(()=>null))?.data?.masterList || [m];
           const tempDiv=document.createElement('div');
-          tempDiv.innerHTML=this._buildReportHTML(m, masterListFull);
+          tempDiv.innerHTML = await this._buildReportHTML(m, masterListFull);
           this._printReport(m, tempDiv);
         });
       });
@@ -829,7 +821,7 @@ const ClientDetailPage = {
       const res = await API.getClientMasterList(c.clientId);
       if (res.status === 'success') masterList = res.data.masterList || [masterData];
     } catch(e) {}
-    const reportHtml = this._buildReportHTML(masterData, masterList);
+    const reportHtml = await this._buildReportHTML(masterData, masterList);
     const wrap = document.createElement('div');
     wrap.className = 'modal-backdrop';
     wrap.innerHTML = `
@@ -853,7 +845,7 @@ const ClientDetailPage = {
     };
   },
 
-  _buildReportHTML: function(master, allMasterList) {
+  _buildReportHTML: async function(master, allMasterList) {
     // ══════════════════════════════════════════════════════════
     // 통합 리포트(PDF) v5 — 카테고리 박스(흰배경+#F2ECE2 테두리),
     // 원형차트 내부 값 표기+하단 상태 배지, 심폐/스트레스 그라데이션 복원,
@@ -867,6 +859,7 @@ const ClientDetailPage = {
     const pad2  = n => String(n).padStart(2,'0');
     const todayStr = `${today.getFullYear()}.${pad2(today.getMonth()+1)}.${pad2(today.getDate())}`;
     const trendMasters = allMasterList || [master];
+    const trendMetricsCfg = await API.getTrendMetrics();
 
     const nervItems = (typeof StandardsCache!=='undefined'&&StandardsCache.get('inbodyFra_nervous'))||
       [{label:'신경계 평가'},{label:'반응시간 평가'},{label:'자세유지시간 평가'}];
@@ -1128,15 +1121,7 @@ const ClientDetailPage = {
       const n = sorted.length;
       if (!n) return `<div style="text-align:center;color:${G500};font-size:14px;padding:20px 0;">측정 데이터가 없습니다.</div>`;
 
-      const metrics = [
-        {key:'memoryVerbal', label:'기억력(언어)'},
-        {key:'memoryVisual', label:'기억력(시각)'},
-        {key:'spatial',      label:'시공간기능'},
-        {key:'cardioScore',  label:'심폐기능'},
-        {key:'balanceScore', label:'통합균형능력'},
-        {key:'bodyCompScore',label:'체성분'},
-        {key:'stressScore',  label:'스트레스', inverse:true}
-      ];
+      const metrics = trendMetricsCfg;
       const colTemplate = `96px repeat(${n},1fr) 76px`;
 
       // 측정회차는 별도 행이 아니라 "평가 항목/변화"와 같은 헤더 행에 표기
@@ -1408,19 +1393,21 @@ ${isInitialRound ? '' : `
   `;
   },
 
-  _printReport: function(master, _unused) {
+  _printReport: async function(master, _unused) {
     const c = this.client || {};
     const weekTitle = master
       ? (master.round === 1 ? '초기 통합리포트' : `${(master.round-1)*4}주차 통합리포트`)
       : '통합 리포트';
     const masterList = this._masterListCache || [master];
-    const reportHtml = this._buildReportHTML(master, masterList);
 
+    // ✅ 팝업 차단 방지: window.open은 클릭 이벤트에 대해 동기적으로 먼저 호출
     const win = window.open('', '_blank', 'width=900,height=1200');
     if (!win) {
       UI.toast('팝업이 차단되었습니다. 주소창 우측 팝업 허용 후 다시 시도해주세요.', 'warning');
       return;
     }
+    const reportHtml = await this._buildReportHTML(master, masterList);
+
     win.document.open();
     win.document.write(`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
       <title>${weekTitle} - ${c.name||''}</title>
