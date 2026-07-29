@@ -75,7 +75,6 @@ container.innerHTML = `
        <!-- 페이지네이션: 하단 중앙 -->
        <div style="padding:14px 20px;border-top:1px solid var(--color-gray-100);display:flex;flex-direction:column;align-items:center;gap:8px;">
          <div id="pagination-btns" style="display:flex;gap:4px;justify-content:center;"></div>
-          <div id="pagination-info" style="font-size:12px;color:var(--color-gray-400);"></div>
           <div id="pagination-info" style="font-size:13px;color:var(--color-gray-400);"></div>
        </div>
      </div>
@@ -238,7 +237,6 @@ return `
          <td style="font-weight:600;color:var(--color-gray-600);">${c.roomNum||'-'}</td>
          <td style="font-weight:700;"><span class="client-name-link" data-id="${c.clientId}" style="cursor:pointer;color:var(--color-primary-dark);text-decoration:underline;text-underline-offset:2px;">${c.name}</span></td>
           <td style="font-size:13px;color:var(--color-gray-500);">${c.clientId}</td>
-          <td style="font-size:14px;color:var(--color-gray-500);">${c.clientId}</td>
          <td>${c.birthDate || '-'}</td>
          <td>${c.gender || '-'}</td>
          <td>${c.admitDate || '-'}</td>
@@ -270,7 +268,6 @@ return `
 }).join('');
 
 wrap.innerHTML = `
-      <table class="table">
       <table class="table client-list-table">
        <thead>
          <tr>
@@ -424,6 +421,7 @@ backdrop.innerHTML = `
              <label class="form-label">입소기간 <span class="required">*</span></label>
              <select id="cm-period" class="form-control">
                <option value="">선택</option>
+               <option value="2박 3일">2박 3일</option>
                <option value="2주">2주</option>
                <option value="1개월">1개월</option>
                <option value="2개월">2개월</option>
@@ -607,7 +605,7 @@ backdrop.innerHTML = `
              <label class="form-label">입소기간 <span class="required">*</span></label>
              <select id="em-period" class="form-control">
                <option value="">선택</option>
-               ${['2주','1개월','2개월','3개월','4개월','5개월','6개월'].map(p=>`<option value="${p}" ${c.admitPeriod===p?'selected':''}>${p}</option>`).join('')}
+               ${['2박 3일','2주','1개월','2개월','3개월','4개월','5개월','6개월'].map(p=>`<option value="${p}" ${c.admitPeriod===p?'selected':''}>${p}</option>`).join('')}
              </select>
            </div>
          </div>
