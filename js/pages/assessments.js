@@ -1106,7 +1106,7 @@ const AssessmentsPage = {
     const canSeeCm  = true;
   
     // ✅ 항목별 글자수 제한: 인지/운동 전문가 750자, 케어 매니저 300자
-    const COMMENT_MAX_BY_ID = { 'f-cmt-cog': 750, 'f-cmt-ex': 750, 'f-cmt-cm': 300 };
+    const COMMENT_MAX_BY_ID = { 'f-cmt-cog': 500, 'f-cmt-ex': 750, 'f-cmt-cm': 250 };
   
     // 공백(띄어쓰기, 줄바꿈, 탭) 제외 글자수 계산
     const getCommentLength = text => (text || '').replace(/\s/g, '').length;
