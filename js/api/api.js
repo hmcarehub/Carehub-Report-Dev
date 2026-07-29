@@ -293,6 +293,17 @@ const API = {
       return null;
     }
   },
+
+  // ✅ 스냅샷이 있으면 그대로 사용, 없으면(=이 기능 도입 이전에 생성된 리포트)
+  //    "지금 이 순간"의 설정을 그 리포트의 스냅샷으로 자동 저장(백필)한 뒤 반환합니다.
+  //    → 한 번 조회된 이후로는 그 리포트도 더 이상 관리자의 이후 설정 변경에 영향받지 않습니다.
+  getOrCreateReportTrendMetricsSnapshot: async function(cid, round) {
+    const existing = await this.getReportSnapshotTrendMetrics(cid, round);
+    if (existing) return existing;
+    const live = await this.getTrendMetrics();
+    try { await this.saveReportTrendMetricsSnapshot(cid, round, live); } catch(e) { /* 백필 실패해도 화면 표시는 계속 진행 */ }
+    return live;
+  },
   // _calcClientStatus: function(admitDateStr, endDateStr) {
   //   const today = new Date(); today.setHours(0,0,0,0);
   //   const admit = admitDateStr ? new Date(admitDateStr) : null;
