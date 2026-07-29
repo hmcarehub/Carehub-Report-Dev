@@ -617,7 +617,11 @@ const ClientDetailPage = {
       const BR = AV.UI_BR, BR_DARK = AV.UI_BR_DARK, INK = AV.UI_INK, G500 = AV.UI_G500, CREAM2 = AV.UI_CREAM2, G300 = '#CDC5B8';
       const n = sorted.length;
 
-      const metrics = await API.getTrendMetrics();
+      // ✅ 현재 보고 있는 회차(activeRound)의 리포트가 이미 생성되어 있으면 그 생성 시점 스냅샷을 사용
+      const activeRoundMaster = masterList.find(m => m.round === currentRound);
+      const metrics = (activeRoundMaster?.reportGenerated)
+        ? (await API.getReportSnapshotTrendMetrics(this.client.clientId, currentRound)) || (await API.getTrendMetrics())
+        : await API.getTrendMetrics();
       const colTemplate = `96px repeat(${n},1fr) 76px`;
 
       const weekHeadCells = sorted.map((m,i)=>`<div style="grid-column:${i+2};text-align:center;font-size:11px;font-weight:700;color:${G500};">${this._weekLabelShort(m.round)}</div>`).join('');
@@ -859,7 +863,11 @@ const ClientDetailPage = {
     const pad2  = n => String(n).padStart(2,'0');
     const todayStr = `${today.getFullYear()}.${pad2(today.getMonth()+1)}.${pad2(today.getDate())}`;
     const trendMasters = allMasterList || [master];
-    const trendMetricsCfg = await API.getTrendMetrics();
+    // ✅ 이미 생성된 리포트는 "생성 시점"의 설정 스냅샷을 그대로 사용 (이후 기준값이 바뀌어도 영향 없음)
+    //    아직 생성 전(초안 미리보기)이면 지금 시점의 최신 설정을 보여줍니다.
+    const trendMetricsCfg = master.reportGenerated
+      ? (await API.getReportSnapshotTrendMetrics(master.clientId, master.round)) || (await API.getTrendMetrics())
+      : await API.getTrendMetrics();
 
     const nervItems = (typeof StandardsCache!=='undefined'&&StandardsCache.get('inbodyFra_nervous'))||
       [{label:'신경계 평가'},{label:'반응시간 평가'},{label:'자세유지시간 평가'}];
