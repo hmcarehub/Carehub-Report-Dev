@@ -261,6 +261,38 @@ const API = {
     this._trendMetricsCache = null;
     this._trendMetricsPromise = null;
   },
+
+  // ══════════════════════════════════════════════════════════
+  // ✅ 리포트 생성 시점의 "기간별 지표 변화" 설정 스냅샷
+  //    - 리포트 생성/재생성 시점의 항목 구성을 그대로 고정 저장
+  //    - 이후 관리자가 기준값을 바꿔도, 이미 생성된 리포트는 스냅샷을 사용해 그대로 유지
+  //    - 리포트가 무효화(reportGenerated=false)되면 스냅샷은 무시되고(=삭제되지 않아도)
+  //      항상 최신 설정으로 미리보기가 표시되며, 재생성 시 그 시점 설정으로 다시 스냅샷됩니다.
+  // ══════════════════════════════════════════════════════════
+  _reportSnapshotCat: function(cid, round) {
+    return `rptSnap_tm_${cid}_${round}`;
+  },
+
+  saveReportTrendMetricsSnapshot: async function(cid, round, metrics) {
+    const cat = this._reportSnapshotCat(cid, round);
+    const items = (metrics || []).map((m, idx) => ({ key: m.key, label: JSON.stringify(m), order: idx }));
+    // saveStandards는 getStandards 캐시(_bust)까지 함께 처리해줌
+    await this.saveStandards(cat, items);
+  },
+
+  // 스냅샷이 있으면 반환, 없으면 null (없을 경우 호출부에서 현재 라이브 설정으로 폴백)
+  getReportSnapshotTrendMetrics: async function(cid, round) {
+    try {
+      const res  = await this.getStandards();
+      const cat  = this._reportSnapshotCat(cid, round);
+      const rows = (res.status === 'success' && res.data.standards?.[cat]) || [];
+      if (!rows.length) return null;
+      const parsed = rows.map(row => { try { return JSON.parse(row.label); } catch { return null; } }).filter(Boolean);
+      return parsed.length ? parsed : null;
+    } catch(e) {
+      return null;
+    }
+  },
   // _calcClientStatus: function(admitDateStr, endDateStr) {
   //   const today = new Date(); today.setHours(0,0,0,0);
   //   const admit = admitDateStr ? new Date(admitDateStr) : null;
@@ -1151,6 +1183,13 @@ login: async function(id, pw) {
 
       await this._patch(AppConfig.TABLES.ASSESS_MASTER, `${mc.CLIENT_ID}=eq.${enc(cid)}&${mc.ROUND}=eq.${round}`,
         { [mc.REPORT_GENERATED]: true, [mc.ASSESS_DATE]: assessDate, [mc.REPORT_CREATED_AT]: reportCreatedAt });
+
+      // ✅ 지금 이 순간의 "기간별 지표 변화" 설정을 스냅샷으로 고정 저장
+      //    → 이후 관리자가 기준값을 바꿔도 이 리포트는 계속 지금 설정을 사용
+      try {
+        const liveMetrics = await this.getTrendMetrics();
+        await this.saveReportTrendMetricsSnapshot(cid, round, liveMetrics);
+      } catch(e) { /* 스냅샷 저장 실패해도 리포트 생성 자체는 계속 진행 */ }
 
       const cc2 = AppConfig.CLIENT_COLS;
       const clientRows = await this._get(AppConfig.TABLES.CLIENTS,
