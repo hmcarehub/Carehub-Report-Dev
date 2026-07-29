@@ -151,12 +151,12 @@ const API = {
   // (평가/리포트 화면 전반에서 쓰는 n===1?'초기':(n-1)*4+'주차' 공식의 역변환)
   _roundLabelToCount: function(label) {
     if (!label) return 0;
-    const s = String(label).trim();
+    const s = String(label).trim().replace(/\s+/g, ''); // 내부 공백 제거(예: "28 주차" → "28주차")
     if (s === '초기') return 1;
-    const m = s.match(/^(\d+)\s*주차$/);
+    const m = s.match(/^(\d+)주차?$/); // "28주차" 또는 "28주" 모두 허용
     if (m) return Math.floor(Number(m[1]) / 4) + 1;
     const n = Number(s);
-    return isNaN(n) ? 0 : n;
+    return isNaN(n) || n <= 0 ? 0 : n;
   },
 
   _fallbackPeriodMap: function() {
