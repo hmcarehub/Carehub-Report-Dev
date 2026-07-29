@@ -369,7 +369,18 @@ return `<span class="badge badge-${cls}">${status}</span>`;
 },
 
 // ── 신규 등록 모달 ───────────────────────────────────────
-_openCreateModal: function() {
+// ── 입소기간 옵션(관리자 설정값) 조회 ─────────────────────
+_getPeriodMapSorted: async function() {
+  const map = await API.getPeriodMap();
+  const list = Object.keys(map)
+    .map(period => ({ period, ...map[period] }))
+    .sort((a,b) => (a.days||0) - (b.days||0));
+  return { map, list };
+},
+
+_openCreateModal: async function() {
+const { map: periodMap, list: periodList } = await this._getPeriodMapSorted();
+const periodOptionsHtml = periodList.map(p => `<option value="${p.period}">${p.period}</option>`).join('');
 const backdrop = document.createElement('div');
 backdrop.className = 'modal-backdrop';
 backdrop.id = 'client-modal';
@@ -421,14 +432,7 @@ backdrop.innerHTML = `
              <label class="form-label">입소기간 <span class="required">*</span></label>
              <select id="cm-period" class="form-control">
                <option value="">선택</option>
-               <option value="2박 3일">2박 3일</option>
-               <option value="2주">2주</option>
-               <option value="1개월">1개월</option>
-               <option value="2개월">2개월</option>
-               <option value="3개월">3개월</option>
-               <option value="4개월">4개월</option>
-               <option value="5개월">5개월</option>
-               <option value="6개월">6개월</option>
+               ${periodOptionsHtml}
              </select>
            </div>
          </div>
@@ -470,13 +474,13 @@ const admitDate = document.getElementById('cm-admitdate').value;
 const period    = document.getElementById('cm-period').value;
 if (!admitDate || !period) { document.getElementById('cm-preview').style.display='none'; return; }
 
-const days    = AppConfig.PERIOD_DAYS[period] || 0;
+const days    = periodMap[period]?.days || 0;
 const admit   = parseLocalDate(admitDate);          // ✅ 로컬 자정으로 파싱
 const endD    = new Date(admit);
 endD.setDate(endD.getDate() + days - 1);
 const pad     = n => String(n).padStart(2,'0');
 const endStr  = `${endD.getFullYear()}-${pad(endD.getMonth()+1)}-${pad(endD.getDate())}`;
-const rounds  = AppConfig.PERIOD_ROUNDS[period] ?? 0;
+const rounds  = periodMap[period]?.totalRounds ?? 0;
 
 const today   = new Date(); today.setHours(0,0,0,0);
 const admitD  = parseLocalDate(admitDate);          // ✅ 로컬 자정으로 파싱 (today와 동일 기준)
@@ -552,8 +556,9 @@ finally { UI.hideLoading(); btn.disabled = false; }
 },
 
 // ── 고객정보 수정 모달 ───────────────────────────────────
-_openEditModal: function(client, onSaved) {
+_openEditModal: async function(client, onSaved) {
 const c = client;
+const { map: periodMap, list: periodList } = await this._getPeriodMapSorted();
 const backdrop = document.createElement('div');
 backdrop.className = 'modal-backdrop';
 backdrop.id = 'client-edit-modal';
@@ -605,7 +610,7 @@ backdrop.innerHTML = `
              <label class="form-label">입소기간 <span class="required">*</span></label>
              <select id="em-period" class="form-control">
                <option value="">선택</option>
-               ${['2박 3일','2주','1개월','2개월','3개월','4개월','5개월','6개월'].map(p=>`<option value="${p}" ${c.admitPeriod===p?'selected':''}>${p}</option>`).join('')}
+               ${periodList.map(p=>`<option value="${p.period}" ${c.admitPeriod===p.period?'selected':''}>${p.period}</option>`).join('')}
              </select>
            </div>
          </div>
@@ -639,13 +644,13 @@ const updatePreview = () => {
 const admitDate = document.getElementById('em-admitdate').value;
 const period    = document.getElementById('em-period').value;
 if (!admitDate || !period) return;
-const days   = AppConfig.PERIOD_DAYS[period] || 0;
+const days   = periodMap[period]?.days || 0;
 const admit  = new Date(admitDate);
 const endD   = new Date(admit);
 endD.setDate(endD.getDate() + days - 1);
 const pad    = n => String(n).padStart(2,'0');
 const endStr = `${endD.getFullYear()}-${pad(endD.getMonth()+1)}-${pad(endD.getDate())}`;
-const rounds = AppConfig.PERIOD_ROUNDS[period] ?? 0;
+const rounds = periodMap[period]?.totalRounds ?? 0;
 const today  = new Date(); today.setHours(0,0,0,0);
 const admitD = new Date(admitDate);
 let status;
