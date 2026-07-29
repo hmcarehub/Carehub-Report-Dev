@@ -12,6 +12,9 @@ const ReportsPage = {
   sortDir:       'desc',
 
   render: async function() {
+    // ✅ 관리자가 설정한 입소기간 중 최대 회차수만큼 "전체 주차" 필터 옵션을 생성 (하드코딩 7 제한 제거)
+    const periodMap  = await API.getPeriodMap();
+    const maxRounds  = Math.max(7, ...Object.values(periodMap).map(p => p.totalRounds || 0));
     const container = document.getElementById('page-content');
     container.innerHTML = `
       <div class="page-header" style="margin-bottom:20px;">
@@ -30,7 +33,7 @@ const ReportsPage = {
             </div>
             <select id="rpt-filter-round" class="form-control" style="width:130px;height:42px;">
               <option value="">전체 주차</option>
-              ${Array.from({length:7},(_,i)=>i+1).map(n=>`<option value="${n}">${n===1?'초기':`${(n-1)*4}주차`}</option>`).join('')}
+              ${Array.from({length:maxRounds},(_,i)=>i+1).map(n=>`<option value="${n}">${n===1?'초기':`${(n-1)*4}주차`}</option>`).join('')}
             </select>
             <div style="display:flex;gap:5px;margin-left:auto;flex-wrap:wrap;">
               ${[{k:'roomNum',l:'입실호수'},{k:'name',l:'고객명'},{k:'assessDate',l:'평가일시'},{k:'reportCreatedAt',l:'생성일시'}]
