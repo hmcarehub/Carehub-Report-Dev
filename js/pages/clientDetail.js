@@ -622,7 +622,7 @@ const ClientDetailPage = {
       const metrics = (activeRoundMaster?.reportGenerated)
         ? await API.getOrCreateReportTrendMetricsSnapshot(this.client.clientId, currentRound)
         : await API.getTrendMetrics();
-      const colTemplate = `96px repeat(${n},1fr) 76px`;
+      const colTemplate = `116px repeat(${n},1fr) 76px`;
 
       const weekHeadCells = sorted.map((m,i)=>`<div style="grid-column:${i+2};text-align:center;font-size:11px;font-weight:700;color:${G500};">${this._weekLabelShort(m.round)}</div>`).join('');
       const headerRow = `<div style="display:grid;grid-template-columns:${colTemplate};align-items:end;padding-bottom:6px;border-bottom:2px solid ${BR};">
@@ -1130,7 +1130,7 @@ const ClientDetailPage = {
       if (!n) return `<div style="text-align:center;color:${G500};font-size:14px;padding:20px 0;">측정 데이터가 없습니다.</div>`;
 
       const metrics = trendMetricsCfg;
-      const colTemplate = `96px repeat(${n},1fr) 76px`;
+      const colTemplate = `116px repeat(${n},1fr) 76px`;
 
       // 측정회차는 별도 행이 아니라 "평가 항목/변화"와 같은 헤더 행에 표기
       const weekHeadCells = sorted.map((m,i)=>`<div style="grid-column:${i+2};text-align:center;font-size:11px;font-weight:700;color:${G500};">${weekEvalLabel(m.round)}</div>`).join('');
