@@ -200,6 +200,67 @@ const API = {
     this._periodMapCache = null;
     this._periodMapPromise = null;
   },
+
+  // ══════════════════════════════════════════════════════════
+  // ✅ "기간별 지표 변화"에 표시할 평가 항목 (관리자 설정)
+  //    category='trendMetrics_items', label에 JSON 저장(입소기간 설정과 동일 방식)
+  // ══════════════════════════════════════════════════════════
+  _trendMetricsCache: null,
+  _trendMetricsPromise: null,
+
+  // 실제 앱에서 계산 가능한 전체 항목 목록(카탈로그) 기본값
+  // — DB에 저장된 값이 없을 때 폴백으로 사용, 관리자 화면 초기 목록으로도 사용
+  _defaultTrendMetricsCatalog: function() {
+    return [
+      { key:'attention',          category:'인지', label:'주의집중력',            enabled:false, inverse:false },
+      { key:'language',           category:'인지', label:'언어능력',              enabled:false, inverse:false },
+      { key:'spatial',            category:'인지', label:'시공간기능',            enabled:true,  inverse:false },
+      { key:'memoryVerbal',       category:'인지', label:'기억력(언어)',          enabled:true,  inverse:false },
+      { key:'memoryVisual',       category:'인지', label:'기억력(시각)',          enabled:true,  inverse:false },
+      { key:'executive',          category:'인지', label:'집행기능',              enabled:false, inverse:false },
+      { key:'cardioScore',        category:'운동', label:'심폐기능지수(VO2peak)', enabled:true,  inverse:false },
+      { key:'bodyMovementIndex',  category:'운동', label:'신체움직임점수',        enabled:false, inverse:false },
+      { key:'nervousScore',       category:'운동', label:'신경계 점수',           enabled:false, inverse:false },
+      { key:'balanceScore',       category:'운동', label:'통합균형능력 점수',      enabled:true,  inverse:false },
+      { key:'sensoryScore',       category:'운동', label:'감각계 점수',           enabled:false, inverse:false },
+      { key:'bodyCompScore',      category:'대사', label:'체성분 종합 점수',      enabled:true,  inverse:false },
+      { key:'stressScore',        category:'대사', label:'스트레스 점수',         enabled:true,  inverse:true  }
+    ];
+  },
+
+  // 전체 카탈로그(사용여부/낮을수록좋음 설정 포함) — 관리자 화면(기준값 관리)에서 사용
+  getTrendMetricsCatalog: async function() {
+    try {
+      const res  = await this.getStandards();
+      const rows = (res.status === 'success' && res.data.standards?.trendMetrics_items) || [];
+      if (!rows.length) return this._defaultTrendMetricsCatalog();
+      const parsed = rows.map(row => { try { return JSON.parse(row.label); } catch { return null; } }).filter(Boolean);
+      return parsed.length ? parsed : this._defaultTrendMetricsCatalog();
+    } catch(e) {
+      return this._defaultTrendMetricsCatalog();
+    }
+  },
+
+  // 리포트/고객상세 "기간별 지표 변화"에서 실제로 그릴 항목만(사용여부 체크된 것만, 순서 유지)
+  getTrendMetrics: async function() {
+    if (this._trendMetricsCache) return this._trendMetricsCache;
+    if (this._trendMetricsPromise) return this._trendMetricsPromise;
+    this._trendMetricsPromise = (async () => {
+      const catalog = await this.getTrendMetricsCatalog();
+      let list = catalog.filter(it => it.enabled).map(it => ({ key: it.key, label: it.label, inverse: !!it.inverse }));
+      if (!list.length) {
+        list = this._defaultTrendMetricsCatalog().filter(it => it.enabled).map(it => ({ key: it.key, label: it.label, inverse: !!it.inverse }));
+      }
+      this._trendMetricsCache = list;
+      return list;
+    })();
+    return this._trendMetricsPromise;
+  },
+
+  _bustTrendMetrics: function() {
+    this._trendMetricsCache = null;
+    this._trendMetricsPromise = null;
+  },
   // _calcClientStatus: function(admitDateStr, endDateStr) {
   //   const today = new Date(); today.setHours(0,0,0,0);
   //   const admit = admitDateStr ? new Date(admitDateStr) : null;
@@ -1171,6 +1232,7 @@ login: async function(id, pw) {
       // ✅ 관리자가 "고객관리 기준(입소기간)"을 저장하면, 다음 고객 등록/수정부터
       //    바로 새 값이 적용되도록 캐시를 초기화합니다.
       if (cat === 'clientPeriod_period') this._bustPeriodMap();
+      if (cat === 'trendMetrics_items') this._bustTrendMetrics();
       return { status:'success', data: { message:'기준값이 저장되었습니다.' } };
     } catch(e) { return { status:'error', message:'기준값 저장 오류: ' + e.message }; }
   }
