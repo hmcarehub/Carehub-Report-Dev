@@ -672,7 +672,7 @@ const ClientDetailPage = {
         }
         return `<div style="display:grid;grid-template-columns:${colTemplate};align-items:stretch;border-bottom:1px solid ${CREAM2};min-height:100px;">
           <div style="grid-column:1;padding:12px 0;display:flex;align-items:center;">
-            <span style="font-size:13px;font-weight:700;color:${INK};">${met.label}</span>
+            <span style="font-size:13px;font-weight:700;color:${INK};word-break:keep-all;">${met.label}</span>
           </div>
           <div style="grid-column:2 / span ${n};">${chartHtml}</div>
           <div style="grid-column:${n+2};text-align:center;padding:12px 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;">
@@ -1183,7 +1183,7 @@ const ClientDetailPage = {
         // 차트 배경이 상하 여백 없이 행 전체를 채우도록 — 패딩은 라벨/변화 칸에만 적용 (req3)
         return `<div style="display:grid;grid-template-columns:${colTemplate};align-items:stretch;border-bottom:1px solid ${CREAM2};flex:1;">
           <div style="grid-column:1;padding:10px 0;display:flex;align-items:center;">
-            <span style="font-size:14px;font-weight:700;color:${INK};">${met.label}</span>
+            <span style="font-size:14px;font-weight:700;color:${INK};word-break:keep-all;">${met.label}</span>
           </div>
           <div style="grid-column:2 / span ${n};">${chartHtml}</div>
           <div style="grid-column:${n+2};text-align:center;padding:10px 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;">
