@@ -225,7 +225,8 @@ const AdminStandardsPage = {
     const raw    = this.standards?.[catKey];
     const items  = (raw && raw.length ? raw : sec.defaults.map((d,i)=>({
       key: `period_default_${i}`, label: JSON.stringify(d), order: i
-    }))).map(it => ({ key: it.key, order: it.order, ...this._parsePeriodLabel(it.label) }));
+    }))).map(it => ({ key: it.key, order: it.order, ...this._parsePeriodLabel(it.label) }))
+      .sort((a,b) => (a.days??Infinity) - (b.days??Infinity)); // ✅ 입소일수 오름차순 정렬
 
     content.innerHTML = `
       <div class="card">
@@ -238,8 +239,8 @@ const AdminStandardsPage = {
         </div>
         <div class="card-body">
           <p style="font-size:12px;color:var(--color-gray-400);margin-bottom:14px;">${sec.hint} 저장 후 고객 등록/수정 화면의 입소기간 자동계산에 사용됩니다.</p>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 70px;gap:8px;padding:0 10px 8px;font-size:12px;font-weight:700;color:var(--color-gray-500);">
-            <div>입소기간</div><div>입소일수</div><div>평가회차</div><div></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 90px 70px;gap:8px;padding:0 10px 8px;font-size:12px;font-weight:700;color:var(--color-gray-500);">
+            <div>입소기간</div><div>입소일수</div><div>평가회차</div><div>실제 회차수</div><div></div>
           </div>
           <div id="periods-wrap-${catKey}">
             ${items.map((item,idx)=>this._periodRow(catKey, item, idx)).join('')}
@@ -262,14 +263,18 @@ const AdminStandardsPage = {
   },
 
   _periodRow: function(catKey, item, idx) {
+    const count = API._roundLabelToCount(item.roundLabel || '');
+    const badgeColor = count > 0 ? '#2E7D32' : '#C62828';
+    const badgeText  = count > 0 ? `${count}회차` : '인식 안됨';
     return `
-      <div data-prow="${idx}" style="display:grid;grid-template-columns:1fr 1fr 1fr 70px;gap:8px;align-items:center;margin-bottom:8px;padding:6px 10px;background:var(--color-gray-50);border-radius:8px;">
+      <div data-prow="${idx}" style="display:grid;grid-template-columns:1fr 1fr 1fr 90px 70px;gap:8px;align-items:center;margin-bottom:8px;padding:6px 10px;background:var(--color-gray-50);border-radius:8px;">
         <input type="text" class="form-control period-name" data-catkey="${catKey}"
           value="${item.period||''}" placeholder="예: 2박 3일" style="font-size:13px;">
         <input type="number" class="form-control period-days" data-catkey="${catKey}" min="1" step="1"
           value="${item.days??''}" placeholder="예: 3" style="font-size:13px;">
         <input type="text" class="form-control period-roundlabel" data-catkey="${catKey}"
           value="${item.roundLabel||''}" placeholder="예: 초기 / 4주차" style="font-size:13px;">
+        <span class="period-round-badge" style="font-size:11px;font-weight:700;color:${badgeColor};white-space:nowrap;">${badgeText}</span>
         <input type="hidden" class="period-itemkey" value="${item.key||''}">
         <button class="btn btn-sm period-del-btn" data-catkey="${catKey}"
           style="color:#C62828;border:1px solid #C62828;border-radius:6px;padding:4px 8px;background:transparent;flex-shrink:0;">삭제</button>
@@ -285,6 +290,17 @@ const AdminStandardsPage = {
         if (total <= 1) { UI.toast('최소 1개 입소기간이 필요합니다.', 'warning'); return; }
         row.remove();
         wrap.querySelectorAll('[data-prow]').forEach((r,i)=>r.setAttribute('data-prow', i));
+      };
+    });
+    // ✅ 평가회차 입력 시 실제로 몇 회차로 인식되는지 즉시 표시(오타 방지)
+    wrap.querySelectorAll(`.period-roundlabel[data-catkey="${catKey}"]`).forEach(inp => {
+      inp.oninput = () => {
+        const row   = inp.closest('[data-prow]');
+        const badge = row?.querySelector('.period-round-badge');
+        if (!badge) return;
+        const count = API._roundLabelToCount(inp.value || '');
+        badge.textContent = count > 0 ? `${count}회차` : '인식 안됨';
+        badge.style.color = count > 0 ? '#2E7D32' : '#C62828';
       };
     });
   },
@@ -303,6 +319,12 @@ const AdminStandardsPage = {
 
     if (items.some(it => !it.period || !it.roundLabel || it.days==null || isNaN(it.days) || it.days<1)) {
       UI.toast('입소기간·입소일수·평가회차를 모두 올바르게 입력해주세요.', 'error'); return;
+    }
+    // ✅ 평가회차 텍스트가 실제 회차수로 정상 인식되는지 검증 (예: 초기, 4주차, 8주차 형식)
+    const badRound = items.find(it => API._roundLabelToCount(it.roundLabel) <= 0);
+    if (badRound) {
+      UI.toast(`"${badRound.period}"의 평가회차("${badRound.roundLabel}")를 인식할 수 없습니다. "초기" 또는 "4주차"·"8주차"처럼 입력해주세요.`, 'error');
+      return;
     }
     const names = items.map(it=>it.period);
     if (new Set(names).size !== names.length) {
