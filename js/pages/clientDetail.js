@@ -233,7 +233,7 @@ const ClientDetailPage = {
       <div class="card" style="overflow:visible;">
         <div class="card-header" style="padding:10px 16px;border-bottom:2px solid var(--color-gray-200);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;">
           <div style="display:flex;gap:0;align-items:stretch;flex-wrap:wrap;">
-            ${Array.from({length:Math.min(c.totalRounds||0,7)},(_,i)=>i+1).map(n=>`
+            ${Array.from({length:c.totalRounds||0},(_,i)=>i+1).map(n=>`
               <button class="round-tab${(this.activeDetailTab==='rounds'||this.activeDetailTab==='trend'||this.activeDetailTab==='comment')&&this.activeRound===n?' active':''}" data-main-tab="round" data-round="${n}" style="font-size:18px;padding:8px 14px;">${this._weekLabelShort(n)}</button>
             `).join('')}
             <button class="round-tab${this.activeDetailTab==='report'?' active':''}" data-main-tab="report" style="font-size:18px;padding:8px 14px;border-left:2px solid var(--color-gray-200);">📊 통합 리포트</button>
