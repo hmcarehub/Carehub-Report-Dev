@@ -195,11 +195,12 @@ const ReportsPage = {
   },
 
   // ── 공통 출력 유틸 ──────────────────────────────────────────
-  _doPrint: function(client, master, masterList) {
+  _doPrint: async function(client, master, masterList) {
     const weekTitle = master.round===1 ? '초기 통합리포트' : `${(master.round-1)*4}주차 통합리포트`;
-    const reportHtml = ClientDetailPage._buildReportHTML.call({client}, master, masterList);
+    // ✅ 팝업 차단 방지: window.open은 클릭 이벤트에 대해 동기적으로 먼저 호출
     const win = window.open('', '_blank', 'width=900,height=1200');
     if (!win) { UI.toast('팝업이 차단되었습니다. 팝업 허용 후 다시 시도해주세요.', 'warning'); return; }
+    const reportHtml = await ClientDetailPage._buildReportHTML.call({client}, master, masterList);
     win.document.open();
     win.document.write(`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
       <title>${weekTitle} - ${client.name}</title>
@@ -235,7 +236,7 @@ const ReportsPage = {
       const data       = roundRes.data;
       const masterList = masterRes.status==='success' ? ClientDetailPage._dedupeMasterList(masterRes.data.masterList||[]) : [];
       const weekTitle  = round===1 ? '초기 통합리포트' : `${(round-1)*4}주차 통합리포트`;
-      const reportHtml = ClientDetailPage._buildReportHTML.call({client}, data.master, masterList);
+      const reportHtml = await ClientDetailPage._buildReportHTML.call({client}, data.master, masterList);
       const modalWrap  = document.getElementById('rpt-modal-wrap');
       modalWrap.innerHTML = `
         <div class="modal-backdrop" id="rpt-view-modal">
