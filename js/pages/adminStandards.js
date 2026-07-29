@@ -4,10 +4,29 @@
 
 const AdminStandardsPage = {
   standards: null,
-  activeTab: 'inbodyFra',
+  activeTab: 'clientPeriod',
 
   // 탭 구조
   _tabs: {
+    // ✅ 고객관리 기준: 입소기간 / 입소일수 / 평가회차 (신규, 첫번째 탭)
+    clientPeriod: {
+      label: '고객관리 기준',
+      type: 'periods',
+      sections: [
+        { key:'period', title:'입소기간 설정', hint:'입소기간별 입소일수와 평가회차(마지막 회차)를 관리합니다.',
+          defaults: [
+            {period:'2박 3일', days:3,   roundLabel:'초기'},
+            {period:'2주',     days:14,  roundLabel:'초기'},
+            {period:'1개월',   days:28,  roundLabel:'4주차'},
+            {period:'2개월',   days:56,  roundLabel:'8주차'},
+            {period:'3개월',   days:84,  roundLabel:'12주차'},
+            {period:'4개월',   days:112, roundLabel:'16주차'},
+            {period:'5개월',   days:140, roundLabel:'20주차'},
+            {period:'6개월',   days:168, roundLabel:'24주차'}
+          ]
+        }
+      ]
+    },
     inbodyFra: {
       label: '인바디 FRA',
       sections: [
@@ -85,8 +104,135 @@ const AdminStandardsPage = {
     if (!content) return;
     const tab = this._tabs[this.activeTab];
     if (!tab) return;
-    if (tab.type === 'grades') { this._renderGradesTab(content, tab); return; }
+    if (tab.type === 'periods') { this._renderPeriodsTab(content, tab); return; }
+    if (tab.type === 'grades')  { this._renderGradesTab(content, tab); return; }
     this._renderItemsTab(content, tab);
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // ✅ 고객관리 기준: 입소기간 / 입소일수 / 평가회차 (추가/수정/삭제)
+  //    DB 테이블(기준값_관리)에 days/roundLabel 전용 컬럼이 없어,
+  //    label 컬럼에 JSON 문자열로 { period, days, roundLabel } 을 저장합니다.
+  //    category = 'clientPeriod_period', key = 항목 고유ID, order = 정렬순서
+  // ══════════════════════════════════════════════════════════
+  _parsePeriodLabel: function(raw) {
+    try {
+      const obj = JSON.parse(raw);
+      return { period: obj.period||'', days: obj.days!=null?Number(obj.days):null, roundLabel: obj.roundLabel||'' };
+    } catch {
+      // 예전 데이터(순수 텍스트)와의 호환을 위한 폴백
+      return { period: raw||'', days: null, roundLabel: '' };
+    }
+  },
+
+  _renderPeriodsTab: function(content, tab) {
+    const sec    = tab.sections[0];
+    const catKey = `${this.activeTab}_${sec.key}`;
+    const raw    = this.standards?.[catKey];
+    const items  = (raw && raw.length ? raw : sec.defaults.map((d,i)=>({
+      key: `period_default_${i}`, label: JSON.stringify(d), order: i
+    }))).map(it => ({ key: it.key, order: it.order, ...this._parsePeriodLabel(it.label) }));
+
+    content.innerHTML = `
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title"><span class="card-title-dot"></span>${sec.title}</h2>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-outline btn-sm" data-addperiod="${catKey}">+ 입소기간 추가</button>
+            <button class="btn btn-primary btn-sm" data-saveperiod="${catKey}">저장</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <p style="font-size:12px;color:var(--color-gray-400);margin-bottom:14px;">${sec.hint} 저장 후 고객 등록/수정 화면의 입소기간 자동계산에 사용됩니다.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 70px;gap:8px;padding:0 10px 8px;font-size:12px;font-weight:700;color:var(--color-gray-500);">
+            <div>입소기간</div><div>입소일수</div><div>평가회차</div><div></div>
+          </div>
+          <div id="periods-wrap-${catKey}">
+            ${items.map((item,idx)=>this._periodRow(catKey, item, idx)).join('')}
+          </div>
+        </div>
+      </div>`;
+
+    const wrap = document.getElementById(`periods-wrap-${catKey}`);
+    this._bindPeriodDeleteBtns(wrap, catKey);
+
+    content.querySelector(`[data-addperiod="${catKey}"]`)?.addEventListener('click', () => {
+      const idx = wrap.querySelectorAll('[data-prow]').length;
+      const div = document.createElement('div');
+      div.innerHTML = this._periodRow(catKey, {key:`period_new_${Date.now()}`, period:'', days:'', roundLabel:''}, idx);
+      wrap.appendChild(div.firstElementChild);
+      this._bindPeriodDeleteBtns(wrap, catKey);
+    });
+
+    content.querySelector(`[data-saveperiod="${catKey}"]`)?.addEventListener('click', () => this._savePeriods(catKey));
+  },
+
+  _periodRow: function(catKey, item, idx) {
+    return `
+      <div data-prow="${idx}" style="display:grid;grid-template-columns:1fr 1fr 1fr 70px;gap:8px;align-items:center;margin-bottom:8px;padding:6px 10px;background:var(--color-gray-50);border-radius:8px;">
+        <input type="text" class="form-control period-name" data-catkey="${catKey}"
+          value="${item.period||''}" placeholder="예: 2박 3일" style="font-size:13px;">
+        <input type="number" class="form-control period-days" data-catkey="${catKey}" min="1" step="1"
+          value="${item.days??''}" placeholder="예: 3" style="font-size:13px;">
+        <input type="text" class="form-control period-roundlabel" data-catkey="${catKey}"
+          value="${item.roundLabel||''}" placeholder="예: 초기 / 4주차" style="font-size:13px;">
+        <input type="hidden" class="period-itemkey" value="${item.key||''}">
+        <button class="btn btn-sm period-del-btn" data-catkey="${catKey}"
+          style="color:#C62828;border:1px solid #C62828;border-radius:6px;padding:4px 8px;background:transparent;flex-shrink:0;">삭제</button>
+      </div>`;
+  },
+
+  _bindPeriodDeleteBtns: function(wrap, catKey) {
+    if (!wrap) return;
+    wrap.querySelectorAll(`.period-del-btn[data-catkey="${catKey}"]`).forEach(btn => {
+      btn.onclick = () => {
+        const row   = btn.closest('[data-prow]');
+        const total = wrap.querySelectorAll('[data-prow]').length;
+        if (total <= 1) { UI.toast('최소 1개 입소기간이 필요합니다.', 'warning'); return; }
+        row.remove();
+        wrap.querySelectorAll('[data-prow]').forEach((r,i)=>r.setAttribute('data-prow', i));
+      };
+    });
+  },
+
+  _savePeriods: async function(catKey) {
+    const wrap = document.getElementById(`periods-wrap-${catKey}`);
+    if (!wrap) return;
+    const rows  = wrap.querySelectorAll('[data-prow]');
+    const items = Array.from(rows).map((row, idx) => {
+      const period     = row.querySelector('.period-name')?.value?.trim() || '';
+      const daysRaw     = row.querySelector('.period-days')?.value?.trim() || '';
+      const roundLabel = row.querySelector('.period-roundlabel')?.value?.trim() || '';
+      const key         = row.querySelector('.period-itemkey')?.value || `period_${idx}`;
+      return { key, order: idx, period, days: daysRaw===''?null:Number(daysRaw), roundLabel };
+    });
+
+    if (items.some(it => !it.period || !it.roundLabel || it.days==null || isNaN(it.days) || it.days<1)) {
+      UI.toast('입소기간·입소일수·평가회차를 모두 올바르게 입력해주세요.', 'error'); return;
+    }
+    const names = items.map(it=>it.period);
+    if (new Set(names).size !== names.length) {
+      UI.toast('입소기간명이 중복되었습니다.', 'error'); return;
+    }
+
+    const dbItems = items.map(it => ({
+      key:   it.key,
+      label: JSON.stringify({ period: it.period, days: it.days, roundLabel: it.roundLabel }),
+      order: it.order
+    }));
+
+    try {
+      UI.showLoading();
+      const res = await API.saveStandards(catKey, dbItems);
+      if (res.status==='success') {
+        if (!this.standards) this.standards = {};
+        this.standards[catKey] = dbItems;
+        StandardsCache.set(catKey, dbItems);
+        UI.toast('고객관리 기준이 저장되었습니다.', 'success');
+        this._renderTabContent();
+      } else UI.toast(res.message||'저장 실패','error');
+    } catch { UI.toast('서버 오류','error'); }
+    finally { UI.hideLoading(); }
   },
 
   // ── 인바디 FRA 항목 관리 (추가/수정/삭제) ──────────────────
