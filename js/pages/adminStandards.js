@@ -35,6 +35,11 @@ const AdminStandardsPage = {
         { key:'sensory', title:'감각계 점수',        hint:'감각계 관련 평가 항목' }
       ]
     },
+    // ✅ 기간별 지표 변화: 표시할 평가 항목 선택 (신규, 3번째 탭)
+    trendMetrics: {
+      label: '기간별 지표 변화',
+      type: 'trendMetrics'
+    },
     cogMsg: {
       label: '등급 기준값',
       type: 'grades',
@@ -104,9 +109,98 @@ const AdminStandardsPage = {
     if (!content) return;
     const tab = this._tabs[this.activeTab];
     if (!tab) return;
-    if (tab.type === 'periods') { this._renderPeriodsTab(content, tab); return; }
-    if (tab.type === 'grades')  { this._renderGradesTab(content, tab); return; }
+    if (tab.type === 'periods')      { this._renderPeriodsTab(content, tab); return; }
+    if (tab.type === 'grades')       { this._renderGradesTab(content, tab); return; }
+    if (tab.type === 'trendMetrics') { this._renderTrendMetricsTab(content); return; }
     this._renderItemsTab(content, tab);
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // ✅ 기간별 지표 변화: 표시할 평가 항목 선택 (인지/운동/대사 카테고리별 체크리스트)
+  //    설정값: 평가 카테고리 / 평가항목 / 사용여부 / 낮을수록 좋음
+  //    DB: category='trendMetrics_items', label에 JSON 저장 (입소기간 설정과 동일 방식)
+  // ══════════════════════════════════════════════════════════
+  _renderTrendMetricsTab: async function(content) {
+    content.innerHTML = `<div class="empty-state"><div class="spinner" style="margin:0 auto;"></div></div>`;
+    const catalog = await API.getTrendMetricsCatalog();
+    // this.activeTab이 그 사이 바뀌었으면(다른 탭 클릭) 렌더링 중단
+    if (this.activeTab !== 'trendMetrics') return;
+
+    const catOrder = ['인지','운동','대사'];
+    const groups = catOrder.map(cat => ({ cat, items: catalog.filter(it=>it.category===cat) }))
+      .filter(g => g.items.length);
+
+    const catColor = { '인지':'#8E7CC3', '운동':'#4A90D2', '대사':'#43A047' };
+
+    const rowHtml = (it, idx) => `
+      <div data-trow="${idx}" data-key="${it.key}" style="display:grid;grid-template-columns:1fr 90px 130px;gap:10px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--color-gray-100);">
+        <div style="font-size:13px;color:var(--color-gray-800);">${it.label}</div>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--color-gray-600);cursor:pointer;">
+          <input type="checkbox" class="tm-enabled" ${it.enabled?'checked':''}> 사용
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--color-gray-600);cursor:pointer;">
+          <input type="checkbox" class="tm-inverse" ${it.inverse?'checked':''}> 낮을수록 좋음
+        </label>
+      </div>`;
+
+    content.innerHTML = `
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title"><span class="card-title-dot"></span>표시할 평가 항목 선택</h2>
+          <button class="btn btn-primary btn-sm" id="tm-save-btn">저장</button>
+        </div>
+        <div class="card-body">
+          <p style="font-size:12px;color:var(--color-gray-400);margin-bottom:14px;">
+            체크한 항목만 [평가관리 · 고객상세 · 리포트]의 "기간별 지표 변화"에 표시됩니다. "낮을수록 좋음"을 체크하면 변화(초기 대비) 아래에 "↓ 낮을수록 좋음"이 함께 표기됩니다.
+          </p>
+          ${groups.map(g => `
+            <div style="margin-bottom:18px;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                <span style="width:8px;height:8px;border-radius:50%;background:${catColor[g.cat]||'#888'};"></span>
+                <span style="font-size:13px;font-weight:700;color:var(--color-gray-700);">${g.cat}</span>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 90px 130px;gap:10px;padding:0 10px 6px;font-size:11px;font-weight:700;color:var(--color-gray-400);">
+                <div>평가 항목</div><div>사용여부</div><div>낮을수록 좋음</div>
+              </div>
+              <div data-tmgroup="${g.cat}">
+                ${g.items.map((it,idx)=>rowHtml(it, catalog.indexOf(it))).join('')}
+              </div>
+            </div>`).join('')}
+        </div>
+      </div>`;
+
+    content.querySelector('#tm-save-btn')?.addEventListener('click', () => this._saveTrendMetrics(content, catalog));
+  },
+
+  _saveTrendMetrics: async function(content, catalog) {
+    const rows = content.querySelectorAll('[data-trow]');
+    const items = Array.from(rows).map((row, idx) => {
+      const key = row.dataset.key;
+      const base = catalog.find(it => it.key === key) || {};
+      return {
+        key,
+        category: base.category || '',
+        label: base.label || key,
+        enabled: !!row.querySelector('.tm-enabled')?.checked,
+        inverse: !!row.querySelector('.tm-inverse')?.checked
+      };
+    });
+    const dbItems = items.map((it, idx) => ({
+      key: it.key,
+      label: JSON.stringify(it),
+      order: idx
+    }));
+    try {
+      UI.showLoading();
+      const res = await API.saveStandards('trendMetrics_items', dbItems);
+      if (res.status === 'success') {
+        if (!this.standards) this.standards = {};
+        this.standards['trendMetrics_items'] = dbItems;
+        StandardsCache.set('trendMetrics_items', dbItems);
+        UI.toast('기간별 지표 변화 설정이 저장되었습니다.', 'success');
+      } else UI.toast(res.message || '저장 실패', 'error');
+    } catch { UI.toast('서버 오류', 'error'); }
+    finally { UI.hideLoading(); }
   },
 
   // ══════════════════════════════════════════════════════════
