@@ -433,7 +433,7 @@ const AssessmentsPage = {
       const ctx = Object.create(ClientDetailPage);
       ctx.client = c;
       ctx._masterListCache = masterList;
-      const reportHtml = ctx._buildReportHTML(m, masterList);
+      const reportHtml = await ctx._buildReportHTML(m, masterList);
 
       const weekLabel = this.activeRound===1 ? '초기' : `${(this.activeRound-1)*4}주차`;
       const wrap = document.createElement('div');
@@ -1403,7 +1403,7 @@ const AssessmentsPage = {
     const wrap = document.createElement('div');
     wrap.className = 'modal-backdrop';
     wrap.id = 'report-instant-modal';
-    const reportHtml = ClientDetailPage._buildReportHTML.call({client:c}, masterData, masterList);
+    const reportHtml = await ClientDetailPage._buildReportHTML.call({client:c}, masterData, masterList);
     wrap.innerHTML = `
       <div class="modal" style="max-width:820px;max-height:92vh;display:flex;flex-direction:column;">
         <div class="modal-header">
