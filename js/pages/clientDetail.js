@@ -688,7 +688,7 @@ const ClientDetailPage = {
         const group = catGroupByStart[mi];
         const catColor = CAT_COLOR[met.category] || '#AAA';
         const catCellHtml = group ? `<div style="grid-row:${rowNum} / span ${group.count};grid-column:1;display:flex;align-items:center;justify-content:center;border-right:1px solid ${CREAM2};border-bottom:1px solid ${CREAM2};background:${catColor}12;">
-          <span style="font-size:12px;font-weight:800;color:${catColor};letter-spacing:0.02em;">${group.category}</span>
+          <span style="font-size:13px;font-weight:700;color:${INK};">${group.category}</span>
         </div>` : '';
         return `${catCellHtml}
           <div style="grid-row:${rowNum};grid-column:2;padding:12px 0 12px 8px;display:flex;align-items:center;border-bottom:1px solid ${CREAM2};">
@@ -1218,7 +1218,7 @@ const ClientDetailPage = {
         const group = catGroupByStart[mi];
         const catColor = CAT_COLOR[met.category] || '#AAA';
         const catCellHtml = group ? `<div style="grid-row:${rowNum} / span ${group.count};grid-column:1;display:flex;align-items:center;justify-content:center;border-right:1px solid ${CREAM2};border-bottom:1px solid ${CREAM2};background:${catColor}12;">
-          <span style="font-size:10.5px;font-weight:800;color:${catColor};letter-spacing:0.02em;">${group.category}</span>
+          <span style="font-size:14px;font-weight:700;color:${INK};">${group.category}</span>
         </div>` : '';
         // 차트 배경이 상하 여백 없이 행 전체를 채우도록 — 패딩은 라벨/변화 칸에만 적용 (req3)
         return `${catCellHtml}
