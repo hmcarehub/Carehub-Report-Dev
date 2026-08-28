@@ -67,6 +67,8 @@ const AssessmentsPage = {
   },
 
   render: function() {
+    // ✅ 화면에 새로 진입할 때마다 탭 UI(기본 "재원 고객")와 실제 필터 상태를 항상 일치시킴
+    this.clientStatusTab = 'active';
     document.getElementById('page-content').innerHTML = `
       <div class="page-header" style="margin-bottom:16px;">
         <h1 class="page-title">평가 관리</h1>
@@ -108,12 +110,6 @@ const AssessmentsPage = {
     document.querySelectorAll('[data-assess-status]').forEach(btn => {
       btn.addEventListener('click', () => {
         this.clientStatusTab = btn.dataset.assessStatus;
-        document.querySelectorAll('[data-assess-status]').forEach(b => {
-          const on = b===btn;
-          b.classList.toggle('active', on);
-          b.style.borderBottomColor = on ? 'var(--color-primary)' : 'transparent';
-          b.style.color = on ? 'var(--color-primary)' : 'var(--color-gray-400)';
-        });
         this._renderClientList();
       });
     });
@@ -129,6 +125,8 @@ const AssessmentsPage = {
   },
 
   _loadData: async function() {
+    // ✅ 페이지가 어떤 경로로 열리든(라우터 캐시/뒤로가기 포함) 항상 "재원 고객"부터 보이도록 보장
+    this.clientStatusTab = 'active';
     try {
       UI.showLoading();
       const r = await API.getInitialData();
@@ -142,10 +140,15 @@ const AssessmentsPage = {
     finally { UI.hideLoading(); }
     this._renderClientList();
 
-    // 대시보드에서 고객 사전 선택
+    // 대시보드/고객상세에서 고객 사전 선택
     if (this._pendingClientId) {
       const client = this.allClients.find(c => c.clientId === this._pendingClientId);
       if (client) {
+        // ✅ 사전 선택된 고객이 퇴소 상태면 탭도 함께 전환해 목록과 선택 상태를 일치시킴
+        if (client.status === '퇴소' && this.clientStatusTab !== 'discharged') {
+          this.clientStatusTab = 'discharged';
+          this._renderClientList();
+        }
         await this._selectClient(client);
         if (this._pendingRound) {
           this.activeRound = this._pendingRound;
@@ -158,9 +161,21 @@ const AssessmentsPage = {
     }
   },
 
+  // ✅ 탭 버튼의 시각적 상태를 this.clientStatusTab 값과 항상 일치시킴
+  //    (호출 경로와 무관하게 _renderClientList가 실행될 때마다 자동으로 맞춰짐)
+  _syncStatusTabUI: function() {
+    document.querySelectorAll('[data-assess-status]').forEach(b => {
+      const on = b.dataset.assessStatus === this.clientStatusTab;
+      b.classList.toggle('active', on);
+      b.style.borderBottomColor = on ? 'var(--color-primary)' : 'transparent';
+      b.style.color = on ? 'var(--color-primary)' : 'var(--color-gray-400)';
+    });
+  },
+
   _renderClientList: function() {
     const wrap = document.getElementById('assess-client-list');
     if (!wrap) return;
+    this._syncStatusTabUI();
     // ✅ 재원/퇴소 탭으로 먼저 구분
     let list = this.clientStatusTab === 'discharged'
       ? this.allClients.filter(c => c.status === '퇴소')
