@@ -640,8 +640,8 @@ const ClientDetailPage = {
 
       const weekHeadCells = sorted.map((m,i)=>`<div style="grid-row:1;grid-column:${i+3};text-align:center;font-size:11px;font-weight:700;color:${G500};align-self:end;padding-bottom:6px;border-bottom:2px solid ${BR};">${this._weekLabelShort(m.round)}</div>`).join('');
       const headerRow = `
-        <div style="grid-row:1;grid-column:1;font-size:11px;font-weight:700;color:${G500};letter-spacing:0.04em;text-transform:uppercase;align-self:end;padding-bottom:6px;border-bottom:2px solid ${BR};">구분</div>
-        <div style="grid-row:1;grid-column:2;font-size:12px;font-weight:700;color:${G500};letter-spacing:0.04em;text-transform:uppercase;align-self:end;padding-bottom:6px;border-bottom:2px solid ${BR};">평가 항목</div>
+        <div style="grid-row:1;grid-column:1;font-size:11px;font-weight:700;color:${G500};letter-spacing:0.04em;text-transform:uppercase;align-self:end;padding-bottom:6px;border-bottom:2px solid ${BR};text-align:center;">구분</div>
+        <div style="grid-row:1;grid-column:2;font-size:12px;font-weight:700;color:${G500};letter-spacing:0.04em;text-transform:uppercase;align-self:end;padding-bottom:6px;border-bottom:2px solid ${BR};text-align:center;">평가 항목</div>
         ${weekHeadCells}
         <div style="grid-row:1;grid-column:${n+3};font-size:12px;font-weight:700;color:${G500};letter-spacing:0.04em;text-transform:uppercase;text-align:center;align-self:end;padding-bottom:6px;border-bottom:2px solid ${BR};">변화<br>(초기 대비)</div>`;
 
@@ -687,11 +687,11 @@ const ClientDetailPage = {
         }
         const group = catGroupByStart[mi];
         const catColor = CAT_COLOR[met.category] || '#AAA';
-        const catCellHtml = group ? `<div style="grid-row:${rowNum} / span ${group.count};grid-column:1;display:flex;align-items:center;justify-content:center;border-right:1px solid ${CREAM2};border-bottom:1px solid ${CREAM2};background:${catColor}12;">
+        const catCellHtml = group ? `<div style="grid-row:${rowNum} / span ${group.count};grid-column:1;display:flex;align-items:center;justify-content:center;border-right:1px solid ${CREAM2};border-bottom:1px solid ${CREAM2};">
           <span style="font-size:13px;font-weight:700;color:${INK};">${group.category}</span>
         </div>` : '';
         return `${catCellHtml}
-          <div style="grid-row:${rowNum};grid-column:2;padding:12px 0 12px 8px;display:flex;align-items:center;border-bottom:1px solid ${CREAM2};">
+          <div style="grid-row:${rowNum};grid-column:2;padding:12px 8px;display:flex;align-items:center;justify-content:center;text-align:center;border-bottom:1px solid ${CREAM2};">
             <span style="font-size:13px;font-weight:700;color:${INK};word-break:keep-all;">${met.label}</span>
           </div>
           <div style="grid-row:${rowNum};grid-column:3 / span ${n};border-bottom:1px solid ${CREAM2};">${chartHtml}</div>
@@ -1169,8 +1169,8 @@ const ClientDetailPage = {
       // 측정회차는 별도 행이 아니라 "평가 항목/변화"와 같은 헤더 행에 표기
       const weekHeadCells = sorted.map((m,i)=>`<div style="grid-row:1;grid-column:${i+3};text-align:center;font-size:11px;font-weight:700;color:${G500};align-self:end;padding-bottom:6px;border-bottom:2px solid ${BR};">${weekEvalLabel(m.round)}</div>`).join('');
       const headerRow = `
-        <div style="grid-row:1;grid-column:1;font-size:10.5px;font-weight:700;color:${G500};letter-spacing:0.04em;text-transform:uppercase;align-self:end;padding-bottom:6px;border-bottom:2px solid ${BR};">구분</div>
-        <div style="grid-row:1;grid-column:2;font-size:12px;font-weight:700;color:${G500};letter-spacing:0.04em;text-transform:uppercase;align-self:end;padding-bottom:6px;border-bottom:2px solid ${BR};">평가 항목</div>
+        <div style="grid-row:1;grid-column:1;font-size:10.5px;font-weight:700;color:${G500};letter-spacing:0.04em;text-transform:uppercase;align-self:end;padding-bottom:6px;border-bottom:2px solid ${BR};text-align:center;">구분</div>
+        <div style="grid-row:1;grid-column:2;font-size:12px;font-weight:700;color:${G500};letter-spacing:0.04em;text-transform:uppercase;align-self:end;padding-bottom:6px;border-bottom:2px solid ${BR};text-align:center;">평가 항목</div>
         ${weekHeadCells}
         <div style="grid-row:1;grid-column:${n+3};font-size:12px;font-weight:700;color:${G500};letter-spacing:0.04em;text-transform:uppercase;text-align:center;align-self:end;padding-bottom:6px;border-bottom:2px solid ${BR};">변화<br>(초기 대비)</div>`;
 
@@ -1217,12 +1217,12 @@ const ClientDetailPage = {
         }
         const group = catGroupByStart[mi];
         const catColor = CAT_COLOR[met.category] || '#AAA';
-        const catCellHtml = group ? `<div style="grid-row:${rowNum} / span ${group.count};grid-column:1;display:flex;align-items:center;justify-content:center;border-right:1px solid ${CREAM2};border-bottom:1px solid ${CREAM2};background:${catColor}12;">
+        const catCellHtml = group ? `<div style="grid-row:${rowNum} / span ${group.count};grid-column:1;display:flex;align-items:center;justify-content:center;border-right:1px solid ${CREAM2};border-bottom:1px solid ${CREAM2};">
           <span style="font-size:14px;font-weight:700;color:${INK};">${group.category}</span>
         </div>` : '';
         // 차트 배경이 상하 여백 없이 행 전체를 채우도록 — 패딩은 라벨/변화 칸에만 적용 (req3)
         return `${catCellHtml}
-          <div style="grid-row:${rowNum};grid-column:2;padding:10px 0 10px 6px;display:flex;align-items:center;border-bottom:1px solid ${CREAM2};">
+          <div style="grid-row:${rowNum};grid-column:2;padding:10px 6px;display:flex;align-items:center;justify-content:center;text-align:center;border-bottom:1px solid ${CREAM2};">
             <span style="font-size:14px;font-weight:700;color:${INK};word-break:keep-all;">${met.label}</span>
           </div>
           <div style="grid-row:${rowNum};grid-column:3 / span ${n};border-bottom:1px solid ${CREAM2};">${chartHtml}</div>
