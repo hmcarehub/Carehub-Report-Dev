@@ -622,18 +622,31 @@ const ClientDetailPage = {
       const metrics = (activeRoundMaster?.reportGenerated)
         ? await API.getOrCreateReportTrendMetricsSnapshot(this.client.clientId, currentRound)
         : await API.getTrendMetrics();
-      const colTemplate = `116px repeat(${n},1fr) 76px`;
-
-      const weekHeadCells = sorted.map((m,i)=>`<div style="grid-column:${i+2};text-align:center;font-size:11px;font-weight:700;color:${G500};">${this._weekLabelShort(m.round)}</div>`).join('');
-      const headerRow = `<div style="display:grid;grid-template-columns:${colTemplate};align-items:end;padding-bottom:6px;border-bottom:2px solid ${BR};">
-        <div style="grid-column:1;font-size:12px;font-weight:700;color:${G500};letter-spacing:0.04em;text-transform:uppercase;">평가 항목</div>
-        ${weekHeadCells}
-        <div style="grid-column:${n+2};font-size:12px;font-weight:700;color:${G500};letter-spacing:0.04em;text-transform:uppercase;text-align:center;">변화<br>(초기 대비)</div>
-      </div>`;
 
       const CAT_COLOR = { '인지':'#8E7CC3', '운동':'#4A90D2', '대사':'#43A047' };
-      let lastCat = null;
-      const metricRows = metrics.map(met=>{
+      // 구분(카테고리) 컬럼: 연속된 동일 카테고리를 하나의 병합 셀로 묶기 위한 그룹 계산
+      const catGroups = [];
+      metrics.forEach((met, i) => {
+        const cat = met.category || '';
+        const last = catGroups[catGroups.length-1];
+        if (last && last.category === cat) last.count++;
+        else catGroups.push({ category: cat, start: i, count: 1 });
+      });
+      const catGroupByStart = {};
+      catGroups.forEach(g => { catGroupByStart[g.start] = g; });
+
+      // 구분(56px) | 평가항목(116px) | 주차별 그래프(1fr × n) | 변화(76px)
+      const colTemplate = `56px 116px repeat(${n},1fr) 76px`;
+
+      const weekHeadCells = sorted.map((m,i)=>`<div style="grid-row:1;grid-column:${i+3};text-align:center;font-size:11px;font-weight:700;color:${G500};align-self:end;padding-bottom:6px;border-bottom:2px solid ${BR};">${this._weekLabelShort(m.round)}</div>`).join('');
+      const headerRow = `
+        <div style="grid-row:1;grid-column:1;font-size:11px;font-weight:700;color:${G500};letter-spacing:0.04em;text-transform:uppercase;align-self:end;padding-bottom:6px;border-bottom:2px solid ${BR};">구분</div>
+        <div style="grid-row:1;grid-column:2;font-size:12px;font-weight:700;color:${G500};letter-spacing:0.04em;text-transform:uppercase;align-self:end;padding-bottom:6px;border-bottom:2px solid ${BR};">평가 항목</div>
+        ${weekHeadCells}
+        <div style="grid-row:1;grid-column:${n+3};font-size:12px;font-weight:700;color:${G500};letter-spacing:0.04em;text-transform:uppercase;text-align:center;align-self:end;padding-bottom:6px;border-bottom:2px solid ${BR};">변화<br>(초기 대비)</div>`;
+
+      const metricRows = metrics.map((met, mi)=>{
+        const rowNum = mi + 2; // 1행은 헤더
         const pts = sorted.map((m,i)=>{ const v=Number(m[met.key]); return isNaN(v)?null:{i,v}; }).filter(Boolean);
         let chartHtml = `<div style="font-size:11.5px;color:${G500};text-align:center;">-</div>`;
         let changeHtml = `<span style="color:${G500};font-size:16px;">-</span>`;
@@ -672,23 +685,20 @@ const ClientDetailPage = {
             : diff===0 ? `<span style="color:${G500};font-size:14px;">-</span>`
             : `<span style="color:${isGood?'#1D5FC4':'#C0392B'};font-weight:800;font-size:14px;white-space:nowrap;">${diff>0?'▲':'▼'} ${Math.abs(diff)}</span>`;
         }
-        const catChanged = met.category && met.category !== lastCat;
-        if (met.category) lastCat = met.category;
+        const group = catGroupByStart[mi];
         const catColor = CAT_COLOR[met.category] || '#AAA';
-        const catHeaderHtml = catChanged ? `<div style="grid-column:1/-1;display:flex;align-items:center;gap:6px;padding:${met===metrics[0]?'2px':'14px'} 0 4px;">
-          <span style="width:7px;height:7px;border-radius:50%;background:${catColor};"></span>
-          <span style="font-size:11px;font-weight:800;color:${catColor};letter-spacing:0.04em;">${met.category}</span>
+        const catCellHtml = group ? `<div style="grid-row:${rowNum} / span ${group.count};grid-column:1;display:flex;align-items:center;justify-content:center;border-right:1px solid ${CREAM2};border-bottom:1px solid ${CREAM2};background:${catColor}12;">
+          <span style="font-size:12px;font-weight:800;color:${catColor};letter-spacing:0.02em;">${group.category}</span>
         </div>` : '';
-        return `${catHeaderHtml}<div style="display:grid;grid-template-columns:${colTemplate};align-items:stretch;border-bottom:1px solid ${CREAM2};min-height:100px;border-left:3px solid ${catColor};">
-          <div style="grid-column:1;padding:12px 0 12px 8px;display:flex;align-items:center;">
+        return `${catCellHtml}
+          <div style="grid-row:${rowNum};grid-column:2;padding:12px 0 12px 8px;display:flex;align-items:center;border-bottom:1px solid ${CREAM2};">
             <span style="font-size:13px;font-weight:700;color:${INK};word-break:keep-all;">${met.label}</span>
           </div>
-          <div style="grid-column:2 / span ${n};">${chartHtml}</div>
-          <div style="grid-column:${n+2};text-align:center;padding:12px 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;">
+          <div style="grid-row:${rowNum};grid-column:3 / span ${n};border-bottom:1px solid ${CREAM2};">${chartHtml}</div>
+          <div style="grid-row:${rowNum};grid-column:${n+3};text-align:center;padding:12px 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border-bottom:1px solid ${CREAM2};">
             ${changeHtml}
             ${met.inverse?`<span style="font-size:8.5px;color:${G500};">↓ 낮을수록 좋음</span>`:''}
-          </div>
-        </div>`;
+          </div>`;
       }).join('');
 
       el.innerHTML = `
@@ -696,15 +706,11 @@ const ClientDetailPage = {
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
             <span style="font-size:16px;font-weight:800;color:${INK};">기간별 지표 변화 <span style="font-size:12px;font-weight:400;color:${G500};">(${this._weekLabelShort(1)} ~ ${this._weekLabelShort(currentRound)})</span></span>
           </div>
-          <div style="background:#fff;border:1px solid ${CREAM2};border-radius:10px;padding:14px 18px;box-sizing:border-box;">
-            <div style="display:flex;gap:16px;margin-bottom:10px;">
-              ${Object.entries(CAT_COLOR).map(([cat,color])=>`<div style="display:flex;align-items:center;gap:5px;">
-                <span style="width:7px;height:7px;border-radius:50%;background:${color};"></span>
-                <span style="font-size:11px;font-weight:700;color:${color};">${cat}</span>
-              </div>`).join('')}
+          <div style="background:#fff;border:1px solid ${CREAM2};border-radius:10px;padding:14px 18px;box-sizing:border-box;overflow-x:auto;">
+            <div style="display:grid;grid-template-columns:${colTemplate};grid-template-rows:auto repeat(${metrics.length},minmax(100px,auto));min-width:560px;">
+              ${headerRow}
+              ${metricRows}
             </div>
-            ${headerRow}
-            ${metricRows}
             <div style="font-size:11px;color:${G500};font-style:italic;text-align:left;margin-top:10px;">※ 변화는 초기 평가를 기준으로 산출됩니다.</div>
           </div>
         </div>`;
@@ -1145,19 +1151,31 @@ const ClientDetailPage = {
       if (!n) return `<div style="text-align:center;color:${G500};font-size:14px;padding:20px 0;">측정 데이터가 없습니다.</div>`;
 
       const metrics = trendMetricsCfg;
-      const colTemplate = `116px repeat(${n},1fr) 76px`;
+      const CAT_COLOR = { '인지':'#8E7CC3', '운동':'#4A90D2', '대사':'#43A047' };
+      // 구분(카테고리) 컬럼: 연속된 동일 카테고리를 하나의 병합 셀로 묶기 위한 그룹 계산
+      const catGroups = [];
+      metrics.forEach((met, i) => {
+        const cat = met.category || '';
+        const last = catGroups[catGroups.length-1];
+        if (last && last.category === cat) last.count++;
+        else catGroups.push({ category: cat, start: i, count: 1 });
+      });
+      const catGroupByStart = {};
+      catGroups.forEach(g => { catGroupByStart[g.start] = g; });
+
+      // 구분(48px) | 평가항목(116px) | 주차별 그래프(1fr × n) | 변화(76px)
+      const colTemplate = `48px 116px repeat(${n},1fr) 76px`;
 
       // 측정회차는 별도 행이 아니라 "평가 항목/변화"와 같은 헤더 행에 표기
-      const weekHeadCells = sorted.map((m,i)=>`<div style="grid-column:${i+2};text-align:center;font-size:11px;font-weight:700;color:${G500};">${weekEvalLabel(m.round)}</div>`).join('');
-      const headerRow = `<div style="display:grid;grid-template-columns:${colTemplate};align-items:end;padding-bottom:6px;border-bottom:2px solid ${BR};">
-        <div style="grid-column:1;font-size:12px;font-weight:700;color:${G500};letter-spacing:0.04em;text-transform:uppercase;">평가 항목</div>
+      const weekHeadCells = sorted.map((m,i)=>`<div style="grid-row:1;grid-column:${i+3};text-align:center;font-size:11px;font-weight:700;color:${G500};align-self:end;padding-bottom:6px;border-bottom:2px solid ${BR};">${weekEvalLabel(m.round)}</div>`).join('');
+      const headerRow = `
+        <div style="grid-row:1;grid-column:1;font-size:10.5px;font-weight:700;color:${G500};letter-spacing:0.04em;text-transform:uppercase;align-self:end;padding-bottom:6px;border-bottom:2px solid ${BR};">구분</div>
+        <div style="grid-row:1;grid-column:2;font-size:12px;font-weight:700;color:${G500};letter-spacing:0.04em;text-transform:uppercase;align-self:end;padding-bottom:6px;border-bottom:2px solid ${BR};">평가 항목</div>
         ${weekHeadCells}
-        <div style="grid-column:${n+2};font-size:12px;font-weight:700;color:${G500};letter-spacing:0.04em;text-transform:uppercase;text-align:center;">변화<br>(초기 대비)</div>
-      </div>`;
+        <div style="grid-row:1;grid-column:${n+3};font-size:12px;font-weight:700;color:${G500};letter-spacing:0.04em;text-transform:uppercase;text-align:center;align-self:end;padding-bottom:6px;border-bottom:2px solid ${BR};">변화<br>(초기 대비)</div>`;
 
-      const CAT_COLOR = { '인지':'#8E7CC3', '운동':'#4A90D2', '대사':'#43A047' };
-      let lastCat = null;
-      const metricRows = metrics.map(met=>{
+      const metricRows = metrics.map((met, mi)=>{
+        const rowNum = mi + 2; // 1행은 헤더
         const pts = sorted.map((m,i)=>{ const v=Number(m[met.key]); return isNaN(v)?null:{i,v}; }).filter(Boolean);
         let chartHtml = `<div style="font-size:11.5px;color:${G500};text-align:center;">-</div>`;
         let changeHtml = `<span style="color:${G500};font-size:16px;">-</span>`;
@@ -1197,28 +1215,27 @@ const ClientDetailPage = {
             : diff===0 ? `<span style="color:${G500};font-size:14px;">-</span>`
             : `<span style="color:${isGood?'#1D5FC4':'#C0392B'};font-weight:800;font-size:16px;white-space:nowrap;">${diff>0?'▲':'▼'} ${Math.abs(diff)}</span>`;
         }
+        const group = catGroupByStart[mi];
         const catColor = CAT_COLOR[met.category] || '#AAA';
+        const catCellHtml = group ? `<div style="grid-row:${rowNum} / span ${group.count};grid-column:1;display:flex;align-items:center;justify-content:center;border-right:1px solid ${CREAM2};border-bottom:1px solid ${CREAM2};background:${catColor}12;">
+          <span style="font-size:10.5px;font-weight:800;color:${catColor};letter-spacing:0.02em;">${group.category}</span>
+        </div>` : '';
         // 차트 배경이 상하 여백 없이 행 전체를 채우도록 — 패딩은 라벨/변화 칸에만 적용 (req3)
-        // ※ PDF는 한 페이지 안에 들어가야 하므로 별도 구분 행 대신 좌측 색상 바로만 카테고리를 구분합니다.
-        return `<div style="display:grid;grid-template-columns:${colTemplate};align-items:stretch;border-bottom:1px solid ${CREAM2};flex:1;border-left:3px solid ${catColor};">
-          <div style="grid-column:1;padding:10px 0 10px 6px;display:flex;align-items:center;">
+        return `${catCellHtml}
+          <div style="grid-row:${rowNum};grid-column:2;padding:10px 0 10px 6px;display:flex;align-items:center;border-bottom:1px solid ${CREAM2};">
             <span style="font-size:14px;font-weight:700;color:${INK};word-break:keep-all;">${met.label}</span>
           </div>
-          <div style="grid-column:2 / span ${n};">${chartHtml}</div>
-          <div style="grid-column:${n+2};text-align:center;padding:10px 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;">
+          <div style="grid-row:${rowNum};grid-column:3 / span ${n};border-bottom:1px solid ${CREAM2};">${chartHtml}</div>
+          <div style="grid-row:${rowNum};grid-column:${n+3};text-align:center;padding:10px 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border-bottom:1px solid ${CREAM2};">
             ${changeHtml}
             ${met.inverse?`<span style="font-size:9px;color:${G500};">↓ 낮을수록 좋음</span>`:''}
-          </div>
-        </div>`;
+          </div>`;
       }).join('');
 
-      const catLegend = `<div style="display:flex;gap:16px;margin-bottom:8px;">
-        ${Object.entries(CAT_COLOR).map(([cat,color])=>`<div style="display:flex;align-items:center;gap:5px;">
-          <span style="width:7px;height:7px;border-radius:50%;background:${color};"></span>
-          <span style="font-size:10.5px;font-weight:700;color:${color};">${cat}</span>
-        </div>`).join('')}
+      return `<div style="display:grid;grid-template-columns:${colTemplate};grid-template-rows:auto repeat(${metrics.length},1fr);height:100%;">
+        ${headerRow}
+        ${metricRows}
       </div>`;
-      return `${catLegend}${headerRow}${metricRows}`;
     };
 
     // ✅ 초기(1회차) 리포트는 비교 대상 회차가 없어 "기간별 지표 변화" 페이지를 제외합니다.
