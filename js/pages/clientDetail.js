@@ -1232,8 +1232,7 @@ const ClientDetailPage = {
           </div>`;
       }).join('');
 
-      return `<div style="display:grid;grid-template-columns:${colTemplate};grid-template-rows:auto repeat(${metrics.length},1fr);height:100%;">
-        ${headerRow}
+      return `<div style="display:grid;grid-template-columns:${colTemplate};grid-template-rows:auto repeat(${metrics.length},1fr);flex:1;min-height:0;">        ${headerRow}
         ${metricRows}
       </div>`;
     };
