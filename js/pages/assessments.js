@@ -15,6 +15,7 @@ const AssessmentsPage = {
   roundData:      null,
   clientSearch:   '',
   clientSortMode: 'room',  // 'room' | 'name'
+  clientStatusTab: 'active', // 'active'(재원: 입소중+입소예정) | 'discharged'(퇴소)
 
 
   _role: function() {
@@ -74,6 +75,10 @@ const AssessmentsPage = {
       <div class="assess-layout">
         <div class="assess-sidebar">
           <div class="assess-sidebar-header">
+            <div style="display:flex;gap:0;margin-bottom:8px;border-bottom:2px solid var(--color-gray-200);">
+              <button class="assess-status-tab active" data-assess-status="active" style="flex:1;padding:8px 4px;font-size:13px;font-weight:700;background:none;border:none;border-bottom:2px solid var(--color-primary);color:var(--color-primary);cursor:pointer;">재원 고객</button>
+              <button class="assess-status-tab" data-assess-status="discharged" style="flex:1;padding:8px 4px;font-size:13px;font-weight:700;background:none;border:none;border-bottom:2px solid transparent;color:var(--color-gray-400);cursor:pointer;">퇴소 고객</button>
+            </div>
             <div class="search-bar" style="max-width:100%;margin-bottom:8px;">
               <svg class="search-icon" width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
@@ -99,6 +104,18 @@ const AssessmentsPage = {
 
     document.getElementById('assess-client-search').addEventListener('input', e => {
       this.clientSearch = e.target.value.trim(); this._renderClientList();
+    });
+    document.querySelectorAll('[data-assess-status]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.clientStatusTab = btn.dataset.assessStatus;
+        document.querySelectorAll('[data-assess-status]').forEach(b => {
+          const on = b===btn;
+          b.classList.toggle('active', on);
+          b.style.borderBottomColor = on ? 'var(--color-primary)' : 'transparent';
+          b.style.color = on ? 'var(--color-primary)' : 'var(--color-gray-400)';
+        });
+        this._renderClientList();
+      });
     });
     document.querySelectorAll('[data-assess-sort]').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -144,8 +161,12 @@ const AssessmentsPage = {
   _renderClientList: function() {
     const wrap = document.getElementById('assess-client-list');
     if (!wrap) return;
+    // ✅ 재원/퇴소 탭으로 먼저 구분
+    let list = this.clientStatusTab === 'discharged'
+      ? this.allClients.filter(c => c.status === '퇴소')
+      : this.allClients.filter(c => c.status !== '퇴소');
     const q = this.clientSearch.toLowerCase();
-    let list = q ? this.allClients.filter(c=>c.name.toLowerCase().includes(q)||c.clientId.toLowerCase().includes(q)) : [...this.allClients];
+    if (q) list = list.filter(c=>c.name.toLowerCase().includes(q)||c.clientId.toLowerCase().includes(q));
     if (this.clientSortMode === 'room') {
       list.sort((a,b) => {
         const ra = parseInt(a.roomNum||'9999'), rb = parseInt(b.roomNum||'9999');
@@ -155,7 +176,11 @@ const AssessmentsPage = {
     } else {
       list.sort((a,b) => a.name.localeCompare(b.name,'ko'));
     }
-    if (!list.length) { wrap.innerHTML='<div style="padding:20px;text-align:center;color:var(--color-gray-400);font-size:13px;">검색 결과 없음</div>'; return; }
+    if (!list.length) {
+      const msg = this.clientStatusTab === 'discharged' ? '퇴소한 고객이 없습니다' : '검색 결과 없음';
+      wrap.innerHTML=`<div style="padding:20px;text-align:center;color:var(--color-gray-400);font-size:13px;">${msg}</div>`;
+      return;
+    }
     const sc={'입소중':'admitted','입소예정':'scheduled','퇴소':'discharged'};
     wrap.innerHTML = list.map(c => {
       const p=this._getClientProgress(c.clientId);
@@ -176,9 +201,8 @@ const AssessmentsPage = {
       return `
         <div class="assess-client-item${this.selectedClient?.clientId===c.clientId?' selected':''}" data-id="${c.clientId}">
           <div class="assess-client-info" style="width:100%;">
-            <div style="font-size:15px;font-weight:700;color:var(--color-gray-900);margin-bottom:2px;display:flex;align-items:center;gap:6px;">
-              <span>${c.roomNum?`<span style="color:var(--color-primary-dark);">${c.roomNum}호</span> `:''}${c.name}</span>
-              ${c.status==='퇴소'?'<span style="font-size:10px;font-weight:700;color:#E65100;background:#FFF3E0;border:1px solid #FFB74D;border-radius:6px;padding:1px 6px;flex-shrink:0;">퇴소</span>':''}
+            <div style="font-size:15px;font-weight:700;color:var(--color-gray-900);margin-bottom:2px;">
+              ${c.roomNum?`<span style="color:var(--color-primary-dark);">${c.roomNum}호</span> `:''}${c.name}
             </div>
             <div style="font-size:12px;color:var(--color-gray-500);margin-bottom:6px;">${c.clientId} · ${c.gender||''}</div>
             <div style="display:flex;align-items:center;gap:2px;flex-wrap:wrap;">
