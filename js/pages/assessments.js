@@ -29,6 +29,8 @@ const AssessmentsPage = {
 
   // 쓰기(저장/수정/삭제) 권한
   _canWrite: function(cat) {
+    // ✅ 퇴소한 고객은 어떤 역할이든 평가값을 수정할 수 없습니다 (조회만 가능)
+    if (this.selectedClient?.status === '퇴소') return false;
     const role = this._role();
     const writeRoles = AppConfig.ASSESS_WRITE_ROLES[cat] || [];
     return writeRoles.includes(role);
@@ -274,6 +276,9 @@ const AssessmentsPage = {
         </div>
       </div>
       <div class="assess-round-tabs">${roundTabs}</div>
+      ${c.status==='퇴소'?`<div style="margin:0 20px;padding:10px 14px;background:#FFF3E0;border:1px solid #FFB74D;border-radius:8px;font-size:12.5px;color:#E65100;display:flex;align-items:center;gap:6px;">
+        ⚠️ 퇴소한 고객입니다. 평가값은 조회만 가능하며 수정·저장할 수 없습니다.
+      </div>`:''}
       <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 20px 0;flex-wrap:wrap;gap:8px;border-bottom:1px solid var(--color-gray-100);">
         <div class="assess-cat-tabs" id="assess-cat-tabs">${catTabs}</div>
         <div id="assess-prog-wrap" style="padding-bottom:8px;"></div>
