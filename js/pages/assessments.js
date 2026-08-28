@@ -295,7 +295,7 @@ const AssessmentsPage = {
       {id:'metabolism',l:'💊 대사관리'},
       {id:'comment',   l:'💬 코멘트'}
     ].map(cat=>`<div class="assess-cat-tab${this.activeCategory===cat.id?' active':''}" data-cat="${cat.id}">
-      ${cat.l}${catDoneBadge[cat.id]?`<span style="color:#4CAF50;margin-left:4px;">${catDoneBadge[cat.id]}</span>`:''}
+      ${cat.l}${catDoneBadge[cat.id]?`<span class="cat-done-badge" style="color:#4CAF50;margin-left:4px;">${catDoneBadge[cat.id]}</span>`:''}
     </div>`).join('');
     main.innerHTML=`
       <div class="assess-client-header">
