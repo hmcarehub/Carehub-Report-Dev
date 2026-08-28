@@ -631,6 +631,8 @@ const ClientDetailPage = {
         <div style="grid-column:${n+2};font-size:12px;font-weight:700;color:${G500};letter-spacing:0.04em;text-transform:uppercase;text-align:center;">변화<br>(초기 대비)</div>
       </div>`;
 
+      const CAT_COLOR = { '인지':'#8E7CC3', '운동':'#4A90D2', '대사':'#43A047' };
+      let lastCat = null;
       const metricRows = metrics.map(met=>{
         const pts = sorted.map((m,i)=>{ const v=Number(m[met.key]); return isNaN(v)?null:{i,v}; }).filter(Boolean);
         let chartHtml = `<div style="font-size:11.5px;color:${G500};text-align:center;">-</div>`;
@@ -670,8 +672,15 @@ const ClientDetailPage = {
             : diff===0 ? `<span style="color:${G500};font-size:14px;">-</span>`
             : `<span style="color:${isGood?'#1D5FC4':'#C0392B'};font-weight:800;font-size:14px;white-space:nowrap;">${diff>0?'▲':'▼'} ${Math.abs(diff)}</span>`;
         }
-        return `<div style="display:grid;grid-template-columns:${colTemplate};align-items:stretch;border-bottom:1px solid ${CREAM2};min-height:100px;">
-          <div style="grid-column:1;padding:12px 0;display:flex;align-items:center;">
+        const catChanged = met.category && met.category !== lastCat;
+        if (met.category) lastCat = met.category;
+        const catColor = CAT_COLOR[met.category] || '#AAA';
+        const catHeaderHtml = catChanged ? `<div style="grid-column:1/-1;display:flex;align-items:center;gap:6px;padding:${met===metrics[0]?'2px':'14px'} 0 4px;">
+          <span style="width:7px;height:7px;border-radius:50%;background:${catColor};"></span>
+          <span style="font-size:11px;font-weight:800;color:${catColor};letter-spacing:0.04em;">${met.category}</span>
+        </div>` : '';
+        return `${catHeaderHtml}<div style="display:grid;grid-template-columns:${colTemplate};align-items:stretch;border-bottom:1px solid ${CREAM2};min-height:100px;border-left:3px solid ${catColor};">
+          <div style="grid-column:1;padding:12px 0 12px 8px;display:flex;align-items:center;">
             <span style="font-size:13px;font-weight:700;color:${INK};word-break:keep-all;">${met.label}</span>
           </div>
           <div style="grid-column:2 / span ${n};">${chartHtml}</div>
@@ -688,6 +697,12 @@ const ClientDetailPage = {
             <span style="font-size:16px;font-weight:800;color:${INK};">기간별 지표 변화 <span style="font-size:12px;font-weight:400;color:${G500};">(${this._weekLabelShort(1)} ~ ${this._weekLabelShort(currentRound)})</span></span>
           </div>
           <div style="background:#fff;border:1px solid ${CREAM2};border-radius:10px;padding:14px 18px;box-sizing:border-box;">
+            <div style="display:flex;gap:16px;margin-bottom:10px;">
+              ${Object.entries(CAT_COLOR).map(([cat,color])=>`<div style="display:flex;align-items:center;gap:5px;">
+                <span style="width:7px;height:7px;border-radius:50%;background:${color};"></span>
+                <span style="font-size:11px;font-weight:700;color:${color};">${cat}</span>
+              </div>`).join('')}
+            </div>
             ${headerRow}
             ${metricRows}
             <div style="font-size:11px;color:${G500};font-style:italic;text-align:left;margin-top:10px;">※ 변화는 초기 평가를 기준으로 산출됩니다.</div>
@@ -1140,6 +1155,8 @@ const ClientDetailPage = {
         <div style="grid-column:${n+2};font-size:12px;font-weight:700;color:${G500};letter-spacing:0.04em;text-transform:uppercase;text-align:center;">변화<br>(초기 대비)</div>
       </div>`;
 
+      const CAT_COLOR = { '인지':'#8E7CC3', '운동':'#4A90D2', '대사':'#43A047' };
+      let lastCat = null;
       const metricRows = metrics.map(met=>{
         const pts = sorted.map((m,i)=>{ const v=Number(m[met.key]); return isNaN(v)?null:{i,v}; }).filter(Boolean);
         let chartHtml = `<div style="font-size:11.5px;color:${G500};text-align:center;">-</div>`;
@@ -1180,9 +1197,11 @@ const ClientDetailPage = {
             : diff===0 ? `<span style="color:${G500};font-size:14px;">-</span>`
             : `<span style="color:${isGood?'#1D5FC4':'#C0392B'};font-weight:800;font-size:16px;white-space:nowrap;">${diff>0?'▲':'▼'} ${Math.abs(diff)}</span>`;
         }
+        const catColor = CAT_COLOR[met.category] || '#AAA';
         // 차트 배경이 상하 여백 없이 행 전체를 채우도록 — 패딩은 라벨/변화 칸에만 적용 (req3)
-        return `<div style="display:grid;grid-template-columns:${colTemplate};align-items:stretch;border-bottom:1px solid ${CREAM2};flex:1;">
-          <div style="grid-column:1;padding:10px 0;display:flex;align-items:center;">
+        // ※ PDF는 한 페이지 안에 들어가야 하므로 별도 구분 행 대신 좌측 색상 바로만 카테고리를 구분합니다.
+        return `<div style="display:grid;grid-template-columns:${colTemplate};align-items:stretch;border-bottom:1px solid ${CREAM2};flex:1;border-left:3px solid ${catColor};">
+          <div style="grid-column:1;padding:10px 0 10px 6px;display:flex;align-items:center;">
             <span style="font-size:14px;font-weight:700;color:${INK};word-break:keep-all;">${met.label}</span>
           </div>
           <div style="grid-column:2 / span ${n};">${chartHtml}</div>
@@ -1193,7 +1212,13 @@ const ClientDetailPage = {
         </div>`;
       }).join('');
 
-      return `${headerRow}${metricRows}`;
+      const catLegend = `<div style="display:flex;gap:16px;margin-bottom:8px;">
+        ${Object.entries(CAT_COLOR).map(([cat,color])=>`<div style="display:flex;align-items:center;gap:5px;">
+          <span style="width:7px;height:7px;border-radius:50%;background:${color};"></span>
+          <span style="font-size:10.5px;font-weight:700;color:${color};">${cat}</span>
+        </div>`).join('')}
+      </div>`;
+      return `${catLegend}${headerRow}${metricRows}`;
     };
 
     // ✅ 초기(1회차) 리포트는 비교 대상 회차가 없어 "기간별 지표 변화" 페이지를 제외합니다.
