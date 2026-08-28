@@ -1,1475 +1,1291 @@
 // ============================================================
-// pages/clientDetail.js - 고객 상세 페이지
+// api/api.js - Supabase REST API 버전 (Supabase Auth 연동)
 // ============================================================
 
-const ClientDetailPage = {
-  client: null,
-  activeRound: 1,
-  activeDetailTab: 'rounds',
-  activeReportRound: null,
+const API = {
 
-  // ── 회차별 최신 리포트 1건만 남기기 (재생성 시 중복 레코드 방지) ──
-  // 동일 round에 여러 건이 존재하면 reportCreatedAt이 가장 최신인 것만 사용
-  _dedupeMasterList: function(masterList) {
-    if (!Array.isArray(masterList)) return [];
-    const byRound = {};
-    masterList.forEach(m => {
-      const existing = byRound[m.round];
-      if (!existing) { byRound[m.round] = m; return; }
-      const t  = new Date(m.reportCreatedAt || 0).getTime();
-      const te = new Date(existing.reportCreatedAt || 0).getTime();
-      if (t >= te) byRound[m.round] = m;
+  // ── 인메모리 캐시 ──────────────────────────────────────────
+  _cache: {},
+  _pending: {},
+  _CACHE_TTL: {
+    getInitialData:      60000,
+    getClients:          60000,
+    getClientDetail:     20000,
+    getClientMasterList: 20000,
+    getAssessOverview:   60000,
+    getStandards:       300000
+  },
+  _getCached: function(action, params) {
+    const key = action + '_' + (params?.clientId||'') + '_' + (params?.round||'');
+    const ttl = this._CACHE_TTL[action];
+    if (!ttl || !this._cache[key]) return null;
+    const { result, ts } = this._cache[key];
+    if (Date.now() - ts >= ttl) return null;
+    return result;
+  },
+  _setCache: function(action, params, result) {
+    const key = action + '_' + (params?.clientId||'') + '_' + (params?.round||'');
+    this._cache[key] = { result, ts: Date.now() };
+  },
+  _bust: function(...actions) {
+    actions.forEach(a => {
+      Object.keys(this._cache).forEach(k => {
+        if (k.startsWith(a)) delete this._cache[k];
+      });
     });
-    return Object.values(byRound);
   },
 
-  // ── 회차 → 주차 변환 ────────────────────────────────────
-  // 1회차=초기, 2회차=4주차, 3회차=8주차, 4회차=12주차 ...
-  // 짧은 형식: 탭/리스트용
-  _weekLabelShort: function(round) {
-    return round === 1 ? '초기' : `${(round-1)*4}주`;
-  },
-  // 평가 타이틀용: "초기 평가" / "4주차 평가"
-  _weekEvalLabel: function(round) {
-    return round === 1 ? '초기 평가' : `${(round-1)*4}주차 평가`;
-  },
-  // 리포트 타이틀용: "4주차 통합리포트"
-  _weekReportLabel: function(round) {
-    return round === 1 ? '초기 통합리포트' : `${(round-1)*4}주차 통합리포트`;
+  // ── Supabase REST 헬퍼 ─────────────────────────────────────
+  _url: function(table, query) {
+    const base = `${AppConfig.SUPABASE_URL}/rest/v1/${table}`;
+    return query ? `${base}?${query}` : base;
   },
 
-  canWrite: function() {
-    const r = Auth.getUser()?.role;
-    return r === 'ADMIN' || r === 'CARE_MANAGER';
+  // ✅ async로 변경 — Supabase Auth session token 사용
+  _headers: async function() {
+    const { data } = await supabaseClient.auth.getSession();
+    const token = data?.session?.access_token || AppConfig.SUPABASE_ANON;
+    return {
+      'Content-Type':  'application/json',
+      'apikey':        AppConfig.SUPABASE_ANON,
+      'Authorization': `Bearer ${token}`,
+      'Prefer':        'return=representation'
+    };
   },
 
-  // ── 전화번호 포맷 ────────────────────────────────────────
-  _formatPhone: function(val) {
-    if (!val) return '-';
-    const digits = String(val).replace(/\D/g, '');
-    if (digits.length === 11) return digits.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3');
-    if (digits.length === 10) return digits.replace(/(\d{3})(\d{3,4})(\d{4})/, '$1-$2-$3');
-    return val;
+  _eq: function(col, val) {
+    return `${col}=eq.${encodeURIComponent(val)}`;
   },
 
-  // ── 상태 배지 ────────────────────────────────────────────
-  _statusBadge: function(status) {
-    const map = { '입소중':'admitted', '입소예정':'scheduled', '퇴소':'discharged' };
-    const cls = map[status] || 'discharged';
-    return `<span class="badge badge-${cls}">${status||'-'}</span>`;
+  // ✅ await this._headers() 로 변경
+  _get: async function(table, query) {
+    const url = this._url(table, query);
+    const r = await fetch(url, {
+      method: 'GET',
+      headers: await this._headers()
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error((err.message || err.hint || `HTTP ${r.status} - ${r.statusText}`) + ` [table: ${table}]`);
+    }
+    return r.json();
   },
 
-  // ── 입소 진행률 계산 ─────────────────────────────────────
-  _calcProgress: function(c) {
-    if (!c.admitDate || !c.endDate) return {pct:0, total:0, elapsed:0, remaining:0};
-    const start = new Date(c.admitDate).getTime();
-    const end   = new Date(c.endDate).getTime();
-    const now   = Date.now();
-    const totalDays = Math.max(1, Math.round((end-start)/(1000*60*60*24)));
-    const elapsedDays = Math.max(0, Math.round((now-start)/(1000*60*60*24)));
-    const pct = Math.min(100, Math.max(0, Math.round(elapsedDays/totalDays*100)));
-    return {pct, total:totalDays, elapsed:Math.min(elapsedDays,totalDays), remaining:Math.max(0,totalDays-elapsedDays)};
+  _post: async function(table, body) {
+    const r = await fetch(this._url(table), {
+      method: 'POST',
+      headers: await this._headers(),
+      body: JSON.stringify(body)
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.message || err.hint || `HTTP ${r.status}`);
+    }
+    const text = await r.text();
+    return text ? JSON.parse(text) : [];
   },
 
-  // ── 렌더링 ──────────────────────────────────────────────
-  render: async function(clientId) {
-    // 새 고객 진입 시 상태 초기화 (이전 고객 탭 상태 잔류 방지)
-    this.client           = null;
-    this._masterListCache = null;
-    this._roundDataCache  = {};   // 회차별 데이터 캐시 초기화
-    this._roundSelected   = false;
-    this.activeRound      = 1;
-    this.activeDetailTab  = 'rounds';
+  _patch: async function(table, query, body) {
+    const r = await fetch(this._url(table, query), {
+      method: 'PATCH',
+      headers: await this._headers(),
+      body: JSON.stringify(body)
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.message || err.hint || `HTTP ${r.status}`);
+    }
+    const text = await r.text();
+    return text ? JSON.parse(text) : [];
+  },
 
-    const container = document.getElementById('page-content');
-    container.innerHTML = `
-      <div class="back-btn" id="back-btn">
-        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-        </svg>고객 목록으로
-      </div>
-      <div class="empty-state"><div class="spinner" style="margin:0 auto;"></div></div>`;
-    document.getElementById('back-btn').addEventListener('click', () => Router.navigate('clients'));
+  _delete: async function(table, query) {
+    const headers = await this._headers();
+    const r = await fetch(this._url(table, query), {
+      method: 'DELETE',
+      headers: { ...headers, Prefer: 'return=minimal' }
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.message || err.hint || `HTTP ${r.status}`);
+    }
+  },
 
+  // ── 날짜/유틸 ─────────────────────────────────────────────
+  _now: () => new Date().toISOString(),
+  _safeNum: (v) => {
+    if (v === null || v === undefined || v === '') return null;
+    const n = Number(v); return isNaN(n) ? null : n;
+  },
+  _safeStr: (v) => (v === null || v === undefined) ? '' : String(v),
+  _safeDateStr: function(v) {
+    if (!v) return '';
+    if (typeof v === 'string') return v.substring(0, 10);
+    if (v instanceof Date) {
+      const p = n => String(n).padStart(2,'0');
+      return `${v.getFullYear()}-${p(v.getMonth()+1)}-${p(v.getDate())}`;
+    }
+    return String(v).substring(0, 10);
+  },
+  _calcEndDate: function(admitDateStr, period) {
+    const days = AppConfig.PERIOD_DAYS[period] || 0;
+    return this._calcEndDateFromDays(admitDateStr, days);
+  },
+  _calcEndDateFromDays: function(admitDateStr, days) {
+    if (!admitDateStr || !days) return '';
+    const d = new Date(admitDateStr);
+    d.setDate(d.getDate() + days - 1);
+    const p = n => String(n).padStart(2,'0');
+    return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // ✅ 관리자 페이지("고객관리 기준" 탭)에서 설정한 입소기간을
+  //    실제 고객 등록/수정 로직에서 사용하기 위한 캐시.
+  //    DB에 값이 없으면 config.js의 PERIOD_DAYS/PERIOD_ROUNDS로 자동 폴백합니다.
+  // ══════════════════════════════════════════════════════════
+  _periodMapCache: null,
+  _periodMapPromise: null,
+
+  // roundLabel(예: '초기','4주차') → 총 회차수(예:1,2) 변환
+  // (평가/리포트 화면 전반에서 쓰는 n===1?'초기':(n-1)*4+'주차' 공식의 역변환)
+  _roundLabelToCount: function(label) {
+    if (!label) return 0;
+    const s = String(label).trim().replace(/\s+/g, ''); // 내부 공백 제거(예: "28 주차" → "28주차")
+    if (s === '초기') return 1;
+    const m = s.match(/^(\d+)주차?$/); // "28주차" 또는 "28주" 모두 허용
+    if (m) return Math.floor(Number(m[1]) / 4) + 1;
+    const n = Number(s);
+    return isNaN(n) || n <= 0 ? 0 : n;
+  },
+
+  _fallbackPeriodMap: function() {
+    const map = {};
+    Object.keys(AppConfig.PERIOD_DAYS || {}).forEach(p => {
+      map[p] = { days: AppConfig.PERIOD_DAYS[p], roundLabel:'', totalRounds: AppConfig.PERIOD_ROUNDS[p] || 0 };
+    });
+    return map;
+  },
+
+  getPeriodMap: async function() {
+    if (this._periodMapCache) return this._periodMapCache;
+    if (this._periodMapPromise) return this._periodMapPromise;
+    this._periodMapPromise = (async () => {
+      try {
+        const res  = await this.getStandards();
+        const rows = (res.status === 'success' && res.data.standards?.clientPeriod_period) || [];
+        const map  = {};
+        rows.forEach(row => {
+          let obj = null;
+          try { obj = JSON.parse(row.label); } catch { obj = null; }
+          if (!obj || !obj.period) return;
+          map[obj.period] = {
+            days: Number(obj.days) || 0,
+            roundLabel: obj.roundLabel || '',
+            totalRounds: this._roundLabelToCount(obj.roundLabel)
+          };
+        });
+        // DB에 설정된 입소기간이 하나도 없으면(초기 배포 등) config.js 값으로 폴백
+        this._periodMapCache = Object.keys(map).length ? map : this._fallbackPeriodMap();
+        return this._periodMapCache;
+      } catch (e) {
+        this._periodMapCache = this._fallbackPeriodMap();
+        return this._periodMapCache;
+      }
+    })();
+    return this._periodMapPromise;
+  },
+
+  _bustPeriodMap: function() {
+    this._periodMapCache = null;
+    this._periodMapPromise = null;
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // ✅ "기간별 지표 변화"에 표시할 평가 항목 (관리자 설정)
+  //    category='trendMetrics_items', label에 JSON 저장(입소기간 설정과 동일 방식)
+  // ══════════════════════════════════════════════════════════
+  _trendMetricsCache: null,
+  _trendMetricsPromise: null,
+
+  // 실제 앱에서 계산 가능한 전체 항목 목록(카탈로그) 기본값
+  // — DB에 저장된 값이 없을 때 폴백으로 사용, 관리자 화면 초기 목록으로도 사용
+  _defaultTrendMetricsCatalog: function() {
+    return [
+      { key:'attention',          category:'인지', label:'주의집중력',            enabled:false, inverse:false },
+      { key:'language',           category:'인지', label:'언어능력',              enabled:false, inverse:false },
+      { key:'spatial',            category:'인지', label:'시공간기능',            enabled:true,  inverse:false },
+      { key:'memoryVerbal',       category:'인지', label:'기억력(언어)',          enabled:true,  inverse:false },
+      { key:'memoryVisual',       category:'인지', label:'기억력(시각)',          enabled:true,  inverse:false },
+      { key:'executive',          category:'인지', label:'집행기능',              enabled:false, inverse:false },
+      { key:'cardioScore',        category:'운동', label:'심폐기능지수(VO2peak)', enabled:true,  inverse:false },
+      { key:'bodyMovementIndex',  category:'운동', label:'신체움직임점수',        enabled:false, inverse:false },
+      { key:'nervousScore',       category:'운동', label:'신경계 점수',           enabled:false, inverse:false },
+      { key:'balanceScore',       category:'운동', label:'통합균형능력 점수',      enabled:true,  inverse:false },
+      { key:'sensoryScore',       category:'운동', label:'감각계 점수',           enabled:false, inverse:false },
+      { key:'bodyCompScore',      category:'대사', label:'체성분 종합 점수',      enabled:true,  inverse:false },
+      { key:'stressScore',        category:'대사', label:'스트레스 점수',         enabled:true,  inverse:true  }
+    ];
+  },
+
+  // 전체 카탈로그(사용여부/낮을수록좋음 설정 포함) — 관리자 화면(기준값 관리)에서 사용
+  getTrendMetricsCatalog: async function() {
     try {
-      // getClientDetail + getClientMasterList 병렬 요청 → 진행현황 즉시 표시
-      const [res, masterRes] = await Promise.all([
-        API.getClientDetail(clientId),
-        API.getClientMasterList(clientId).catch(() => null)
+      const res  = await this.getStandards();
+      const rows = (res.status === 'success' && res.data.standards?.trendMetrics_items) || [];
+      if (!rows.length) return this._defaultTrendMetricsCatalog();
+      const parsed = rows.map(row => { try { return JSON.parse(row.label); } catch { return null; } }).filter(Boolean);
+      return parsed.length ? parsed : this._defaultTrendMetricsCatalog();
+    } catch(e) {
+      return this._defaultTrendMetricsCatalog();
+    }
+  },
+
+  // 리포트/고객상세 "기간별 지표 변화"에서 실제로 그릴 항목만(사용여부 체크된 것만, 순서 유지)
+  getTrendMetrics: async function() {
+    if (this._trendMetricsCache) return this._trendMetricsCache;
+    if (this._trendMetricsPromise) return this._trendMetricsPromise;
+    const catOrder = { '인지':0, '운동':1, '대사':2 };
+    const sortByCat = list => [...list].sort((a,b) => (catOrder[a.category]??99) - (catOrder[b.category]??99));
+    this._trendMetricsPromise = (async () => {
+      const catalog = await this.getTrendMetricsCatalog();
+      let list = catalog.filter(it => it.enabled).map(it => ({ key: it.key, label: it.label, inverse: !!it.inverse, category: it.category||'' }));
+      if (!list.length) {
+        list = this._defaultTrendMetricsCatalog().filter(it => it.enabled).map(it => ({ key: it.key, label: it.label, inverse: !!it.inverse, category: it.category||'' }));
+      }
+      this._trendMetricsCache = sortByCat(list);
+      return this._trendMetricsCache;
+    })();
+    return this._trendMetricsPromise;
+  },
+
+  _bustTrendMetrics: function() {
+    this._trendMetricsCache = null;
+    this._trendMetricsPromise = null;
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // ✅ 리포트 생성 시점의 "기간별 지표 변화" 설정 스냅샷
+  //    - 리포트 생성/재생성 시점의 항목 구성을 그대로 고정 저장
+  //    - 이후 관리자가 기준값을 바꿔도, 이미 생성된 리포트는 스냅샷을 사용해 그대로 유지
+  //    - 리포트가 무효화(reportGenerated=false)되면 스냅샷은 무시되고(=삭제되지 않아도)
+  //      항상 최신 설정으로 미리보기가 표시되며, 재생성 시 그 시점 설정으로 다시 스냅샷됩니다.
+  // ══════════════════════════════════════════════════════════
+  _reportSnapshotCat: function(cid, round) {
+    return `rptSnap_tm_${cid}_${round}`;
+  },
+
+  saveReportTrendMetricsSnapshot: async function(cid, round, metrics) {
+    const cat = this._reportSnapshotCat(cid, round);
+    const items = (metrics || []).map((m, idx) => ({ key: m.key, label: JSON.stringify(m), order: idx }));
+    // saveStandards는 getStandards 캐시(_bust)까지 함께 처리해줌
+    await this.saveStandards(cat, items);
+  },
+
+  // 스냅샷이 있으면 반환, 없으면 null (없을 경우 호출부에서 현재 라이브 설정으로 폴백)
+  getReportSnapshotTrendMetrics: async function(cid, round) {
+    try {
+      const res  = await this.getStandards();
+      const cat  = this._reportSnapshotCat(cid, round);
+      const rows = (res.status === 'success' && res.data.standards?.[cat]) || [];
+      if (!rows.length) return null;
+      const parsed = rows.map(row => { try { return JSON.parse(row.label); } catch { return null; } }).filter(Boolean);
+      return parsed.length ? parsed : null;
+    } catch(e) {
+      return null;
+    }
+  },
+
+  // ✅ 스냅샷이 있으면 그대로 사용, 없으면(=이 기능 도입 이전에 생성된 리포트)
+  //    "지금 이 순간"의 설정을 그 리포트의 스냅샷으로 자동 저장(백필)한 뒤 반환합니다.
+  //    → 한 번 조회된 이후로는 그 리포트도 더 이상 관리자의 이후 설정 변경에 영향받지 않습니다.
+  getOrCreateReportTrendMetricsSnapshot: async function(cid, round) {
+    const existing = await this.getReportSnapshotTrendMetrics(cid, round);
+    if (existing) return existing;
+    const live = await this.getTrendMetrics();
+    try { await this.saveReportTrendMetricsSnapshot(cid, round, live); } catch(e) { /* 백필 실패해도 화면 표시는 계속 진행 */ }
+    return live;
+  },
+  // _calcClientStatus: function(admitDateStr, endDateStr) {
+  //   const today = new Date(); today.setHours(0,0,0,0);
+  //   const admit = admitDateStr ? new Date(admitDateStr) : null;
+  //   const end   = endDateStr   ? new Date(endDateStr)   : null;
+  //   if (!admit || today < admit) return '입소예정';
+  //   if (!end   || today > end)   return '퇴소';
+  //   return '입소중';
+  // },
+
+  _parseLocalDate: function(s) {
+  if (!s) return null;
+
+  const [y, m, d] = String(s)
+    .substring(0, 10)
+    .split('-')
+    .map(Number);
+
+  return new Date(y, m - 1, d);
+},
+  _calcClientStatus: function(admitDateStr, endDateStr) {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const admit = admitDateStr ? this._parseLocalDate(admitDateStr) : null;   // ✅
+    const end   = endDateStr   ? this._parseLocalDate(endDateStr)   : null;   // ✅
+    if (!admit || today < admit) return '입소예정';
+    if (!end   || today > end)   return '퇴소';
+    return '입소중';
+  },
+  _calcCardioIndex: function(score, gender, birthDate) {
+    if (score === null || score === undefined || isNaN(score) || !gender || !birthDate) return '';
+    const age = new Date().getFullYear() - new Date(birthDate).getFullYear();
+    const group = age <= 65 ? '60-65' : '66+';
+    const tables = gender === '남자' ? AppConfig.VO2PEAK_MALE : AppConfig.VO2PEAK_FEMALE;
+    const table = tables[group] || [];
+    const found = table.find(g => score >= g.min && score <= g.max);
+    return found ? found.label.replace(/ \(.*\)/, '') : '';
+  },
+  _generateId: () => 'ID' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2,5).toUpperCase(),
+
+  // ── 행 → JS 객체 변환 ─────────────────────────────────────
+  _rowToClient: function(row) {
+    const c = AppConfig.CLIENT_COLS;
+    const admitDate = this._safeDateStr(row[c.ADMIT_DATE]);
+    const endDate   = this._safeDateStr(row[c.END_DATE]);
+    return {
+      clientId:    this._safeStr(row[c.CLIENT_ID]),
+      name:        this._safeStr(row[c.NAME]),
+      birthDate:   this._safeDateStr(row[c.BIRTH_DATE]),
+      gender:      this._safeStr(row[c.GENDER]),
+      phone:       this._safeStr(row[c.PHONE]),
+      firstVisit:  this._safeDateStr(row[c.FIRST_VISIT]),
+      admitDate,
+      admitPeriod: this._safeStr(row[c.ADMIT_PERIOD]),
+      endDate,
+      totalRounds: Number(row[c.TOTAL_ROUNDS] || 0),
+      doneRounds:  Number(row[c.DONE_ROUNDS]  || 0),
+      status:      this._calcClientStatus(admitDate, endDate),
+      roomNum:     this._safeStr(row[c.ROOM_NUM]),
+      note:        this._safeStr(row[c.NOTE])
+    };
+  },
+
+  _rowToMaster: function(row) {
+    const c = AppConfig.MASTER_COLS;
+    return {
+      reportId:          this._safeStr(row[c.REPORT_ID]),
+      clientId:          this._safeStr(row[c.CLIENT_ID]),
+      round:             Number(row[c.ROUND] || 0),
+      attention:         this._safeNum(row[c.ATTENTION]),
+      language:          this._safeNum(row[c.LANGUAGE]),
+      spatial:           this._safeNum(row[c.SPATIAL]),
+      memoryVerbal:      this._safeNum(row[c.MEMORY_VERBAL]),
+      memoryVisual:      this._safeNum(row[c.MEMORY_VISUAL]),
+      executive:         this._safeNum(row[c.EXECUTIVE]),
+      cardioScore:       this._safeNum(row[c.CARDIO_SCORE]),
+      cardioIndex:       this._safeStr(row[c.CARDIO_INDEX]),
+      bodyMovementIndex: this._safeNum(row[c.BODY_MOVEMENT_INDEX]),
+      nervousScore:      this._safeNum(row[c.NERVOUS_SCORE]),
+      balanceScore:      this._safeNum(row[c.BALANCE_SCORE]),
+      sensoryScore:      this._safeNum(row[c.SENSORY_SCORE]),
+      bodyCompScore:     this._safeNum(row[c.BODY_COMP_SCORE]),
+      stressScore:       this._safeNum(row[c.STRESS_SCORE]),
+      cogComment:        this._safeStr(row[c.COG_COMMENT]),
+      exComment:         this._safeStr(row[c.EX_COMMENT]),
+      cmComment:         this._safeStr(row[c.CM_COMMENT]),
+      cognitiveDone:     !!row[c.COGNITIVE_DONE],
+      movementDone:      !!row[c.MOVEMENT_DONE],
+      metabolismDone:    !!row[c.METABOLISM_DONE],
+      commentDone:       !!row[c.COMMENT_DONE],
+      createdAt:         this._safeStr(row[c.CREATED_AT]),
+      assessDate:        this._safeDateStr(row[c.ASSESS_DATE]),
+      reportCreatedAt:   this._safeStr(row[c.REPORT_CREATED_AT]),
+      reportGenerated:   !!row[c.REPORT_GENERATED]
+    };
+  },
+
+  _rowToCognitive: function(row) {
+    const c = AppConfig.COG_COLS;
+    return {
+      assessId:     this._safeStr(row[c.ASSESS_ID]),
+      clientId:     this._safeStr(row[c.CLIENT_ID]),
+      measureDate:  this._safeDateStr(row[c.MEASURE_DATE]),
+      round:        Number(row[c.ROUND] || 0),
+      attention:    this._safeNum(row[c.ATTENTION]),
+      language:     this._safeNum(row[c.LANGUAGE]),
+      spatial:      this._safeNum(row[c.SPATIAL]),
+      memoryVerbal: this._safeNum(row[c.MEMORY_VERBAL]),
+      memoryVisual: this._safeNum(row[c.MEMORY_VISUAL]),
+      executive:    this._safeNum(row[c.EXECUTIVE]),
+      createdAt:    this._safeStr(row[c.CREATED_AT])
+    };
+  },
+  _rowToErgo: function(row) {
+    const c = AppConfig.ERGO_COLS;
+    return {
+      assessId:    this._safeStr(row[c.ASSESS_ID]),
+      clientId:    this._safeStr(row[c.CLIENT_ID]),
+      measureDate: this._safeDateStr(row[c.MEASURE_DATE]),
+      round:       Number(row[c.ROUND] || 0),
+      cardioScore: this._safeNum(row[c.CARDIO_SCORE]),
+      cardioIndex: this._safeStr(row[c.CARDIO_INDEX]),
+      createdAt:   this._safeStr(row[c.CREATED_AT])
+    };
+  },
+  _rowToEverex: function(row) {
+    const c = AppConfig.EVEREX_COLS;
+    return {
+      assessId:          this._safeStr(row[c.ASSESS_ID]),
+      clientId:          this._safeStr(row[c.CLIENT_ID]),
+      measureDate:       this._safeDateStr(row[c.MEASURE_DATE]),
+      round:             Number(row[c.ROUND] || 0),
+      bodyMovementIndex: this._safeNum(row[c.BODY_MOVEMENT_INDEX]),
+      createdAt:         this._safeStr(row[c.CREATED_AT])
+    };
+  },
+  _rowToFra: function(row) {
+    const c = AppConfig.FRA_COLS;
+    return {
+      assessId:     this._safeStr(row[c.ASSESS_ID]),
+      clientId:     this._safeStr(row[c.CLIENT_ID]),
+      measureDate:  this._safeDateStr(row[c.MEASURE_DATE]),
+      round:        Number(row[c.ROUND] || 0),
+      nervousScore: this._safeNum(row[c.NERVOUS_SCORE]),
+      balanceScore: this._safeNum(row[c.BALANCE_SCORE]),
+      sensoryScore: this._safeNum(row[c.SENSORY_SCORE]),
+      createdAt:    this._safeStr(row[c.CREATED_AT])
+    };
+  },
+  _rowToInbody: function(row) {
+    const c = AppConfig.INBODY_COLS;
+    return {
+      assessId:      this._safeStr(row[c.ASSESS_ID]),
+      clientId:      this._safeStr(row[c.CLIENT_ID]),
+      measureDate:   this._safeDateStr(row[c.MEASURE_DATE]),
+      round:         Number(row[c.ROUND] || 0),
+      bodyCompScore: this._safeNum(row[c.BODY_COMP_SCORE]),
+      createdAt:     this._safeStr(row[c.CREATED_AT])
+    };
+  },
+  _rowToStress: function(row) {
+    const c = AppConfig.STRESS_COLS;
+    return {
+      assessId:    this._safeStr(row[c.ASSESS_ID]),
+      clientId:    this._safeStr(row[c.CLIENT_ID]),
+      measureDate: this._safeDateStr(row[c.MEASURE_DATE]),
+      round:       Number(row[c.ROUND] || 0),
+      stressScore: this._safeNum(row[c.STRESS_SCORE]),
+      createdAt:   this._safeStr(row[c.CREATED_AT])
+    };
+  },
+  _rowToComment: function(row) {
+    const c = AppConfig.COMMENT_COLS;
+    return {
+      commentId:  this._safeStr(row[c.COMMENT_ID]),
+      clientId:   this._safeStr(row[c.CLIENT_ID]),
+      round:      Number(row[c.ROUND] || 0),
+      cogComment: this._safeStr(row[c.COG_COMMENT]),
+      cogUpdated: this._safeStr(row[c.COG_UPDATED]),
+      exComment:  this._safeStr(row[c.EX_COMMENT]),
+      exUpdated:  this._safeStr(row[c.EX_UPDATED]),
+      cmComment:  this._safeStr(row[c.CM_COMMENT]),
+      cmUpdated:  this._safeStr(row[c.CM_UPDATED]),
+      updatedAt:  this._safeStr(row[c.UPDATED_AT])
+    };
+  },
+
+  // ============================================================
+  // ── 사용자 API ─────────────────────────────────────────────
+  // ============================================================
+
+  // ✅ 로그인은 반드시 Supabase Auth 만 사용 (users.password 완전히 제거)
+  //    로그인 성공 후 auth.uid() 기준으로 users 테이블을 조회하여
+  //    권한(role)/상태(status)를 가져온다.
+login: async function(id, pw) {
+  try {
+    const { data: authData, error: authError } = await supabaseClient.auth.signInWithPassword({
+      email: id, // ✅ login_id 자체가 이메일이므로 그대로 사용 (기존의 @ 파싱 로직 제거)
+      password: pw
+    });
+    if (authError) return { status:'error', message:'아이디 또는 비밀번호가 일치하지 않습니다.' };
+
+    const c = AppConfig.USER_COLS;
+    // ✅ auth.uid() 즉 방금 로그인한 Auth User 의 id 로 프로필 조회
+    const rows = await this._get(AppConfig.TABLES.USERS,
+      `${c.AUTH_ID}=eq.${encodeURIComponent(authData.user.id)}&limit=1`);
+    if (!rows.length) {
+      await supabaseClient.auth.signOut(); // 프로필 없는 계정은 로그인 유지시키지 않음
+      return { status:'error', message:'사용자 정보를 찾을 수 없습니다.' };
+    }
+    const row = rows[0];
+    if (row[c.STATUS] !== 'ACTIVE') {
+      await supabaseClient.auth.signOut();
+      return { status:'error', message:'비활성화된 계정입니다. 관리자에게 문의해주세요.' };
+    }
+
+    const now = this._now();
+    // ✅ user_id 대신 auth_id 기준으로 최근 로그인 시각 갱신
+    this._patch(AppConfig.TABLES.USERS,
+      `${c.AUTH_ID}=eq.${encodeURIComponent(authData.user.id)}`,
+      { [c.LAST_LOGIN]: now }).catch(() => {});
+
+    return {
+      status: 'success', data: {
+        authId:  authData.user.id, // ✅ userId → authId (UUID)
+        loginId: row[c.LOGIN_ID],
+        name:    row[c.NAME],
+        role:    row[c.ROLE],
+        status:  row[c.STATUS],
+        lastLogin: now
+      }
+    };
+  } catch(e) { return { status:'error', message:'로그인 오류: ' + e.message }; }
+},
+
+  getUsers: async function() {
+    try {
+      const c = AppConfig.USER_COLS;
+      const rows = await this._get(AppConfig.TABLES.USERS, `select=*&order=${c.CREATED_AT}.asc`);
+      return {
+        status:'success', data: { users: rows.map(r => ({
+          // ✅ userId(자체 발급 ID) → authId(auth.users.id, UUID) 로 교체
+          authId: r[c.AUTH_ID], loginId: r[c.LOGIN_ID], name: r[c.NAME],
+          role: r[c.ROLE], status: r[c.STATUS],
+          createdAt: r[c.CREATED_AT], lastLogin: r[c.LAST_LOGIN]
+        })) }
+      };
+    } catch(e) { return { status:'error', message:'사용자 목록 조회 오류: ' + e.message }; }
+  },
+
+  // ✅ Supabase 헤더 생성 로직과 별개로, Edge Function 호출 전용 헤더.
+  //    service_role 키는 여기 어디에도 없고, 사용자 자신의 access_token 만 실어 보낸다.
+  //    Edge Function 쪽(verifyAdmin.ts)에서 이 토큰으로 호출자가 ADMIN 인지 다시 검증한다.
+  _functionHeaders: async function() {
+    const { data } = await supabaseClient.auth.getSession();
+    return {
+      'Content-Type': 'application/json',
+      'apikey': AppConfig.SUPABASE_ANON,
+      'Authorization': `Bearer ${data?.session?.access_token || ''}`
+    };
+  },
+
+  // ✅ 사용자 생성: auth.admin.createUser() 는 service_role 권한이 필요해
+  //    클라이언트에서 직접 호출할 수 없으므로 admin-create-user Edge Function 에 위임한다.
+  //    Edge Function 내부에서 "① Auth 계정 생성 → ② users 저장"을 트랜잭션처럼 처리하고,
+  //    ②가 실패하면 ①을 롤백하므로 여기서는 결과만 그대로 전달하면 된다.
+  createUser: async function(d) {
+    try {
+      const res = await fetch(`${AppConfig.FUNCTIONS_URL}/admin-create-user`, {
+        method: 'POST',
+        headers: await this._functionHeaders(),
+        body: JSON.stringify({
+          email: d.loginId,          // ✅ login_id = 이메일
+          password: d.password || AppConfig.DEFAULT_PASSWORD,
+          name: d.name, role: d.role, status: d.status
+        })
+      });
+      const result = await res.json();
+      if (!res.ok || result.status !== 'success') {
+        return { status:'error', message: result.message || '사용자 등록에 실패했습니다.' };
+      }
+      return result;
+    } catch(e) { return { status:'error', message:'사용자 등록 오류: ' + e.message }; }
+  },
+
+  // ✅ userId(자체 발급 ID) 대신 authId(auth.users.id) 로 프로필을 수정.
+  //    role/status 는 users 테이블에만 있는 정보이므로 RLS(admin 정책)를 통해 PostgREST 로 직접 수정.
+  updateUser: async function(authId, fields) {
+    try {
+      const c = AppConfig.USER_COLS;
+      const update = {};
+      if (fields.role   !== undefined) update[c.ROLE]   = fields.role;
+      if (fields.status !== undefined) update[c.STATUS] = fields.status;
+      await this._patch(AppConfig.TABLES.USERS, `${c.AUTH_ID}=eq.${encodeURIComponent(authId)}`, update);
+      return { status:'success', data: { message:'사용자 정보가 수정되었습니다.' } };
+    } catch(e) { return { status:'error', message:'사용자 수정 오류: ' + e.message }; }
+  },
+
+  // ✅ 사용자 삭제도 Auth 계정을 지워야 하므로(그래야 로그인이 실제로 막힘) service_role 이 필요.
+  //    admin-delete-user Edge Function 이 auth.admin.deleteUser() 를 호출하면
+  //    users.auth_id 의 on delete cascade 로 프로필 행도 함께 삭제된다.
+  deleteUser: async function(authId) {
+    try {
+      const res = await fetch(`${AppConfig.FUNCTIONS_URL}/admin-delete-user`, {
+        method: 'POST',
+        headers: await this._functionHeaders(),
+        body: JSON.stringify({ authId })
+      });
+      const result = await res.json();
+      if (!res.ok || result.status !== 'success') {
+        return { status:'error', message: result.message || '사용자 삭제에 실패했습니다.' };
+      }
+      return result;
+    } catch(e) { return { status:'error', message:'사용자 삭제 오류: ' + e.message }; }
+  },
+
+  // ✅ users.password 를 더 이상 사용하지 않으므로, 현재 비밀번호 확인은
+  //    supabase.auth.signInWithPassword() 로 재인증하는 방식으로 대체하고,
+  //    실제 변경은 supabase.auth.updateUser() 로 Auth 비밀번호 자체를 바꾼다.
+  changePassword: async function(cur, nw) {
+    try {
+      if (nw.length < 6) return { status:'error', message:'비밀번호는 6자 이상이어야 합니다.' };
+      if (cur === nw)    return { status:'error', message:'새 비밀번호는 현재 비밀번호와 달라야 합니다.' };
+
+      const user = Auth.getUser();
+      if (!user || !user.loginId) return { status:'error', message:'로그인 정보가 없습니다.' };
+
+      // 현재 비밀번호 검증 (Supabase Auth 에는 별도 "현재 비밀번호 확인 API"가 없어 재로그인으로 검증)
+      const { error: verifyErr } = await supabaseClient.auth.signInWithPassword({
+        email: user.loginId, password: cur
+      });
+      if (verifyErr) return { status:'error', message:'현재 비밀번호가 일치하지 않습니다.' };
+
+      // ✅ 실제 Supabase Auth 비밀번호 변경
+      const { error: updateErr } = await supabaseClient.auth.updateUser({ password: nw });
+      if (updateErr) return { status:'error', message: updateErr.message || '비밀번호 변경에 실패했습니다.' };
+
+      return { status:'success', data: { message:'비밀번호가 변경되었습니다.' } };
+    } catch(e) { return { status:'error', message:'비밀번호 변경 오류: ' + e.message }; }
+  },
+
+  // ✅ 관리자의 "비밀번호 초기화"도 실제 Auth 비밀번호를 바꿔야 하므로
+  //    service_role 권한이 있는 admin-reset-password Edge Function 에 위임한다.
+  resetPassword: async function(authId) {
+    try {
+      const res = await fetch(`${AppConfig.FUNCTIONS_URL}/admin-reset-password`, {
+        method: 'POST',
+        headers: await this._functionHeaders(),
+        body: JSON.stringify({ authId })
+      });
+      const result = await res.json();
+      if (!res.ok || result.status !== 'success') {
+        return { status:'error', message: result.message || '비밀번호 초기화에 실패했습니다.' };
+      }
+      return { status:'success', data: { message: result.message } };
+    } catch(e) { return { status:'error', message:'비밀번호 초기화 오류: ' + e.message }; }
+  },
+
+  // ============================================================
+  // ── 고객 API ───────────────────────────────────────────────
+  // ============================================================
+
+  getClients: async function() {
+    const cached = this._getCached('getClients', {});
+    if (cached) return cached;
+    try {
+      const cc = AppConfig.CLIENT_COLS;
+      const mc = AppConfig.MASTER_COLS;
+      const [clientRows, masterRows] = await Promise.all([
+        this._get(AppConfig.TABLES.CLIENTS,       `select=*&order=${cc.CLIENT_ID}.asc`),
+        this._get(AppConfig.TABLES.ASSESS_MASTER, `select=${mc.CLIENT_ID},${mc.ROUND},${mc.REPORT_GENERATED}`)
       ]);
-      if (res.status !== 'success') {
-        container.querySelector('.empty-state').innerHTML = `<div class="empty-state-icon">⚠️</div><div class="empty-state-text">${res.message}</div>`;
-        return;
-      }
-      this.client = res.data.client;
-      // masterList 캐시 미리 설정 → _loadRoundProgress에서 재요청 없음
-      if (masterRes?.status === 'success') {
-        this._masterListCache = masterRes.data.masterList || [];
-      }
-      this._renderDetail(container);
-    } catch(e) {
-      container.querySelector('.empty-state').innerHTML = `<div class="empty-state-icon">🔌</div><div class="empty-state-text">서버 연결 오류: ${e?.message||e}</div>`;
-    }
+      const doneMap = {};
+      masterRows.forEach(r => {
+        if (!r[mc.REPORT_GENERATED]) return;
+        const cid = r[mc.CLIENT_ID], rnd = Number(r[mc.ROUND] || 0);
+        if (!doneMap[cid] || rnd > doneMap[cid]) doneMap[cid] = rnd;
+      });
+      const clients = clientRows.map(r => {
+        const c = this._rowToClient(r);
+        c.doneRounds = doneMap[c.clientId] || 0;
+        return c;
+      });
+      const result = { status:'success', data: { clients } };
+      this._setCache('getClients', {}, result);
+      return result;
+    } catch(e) { return { status:'error', message:'고객 목록 조회 오류: ' + e.message }; }
   },
 
-  _renderDetail: function(container) {
-    const c = this.client;
-    // 최초 진입 시 가장 최근 회차를 기본 선택
-    if (!this._roundSelected) {
-        this.activeRound = Math.max(1, Math.min(c.doneRounds || 1, c.totalRounds || 1));
-        this.activeDetailTab = 'rounds';
-        this._roundSelected = true;
-    }
-    const admitProg = this._calcProgress(c);
-    const roundPct  = c.totalRounds > 0 ? Math.round(c.doneRounds / c.totalRounds * 100) : 0;
-
-    container.innerHTML = `
-      <!-- 뒤로가기 -->
-      <div class="back-btn" id="back-btn">
-        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-        </svg>고객 목록으로
-      </div>
-
-      <!-- ① 상단: 프로필 + 버튼 -->
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
-        <div style="display:flex;align-items:center;gap:12px;">
-          <div class="client-avatar">${c.name.charAt(0)}</div>
-          <div>
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
-              <span style="font-size:20px;font-weight:800;color:var(--color-gray-900);">${c.name}</span>
-              ${this._statusBadge(c.status)}
-              <span id="report-status-badge"></span>
-            </div>
-            <div style="font-size:18px;color:var(--color-gray-500);">
-              고객 ID: <span style="font-family:monospace;font-weight:600;color:var(--color-gray-700);">${c.clientId}</span>
-              &nbsp;·&nbsp; ${c.gender || '-'} &nbsp;·&nbsp; ${c.admitPeriod || '-'} 입소
-            </div>
-          </div>
-        </div>
-        <div style="display:flex;gap:10px;flex-shrink:0;flex-wrap:wrap;">
-          <div class="assess-goto-btn" id="goto-assess-btn">
-            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
-            평가 입력
-          </div>
-          ${this.canWrite() ? `
-          <button class="btn btn-outline" id="edit-client-btn">
-            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-            정보 수정
-          </button>
-          <button class="btn btn-danger" id="delete-client-btn">
-            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-            삭제
-          </button>` : ''}
-        </div>
-      </div>
-
-      <!-- ② 정보 + 진행현황 1행: 높이 통일 (flex stretch) -->
-      <div class="top-info-row" style="display:flex;gap:12px;margin-bottom:12px;align-items:stretch;flex-wrap:wrap;">
-
-        <!-- 기본 정보 카드 (비고 제외 2행) -->
-        <div class="card top-info-card" style="flex:3 1 360px;min-width:0;display:flex;flex-direction:column;min-height:220px;">
-          <div class="card-header" style="padding:8px 14px;flex-shrink:0;">
-            <h2 class="card-title" style="font-size:20px;"><span class="card-title-dot"></span>기본 정보</h2>
-          </div>
-          <div class="card-body" style="padding:0;flex:1;display:flex;flex-direction:column;align-items:stretch;height:100%;">
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:0;width:100%;flex-shrink:0;">
-              ${[
-                {l:'생년월일',  v:c.birthDate||'-'},
-                {l:'성별',      v:c.gender||'-'},
-                {l:'입실호수',  v:c.roomNum||'-'},
-                {l:'휴대전화',  v:this._formatPhone(c.phone)},
-                {l:'입소 등록일',v:c.firstVisit||'-'},
-                {l:'입소일자',  v:c.admitDate||'-'},
-                {l:'종료 예정일',v:c.endDate||'-'},
-                {l:'입소기간',  v:c.admitPeriod||'-'},
-              ].map((f,i)=>`<div class="detail-info-item" style="padding:9px 12px;${i%4!==3?'border-right:1px solid #EDEAE3;':''}${i<4?'border-bottom:1px solid #EDEAE3;':''}">
-                <div class="detail-info-label" style="font-size:12px;font-weight:700;color:#8B8377;margin-bottom:3px;letter-spacing:0.02em;">${f.l}</div>
-                <div class="detail-info-value" style="font-size:18px;font-weight:800;color:#221D17;">${f.v}</div>
-              </div>`).join('')}
-            </div>
-            <div class="detail-info-item" style="padding:9px 12px;border-top:1px solid #EDEAE3;flex:1;display:flex;flex-direction:column;">
-              <div class="detail-info-label" style="font-size:12px;font-weight:700;color:#8B8377;margin-bottom:3px;letter-spacing:0.02em;">비고</div>
-              <div class="detail-info-value" style="font-size:16px;font-weight:600;color:#221D17;white-space:pre-wrap;flex:1;">${c.note || '-'}</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 입소 진행현황 -->
-        <div class="card top-info-card" style="flex:1 1 220px;min-width:0;display:flex;flex-direction:column;min-height:220px;">
-          <div class="card-header" style="padding:8px 14px;flex-shrink:0;">
-            <h2 class="card-title" style="font-size:20px;"><span class="card-title-dot"></span>입소 진행현황</h2>
-          </div>
-          <div class="card-body" style="padding:12px 14px;flex:1;display:flex;flex-direction:column;justify-content:center;">
-            <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:10px;">
-              <div>
-                <div style="font-size:36px;font-weight:800;color:var(--color-primary);line-height:1;">${admitProg.pct}<span style="font-size:18px;color:var(--color-gray-400);">%</span></div>
-                <div style="font-size:18px;color:var(--color-gray-500);margin-top:3px;">전체 ${admitProg.total}일 과정</div>
-              </div>
-              <div style="text-align:right;">
-                <div style="font-size:18px;color:var(--color-gray-500);">경과 <span style="font-size:16px;font-weight:700;color:var(--color-gray-700);">${admitProg.elapsed}</span>일</div>
-                <div style="font-size:18px;color:var(--color-gray-500);">잔여 <span style="font-size:16px;font-weight:700;color:var(--color-primary-dark);">${admitProg.remaining}</span>일</div>
-              </div>
-            </div>
-            <div class="progress-bar-outer" style="height:8px;border-radius:5px;">
-              <div class="progress-bar-inner" style="width:${admitProg.pct}%;height:100%;border-radius:5px;"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 회차 진행현황 (리포트 생성 기준) -->
-        <div class="card top-info-card" id="round-progress-card" style="flex:1 1 220px;min-width:0;display:flex;flex-direction:column;min-height:220px;">
-          <div class="card-header" style="padding:8px 14px;flex-shrink:0;">
-            <h2 class="card-title" style="font-size:20px;"><span class="card-title-dot"></span>진행현황 <span style="font-size:18px;font-weight:400;color:var(--color-gray-400);">(리포트 기준)</span></h2>
-          </div>
-          <div class="card-body" style="padding:12px 14px;flex:1;display:flex;flex-direction:column;justify-content:center;" id="round-progress-body">
-            <div style="font-size:18px;color:var(--color-gray-400);">불러오는 중...</div>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- ③ 하단: 회차탭(1~max) + 통합리포트 탭 -->
-      <div class="card" style="overflow:visible;">
-        <div class="card-header" style="padding:10px 16px;border-bottom:2px solid var(--color-gray-200);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;">
-          <div style="display:flex;gap:0;align-items:stretch;flex-wrap:wrap;">
-            ${Array.from({length:c.totalRounds||0},(_,i)=>i+1).map(n=>`
-              <button class="round-tab${(this.activeDetailTab==='rounds'||this.activeDetailTab==='trend'||this.activeDetailTab==='comment')&&this.activeRound===n?' active':''}" data-main-tab="round" data-round="${n}" style="font-size:18px;padding:8px 14px;">${this._weekLabelShort(n)}</button>
-            `).join('')}
-            <button class="round-tab${this.activeDetailTab==='report'?' active':''}" data-main-tab="report" style="font-size:18px;padding:8px 14px;border-left:2px solid var(--color-gray-200);">📊 통합 리포트</button>
-          </div>
-          <!-- 우측 상태값: 리포트 상태 배지 (report 탭이 아닐 때 현재 선택 회차 상태 표시) -->
-          <div style="flex-shrink:0;display:flex;align-items:center;gap:8px;margin-left:8px;" id="tab-status-area">
-            ${this.activeDetailTab!=='report'&&this.activeDetailTab!=='trend'&&this.activeDetailTab!=='comment'?`<span id="round-report-status-badge"></span>`:``}
-          </div>
-        </div>
-        <div id="detail-tab-content" style="overflow:visible;padding-top:10px;padding-bottom:10px;box-sizing:border-box;"></div>
-      </div>`;
-
-    document.getElementById('back-btn').addEventListener('click', () => Router.navigate('clients'));
-
-    // 평가 입력 버튼: 현재 진행 회차로 평가관리 이동
-    document.getElementById('goto-assess-btn')?.addEventListener('click', () => {
-      const c = this.client;
-      const currentRound = Math.min(c.doneRounds + 1, c.totalRounds) || 1;
-      AssessmentsPage._pendingClientId = c.clientId;
-      AssessmentsPage._pendingRound    = currentRound;
-      Router.navigate('assessments');
-    });
-
-    if (this.canWrite()) {
-      document.getElementById('edit-client-btn')?.addEventListener('click', () => {
-        ClientsPage._openEditModal(this.client, () => this.render(this.client.clientId));
-      });
-      document.getElementById('delete-client-btn')?.addEventListener('click', () => {
-        ClientsPage._handleDelete(this.client.clientId, this.client.name, () => Router.navigate('clients'));
-      });
-    }
-
-    container.querySelectorAll('[data-main-tab]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        if (btn.dataset.mainTab === 'report') {
-          this.activeDetailTab = 'report';
-        } else {
-          this.activeRound = Number(btn.dataset.round);
-          if (this.activeDetailTab === 'report') this.activeDetailTab = 'rounds';
-          this._roundSelected = true;
-        }
-        container.querySelectorAll('[data-main-tab]').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        this._renderDetailTab();
-        // 상태 배지 갱신 (변화추이 탭에서는 표시 안 함)
-        const sa = document.getElementById('tab-status-area');
-        if (sa) {
-          if (this.activeDetailTab === 'report' || this.activeDetailTab === 'trend' || this.activeDetailTab === 'comment') {
-            sa.innerHTML = '';
-          } else {
-            sa.innerHTML = '<span id="round-report-status-badge"></span>';
-            this._updateRoundStatusBadge();
-          }
-        }
-      });
-    });
-
-    // 회차 진행현황: 리포트 생성 기준으로 비동기 로드
-    this._loadRoundProgress();
-    // 최초 진입 시 가장 최근 평가 회차 자동 선택
-    if (!this._roundSelected) {
-      this.activeRound = Math.min(this.client.doneRounds || 1, this.client.totalRounds || 1);
-      this._roundSelected = true;
-      this.activeDetailTab = 'rounds';
-    }
-    this._renderDetailTab();
+  getClientDetail: async function(cid) {
+    try {
+      const cc = AppConfig.CLIENT_COLS;
+      const mc = AppConfig.MASTER_COLS;
+      const [rows, masterRows] = await Promise.all([
+        this._get(AppConfig.TABLES.CLIENTS,       `${cc.CLIENT_ID}=eq.${encodeURIComponent(cid)}&limit=1`),
+        this._get(AppConfig.TABLES.ASSESS_MASTER, `${mc.CLIENT_ID}=eq.${encodeURIComponent(cid)}&select=${mc.ROUND},${mc.REPORT_GENERATED}`)
+      ]);
+      if (!rows.length) return { status:'error', message:'고객을 찾을 수 없습니다.' };
+      const client = this._rowToClient(rows[0]);
+      let maxDone = 0;
+      masterRows.forEach(r => { if (r[mc.REPORT_GENERATED]) { const rnd = Number(r[mc.ROUND]||0); if (rnd > maxDone) maxDone = rnd; } });
+      client.doneRounds = maxDone;
+      return { status:'success', data: { client } };
+    } catch(e) { return { status:'error', message:'고객 상세 조회 오류: ' + e.message }; }
   },
 
-  // 현재 선택 회차의 리포트 상태 배지 갱신
-  _updateRoundStatusBadge: function() {
-    const badge = document.getElementById('round-report-status-badge');
-    if (!badge) return;
-    const masterList = this._masterListCache || [];
-    const m = masterList.find(x => x.round === this.activeRound);
-    if (m && m.reportGenerated) {
-      badge.innerHTML = `<span class="badge badge-active">📄 리포트 완료</span>`;
-    } else if (m) {
-      badge.innerHTML = `<span class="badge badge-inactive">진행중</span>`;
+  createClient: async function(d) {
+    try {
+      const c = AppConfig.CLIENT_COLS;
+      const T = AppConfig.TABLES.CLIENTS;
+      const exists = await this._get(T, `${c.CLIENT_ID}=eq.${encodeURIComponent(d.clientId)}&limit=1`);
+      if (exists.length) return { status:'error', message:'이미 사용 중인 고객 ID입니다.' };
+      const periodMap    = await this.getPeriodMap();
+      const periodInfo   = periodMap[d.admitPeriod] || { days:0, totalRounds:0 };
+      const endDate      = this._calcEndDateFromDays(d.admitDate, periodInfo.days);
+      const totalRounds  = periodInfo.totalRounds;
+      const status      = this._calcClientStatus(d.admitDate, endDate);
+      await this._post(T, {
+        [c.CLIENT_ID]:    d.clientId,    [c.NAME]:         d.name,
+        [c.BIRTH_DATE]:   d.birthDate,   [c.GENDER]:       d.gender,
+        [c.PHONE]:        d.phone,       [c.FIRST_VISIT]:  d.firstVisit,
+        [c.ADMIT_DATE]:   d.admitDate,   [c.ADMIT_PERIOD]: d.admitPeriod,
+        [c.END_DATE]:     endDate,       [c.TOTAL_ROUNDS]: totalRounds,
+        [c.DONE_ROUNDS]:  0,             [c.STATUS]:       status,
+        [c.ROOM_NUM]:     d.roomNum || null, [c.NOTE]:     d.note || ''
+      });
+      this._bust('getClients','getClientDetail','getInitialData');
+      return { status:'success', data: { clientId: d.clientId, name: d.name, status, endDate, totalRounds, doneRounds: 0 } };
+    } catch(e) { return { status:'error', message:'고객 등록 오류: ' + e.message }; }
+  },
+
+  updateClient: async function(d) {
+    try {
+      const c = AppConfig.CLIENT_COLS;
+      const T = AppConfig.TABLES.CLIENTS;
+      const periodMap    = await this.getPeriodMap();
+      const periodInfo   = periodMap[d.admitPeriod] || { days:0, totalRounds:0 };
+      const endDate      = this._calcEndDateFromDays(d.admitDate, periodInfo.days);
+      const totalRounds  = periodInfo.totalRounds;
+      const status      = this._calcClientStatus(d.admitDate, endDate);
+      const rows = await this._get(T, `${c.CLIENT_ID}=eq.${encodeURIComponent(d.clientId)}&select=${c.DONE_ROUNDS}&limit=1`);
+      const existDone = rows.length ? Number(rows[0][c.DONE_ROUNDS] || 0) : 0;
+      const doneRounds = Math.min(existDone, totalRounds);
+      const update = {
+        [c.NAME]: d.name,           [c.BIRTH_DATE]:   d.birthDate,
+        [c.GENDER]: d.gender,       [c.PHONE]:        d.phone,
+        [c.FIRST_VISIT]: d.firstVisit, [c.ADMIT_DATE]: d.admitDate,
+        [c.ADMIT_PERIOD]: d.admitPeriod, [c.END_DATE]:  endDate,
+        [c.TOTAL_ROUNDS]: totalRounds,   [c.DONE_ROUNDS]: doneRounds,
+        [c.STATUS]: status, [c.ROOM_NUM]: d.roomNum || null, [c.NOTE]: d.note || ''
+      };
+      if (d.newClientId && d.newClientId !== d.clientId) {
+        const dup = await this._get(T, `${c.CLIENT_ID}=eq.${encodeURIComponent(d.newClientId)}&limit=1`);
+        if (dup.length) return { status:'error', message:'이미 사용 중인 고객 ID입니다.' };
+        update[c.CLIENT_ID] = d.newClientId;
+      }
+      await this._patch(T, `${c.CLIENT_ID}=eq.${encodeURIComponent(d.clientId)}`, update);
+      this._bust('getClients','getClientDetail','getInitialData');
+      return { status:'success', data: { message:'고객 정보가 수정되었습니다.', status, endDate, totalRounds } };
+    } catch(e) { return { status:'error', message:'고객 수정 오류: ' + e.message }; }
+  },
+
+  deleteClient: async function(cid) {
+    try {
+      const c = AppConfig.CLIENT_COLS;
+      await this._delete(AppConfig.TABLES.CLIENTS, `${c.CLIENT_ID}=eq.${encodeURIComponent(cid)}`);
+      this._bust('getClients','getClientDetail','getClientMasterList','getInitialData');
+      return { status:'success', data: { message:'고객이 삭제되었습니다.' } };
+    } catch(e) { return { status:'error', message:'고객 삭제 오류: ' + e.message }; }
+  },
+
+  updateClientStatus: async function() {
+    try {
+      const c = AppConfig.CLIENT_COLS;
+      const rows = await this._get(AppConfig.TABLES.CLIENTS, `select=${c.CLIENT_ID},${c.ADMIT_DATE},${c.END_DATE}`);
+      await Promise.all(rows.map(row =>
+        this._patch(AppConfig.TABLES.CLIENTS,
+          `${c.CLIENT_ID}=eq.${encodeURIComponent(row[c.CLIENT_ID])}`,
+          { [c.STATUS]: this._calcClientStatus(this._safeDateStr(row[c.ADMIT_DATE]), this._safeDateStr(row[c.END_DATE])) })
+      ));
+      this._bust('getClients','getInitialData');
+      return { status:'success', data: { message:`${rows.length}명 상태 업데이트 완료` } };
+    } catch(e) { return { status:'error', message:'상태 업데이트 오류: ' + e.message }; }
+  },
+
+  // ============================================================
+  // ── 평가 조회 API ──────────────────────────────────────────
+  // ============================================================
+
+  getInitialData: async function() {
+    const cached = this._getCached('getInitialData', {});
+    if (cached) return cached;
+    try {
+      const cc = AppConfig.CLIENT_COLS;
+      const mc = AppConfig.MASTER_COLS;
+      const [clientRows, masterRows] = await Promise.all([
+        this._get(AppConfig.TABLES.CLIENTS,       `select=*&order=${cc.CLIENT_ID}.asc`),
+        this._get(AppConfig.TABLES.ASSESS_MASTER, `select=*`)
+      ]);
+      const overview = {}, doneByClient = {};
+      masterRows.forEach(row => {
+        const cid   = this._safeStr(row[mc.CLIENT_ID]);
+        const round = Number(row[mc.ROUND] || 0);
+        if (!cid) return;
+        if (!overview[cid]) overview[cid] = { rounds: {} };
+        const reported = !!row[mc.REPORT_GENERATED];
+        if (reported && (!doneByClient[cid] || round > doneByClient[cid])) doneByClient[cid] = round;
+        overview[cid].rounds[round] = {
+          round,
+          doneCats: [!!row[mc.COGNITIVE_DONE],!!row[mc.MOVEMENT_DONE],!!row[mc.METABOLISM_DONE],!!row[mc.COMMENT_DONE]].filter(Boolean).length,
+          reportGenerated: reported,
+          cognitiveDone:   !!row[mc.COGNITIVE_DONE],
+          movementDone:    !!row[mc.MOVEMENT_DONE],
+          metabolismDone:  !!row[mc.METABOLISM_DONE],
+          commentDone:     !!row[mc.COMMENT_DONE],
+          createdAt:       this._safeStr(row[mc.CREATED_AT]),
+          assessDate:      this._safeDateStr(row[mc.ASSESS_DATE]),
+          reportCreatedAt: this._safeStr(row[mc.REPORT_CREATED_AT])
+        };
+      });
+      const clients = clientRows.map(row => {
+        const c = this._rowToClient(row);
+        c.doneRounds = doneByClient[c.clientId] || 0;
+        return c;
+      });
+      const result = { status:'success', data: { clients, overview } };
+      this._setCache('getInitialData',    {}, result);
+      this._setCache('getClients',        {}, { status:'success', data: { clients } });
+      this._setCache('getAssessOverview', {}, { status:'success', data: { overview } });
+      return result;
+    } catch(e) { return { status:'error', message:'초기 데이터 조회 오류: ' + e.message }; }
+  },
+
+  getAssessOverview: async function() {
+    const cached = this._getCached('getAssessOverview', {});
+    if (cached) return cached;
+    try {
+      const mc = AppConfig.MASTER_COLS;
+      const rows = await this._get(AppConfig.TABLES.ASSESS_MASTER, `select=*`);
+      const overview = {};
+      rows.forEach(row => {
+        const cid = this._safeStr(row[mc.CLIENT_ID]), round = Number(row[mc.ROUND] || 0);
+        if (!cid) return;
+        if (!overview[cid]) overview[cid] = { rounds: {} };
+        overview[cid].rounds[round] = {
+          round,
+          doneCats: [!!row[mc.COGNITIVE_DONE],!!row[mc.MOVEMENT_DONE],!!row[mc.METABOLISM_DONE],!!row[mc.COMMENT_DONE]].filter(Boolean).length,
+          reportGenerated: !!row[mc.REPORT_GENERATED],
+          cognitiveDone:   !!row[mc.COGNITIVE_DONE],
+          movementDone:    !!row[mc.MOVEMENT_DONE],
+          metabolismDone:  !!row[mc.METABOLISM_DONE],
+          commentDone:     !!row[mc.COMMENT_DONE],
+          createdAt:       this._safeStr(row[mc.CREATED_AT]),
+          assessDate:      this._safeDateStr(row[mc.ASSESS_DATE]),
+          reportCreatedAt: this._safeStr(row[mc.REPORT_CREATED_AT])
+        };
+      });
+      const result = { status:'success', data: { overview } };
+      this._setCache('getAssessOverview', {}, result);
+      return result;
+    } catch(e) { return { status:'error', message:'평가 현황 조회 오류: ' + e.message }; }
+  },
+
+  getClientMasterList: async function(cid) {
+    try {
+      const mc = AppConfig.MASTER_COLS;
+      const masterRows = await this._get(AppConfig.TABLES.ASSESS_MASTER,
+        `${mc.CLIENT_ID}=eq.${encodeURIComponent(cid)}&select=*&order=${mc.ROUND}.asc`);
+      // ✅ 인지 6개 지표(주의집중력/언어능력/시공간기능/기억력(언어)/기억력(시각)/집행기능)가
+      //    이제 평가_Master 에 전부 캐시되어 있으므로, 인지_실비아 테이블과 별도 join이 필요 없습니다.
+      const masterList = masterRows.map(row => this._rowToMaster(row));
+      return { status:'success', data: { masterList } };
+    } catch(e) { return { status:'error', message:'Master 목록 조회 오류: ' + e.message }; }
+  },
+
+  getRoundData: async function(cid, round) {
+    try {
+      const enc = encodeURIComponent;
+      const mc = AppConfig.MASTER_COLS; const cc = AppConfig.COG_COLS;
+      const ec = AppConfig.ERGO_COLS;   const xc = AppConfig.EVEREX_COLS;
+      const fc = AppConfig.FRA_COLS;    const ic = AppConfig.INBODY_COLS;
+      const sc = AppConfig.STRESS_COLS; const cmc = AppConfig.COMMENT_COLS;
+
+      const [masterRows,cogRows,ergoRows,everexRows,fraRows,inbodyRows,stressRows,commentRows] = await Promise.all([
+        this._get(AppConfig.TABLES.ASSESS_MASTER,       `${mc.CLIENT_ID}=eq.${enc(cid)}&${mc.ROUND}=eq.${round}&limit=1`),
+        this._get(AppConfig.TABLES.COGNITIVE,           `${cc.CLIENT_ID}=eq.${enc(cid)}&${cc.ROUND}=eq.${round}&limit=1`),
+        this._get(AppConfig.TABLES.MOVEMENT_ERGO,       `${ec.CLIENT_ID}=eq.${enc(cid)}&${ec.ROUND}=eq.${round}&limit=1`),
+        this._get(AppConfig.TABLES.MOVEMENT_EVEREX,     `${xc.CLIENT_ID}=eq.${enc(cid)}&${xc.ROUND}=eq.${round}&limit=1`),
+        this._get(AppConfig.TABLES.MOVEMENT_INBODY_FRA, `${fc.CLIENT_ID}=eq.${enc(cid)}&${fc.ROUND}=eq.${round}&limit=1`),
+        this._get(AppConfig.TABLES.METABOLISM_INBODY,   `${ic.CLIENT_ID}=eq.${enc(cid)}&${ic.ROUND}=eq.${round}&limit=1`),
+        this._get(AppConfig.TABLES.METABOLISM_STRESS,   `${sc.CLIENT_ID}=eq.${enc(cid)}&${sc.ROUND}=eq.${round}&limit=1`),
+        this._get(AppConfig.TABLES.COMMENT,             `${cmc.CLIENT_ID}=eq.${enc(cid)}&${cmc.ROUND}=eq.${round}&limit=1`)
+      ]);
+
+      const masterData = masterRows.length ? this._rowToMaster(masterRows[0]) : null;
+      // ✅ 인지 6개 지표는 이제 masterData에 이미 포함되어 있으므로 cogRows에서 재할당하지 않습니다.
+      return { status:'success', data: {
+        master:    masterData,
+        cognitive: cogRows.length    ? this._rowToCognitive(cogRows[0])    : null,
+        ergo:      ergoRows.length   ? this._rowToErgo(ergoRows[0])        : null,
+        everex:    everexRows.length ? this._rowToEverex(everexRows[0])    : null,
+        fra:       fraRows.length    ? this._rowToFra(fraRows[0])          : null,
+        inbody:    inbodyRows.length ? this._rowToInbody(inbodyRows[0])    : null,
+        stress:    stressRows.length ? this._rowToStress(stressRows[0])    : null,
+        comment:   commentRows.length? this._rowToComment(commentRows[0])  : null
+      }};
+    } catch(e) { return { status:'error', message:'회차 데이터 조회 오류: ' + e.message }; }
+  },
+
+  _refreshMasterFlags: async function(cid, round) {
+    const enc = encodeURIComponent;
+    const mc  = AppConfig.MASTER_COLS;
+    const cc  = AppConfig.COG_COLS;  const ec  = AppConfig.ERGO_COLS;
+    const xc  = AppConfig.EVEREX_COLS; const fc = AppConfig.FRA_COLS;
+    const ic  = AppConfig.INBODY_COLS; const sc = AppConfig.STRESS_COLS;
+    const cmc = AppConfig.COMMENT_COLS;
+
+    const [cogR,ergoR,evxR,fraR,inbR,strR,cmtR] = await Promise.all([
+      this._get(AppConfig.TABLES.COGNITIVE,           `${cc.CLIENT_ID}=eq.${enc(cid)}&${cc.ROUND}=eq.${round}&limit=1`),
+      this._get(AppConfig.TABLES.MOVEMENT_ERGO,       `${ec.CLIENT_ID}=eq.${enc(cid)}&${ec.ROUND}=eq.${round}&limit=1`),
+      this._get(AppConfig.TABLES.MOVEMENT_EVEREX,     `${xc.CLIENT_ID}=eq.${enc(cid)}&${xc.ROUND}=eq.${round}&limit=1`),
+      this._get(AppConfig.TABLES.MOVEMENT_INBODY_FRA, `${fc.CLIENT_ID}=eq.${enc(cid)}&${fc.ROUND}=eq.${round}&limit=1`),
+      this._get(AppConfig.TABLES.METABOLISM_INBODY,   `${ic.CLIENT_ID}=eq.${enc(cid)}&${ic.ROUND}=eq.${round}&limit=1`),
+      this._get(AppConfig.TABLES.METABOLISM_STRESS,   `${sc.CLIENT_ID}=eq.${enc(cid)}&${sc.ROUND}=eq.${round}&limit=1`),
+      this._get(AppConfig.TABLES.COMMENT,             `${cmc.CLIENT_ID}=eq.${enc(cid)}&${cmc.ROUND}=eq.${round}&limit=1`)
+    ]);
+    const cmRow = cmtR[0];
+    const flags = {
+      [mc.COGNITIVE_DONE]:  cogR.length > 0,
+      [mc.MOVEMENT_DONE]:   ergoR.length > 0 && evxR.length > 0 && fraR.length > 0,
+      [mc.METABOLISM_DONE]: inbR.length > 0 && strR.length > 0,
+      [mc.COMMENT_DONE]:    cmRow ? !!(cmRow[cmc.COG_COMMENT] || cmRow[cmc.EX_COMMENT] || cmRow[cmc.CM_COMMENT]) : false
+    };
+    const existing = await this._get(AppConfig.TABLES.ASSESS_MASTER,
+      `${mc.CLIENT_ID}=eq.${enc(cid)}&${mc.ROUND}=eq.${round}&limit=1`);
+    if (existing.length) {
+      await this._patch(AppConfig.TABLES.ASSESS_MASTER,
+        `${mc.CLIENT_ID}=eq.${enc(cid)}&${mc.ROUND}=eq.${round}`, flags);
     } else {
-      badge.innerHTML = '';
-    }
-  },
-
-  _loadRoundProgress: async function() {
-    const body = document.getElementById('round-progress-body');
-    const statusBadge = document.getElementById('report-status-badge');
-    if (!body && !statusBadge) return;
-    try {
-      const c = this.client;
-      // render()에서 병렬 로드된 캐시 사용 → 추가 왕복 없음
-      if (!this._masterListCache) {
-        const res = await API.getClientMasterList(c.clientId);
-        this._masterListCache = (res.status==='success' ? res.data.masterList : []) || [];
-      }
-      const masterList = this._masterListCache;
-      this._updateRoundStatusBadge();
-      const reportedRounds = masterList.filter(m=>m.reportGenerated).length;
-      const totalRounds = c.totalRounds || 0;
-      const pct = totalRounds > 0 ? Math.round(reportedRounds/totalRounds*100) : 0;
-
-      // 이름 옆 리포트 상태 배지
-      if (statusBadge) {
-        let label, cls;
-        if (totalRounds === 0) { label = '회차 없음'; cls = 'badge-inactive'; }
-        else if (reportedRounds === 0) { label = '리포트 미생성'; cls = 'badge-inactive'; }
-        else if (reportedRounds < totalRounds) { label = `리포트 ${reportedRounds}/${totalRounds}`; cls = 'badge-active'; }
-        else { label = '리포트 전체 완료'; cls = 'badge-active'; }
-        statusBadge.innerHTML = `<span class="badge ${cls}">${label}</span>`;
-      }
-
-      if (body) body.innerHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:10px;">
-          <div>
-            <div style="font-size:36px;font-weight:800;color:#4CAF50;line-height:1;">${reportedRounds}<span style="font-size:18px;color:var(--color-gray-400);"> / ${totalRounds}</span></div>
-            <div style="font-size:18px;color:var(--color-gray-500);margin-top:3px;">리포트 생성 완료</div>
-          </div>
-          <div style="text-align:right;">
-            <div style="font-size:18px;color:var(--color-gray-500);">달성률 <span style="font-size:20px;font-weight:700;color:#2E7D32;">${pct}</span>%</div>
-          </div>
-        </div>
-        <div class="progress-bar-outer" style="height:8px;border-radius:5px;">
-          <div class="progress-bar-inner round" style="width:${pct}%;height:100%;border-radius:5px;"></div>
-        </div>`;
-    } catch(e) {
-      const body2 = document.getElementById('round-progress-body');
-      if (body2) body2.innerHTML = '<div style="font-size:18px;color:var(--color-gray-400);">불러오기 실패</div>';
-    }
-  },
-
-  _renderDetailTab: function() {
-    const content = document.getElementById('detail-tab-content');
-    if (!content) return;
-    if (this.activeDetailTab === 'report') { this._renderReportTab(content); return; }
-    if (!this.client.totalRounds) {
-      content.innerHTML = `<div class="empty-state" style="padding:48px;"><div class="empty-state-icon">📋</div><div class="empty-state-text">평가 일정 정보 없음</div></div>`;
-      return;
-    }
-
-    // 서브탭(평가점수/변화추이/전문가 코멘트)
-    const activeSubTab = this.activeDetailTab === 'trend' ? 'trend' : this.activeDetailTab === 'comment' ? 'comment' : 'scores';
-    const subTabs = [
-      {key:'scores',  icon:'📊', label:'평가 점수'},
-      {key:'trend',   icon:'📈', label:'기간별 지표 변화'},
-      {key:'comment', icon:'💬', label:'전문가 코멘트'}
-    ];
-    content.innerHTML = `
-      <div style="display:flex;gap:0;padding:0 16px;border-bottom:1px solid var(--color-gray-100);background:var(--color-gray-50);">
-        ${subTabs.map(t=>`<button data-sub-tab="${t.key}" style="padding:8px 16px;font-size:18px;font-weight:600;background:none;border:none;border-bottom:2px solid ${activeSubTab===t.key?'var(--color-primary)':'transparent'};color:${activeSubTab===t.key?'var(--color-primary)':'var(--color-gray-500)'};cursor:pointer;">${t.icon} ${t.label}</button>`).join('')}
-      </div>
-      <div id="round-content"></div>`;
-
-    content.querySelectorAll('[data-sub-tab]').forEach(btn=>{
-      btn.addEventListener('click',()=>{
-        this.activeDetailTab = btn.dataset.subTab==='trend' ? 'trend' : btn.dataset.subTab==='comment' ? 'comment' : 'rounds';
-        this._renderDetailTab();
+      await this._post(AppConfig.TABLES.ASSESS_MASTER, {
+        [mc.REPORT_ID]:  this._generateId(),
+        [mc.CLIENT_ID]:  String(cid), [mc.ROUND]: Number(round),
+        [mc.CREATED_AT]: this._now(), ...flags
       });
-    });
-    this._loadRoundOrTrend();
-  },
-
-  // 상위 회차탭(초기/4주차...) 클릭 시 현재 활성 서브탭(평가점수/변화추이/코멘트)에 맞게 다시 로드
-  _loadRoundOrTrend: function() {
-    const mode = this.activeDetailTab === 'trend' ? 'trend' : this.activeDetailTab === 'comment' ? 'comment' : 'scores';
-    this._loadRoundData(mode);
-  },
-
-  _hasAnyRoundData: function(data) {
-    return !!(data?.cognitive||data?.ergo||data?.everex||data?.fra||data?.inbody||data?.stress);
-  },
-
-  _loadRoundData: async function(mode) {
-    mode = mode || 'scores';
-    const el = document.getElementById('round-content');
-    if (!el) return;
-
-    // 주차 탭을 선택하지 않은 초기 상태
-    if (!this._roundSelected) {
-      el.innerHTML = `
-        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:56px 24px;gap:14px;color:var(--color-gray-400);">
-          <svg width="48" height="48" fill="none" stroke="currentColor" viewBox="0 0 24 24" opacity="0.35">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-          </svg>
-          <div style="font-size:14px;font-weight:600;color:var(--color-gray-500);">주차를 선택하시면 평가 내역을 확인할 수 있습니다</div>
-          <div style="font-size:18px;color:var(--color-gray-400);">위의 초기·4주차·8주차 등 탭을 클릭해 주세요</div>
-        </div>`;
-      return;
     }
+    return flags;
+  },
 
-    // 변화추이/전문가 코멘트 탭: 선택된 회차 자체에 평가 데이터가 없으면 평가점수 탭과 동일한 안내 문구 표시
-    const noDataMsg = () => {
-      el.innerHTML = `<div class="empty-state" style="padding:36px;"><div class="empty-state-icon">📝</div><div class="empty-state-text">${this._weekEvalLabel(this.activeRound)} 데이터가 없습니다.</div></div>`;
-    };
-    const renderFn = mode === 'comment' ? this._renderCommentContent.bind(this)
-                    : mode === 'trend'   ? (() => this._renderTrendInEl(el))
-                    : this._renderRoundContent.bind(this);
+  // ============================================================
+  // ── 평가 저장 API ──────────────────────────────────────────
+  // ============================================================
 
-    // ── 회차별 데이터 캐시: 이미 조회한 회차는 즉시 렌더 ──
-    if (!this._roundDataCache) this._roundDataCache = {};
-    const cached = this._roundDataCache[this.activeRound];
-    if (cached) {
-      if (mode !== 'scores' && !this._hasAnyRoundData(cached)) { noDataMsg(); return; }
-      renderFn(el, cached);
-      return;
-    }
-
-    el.innerHTML = '<div class="empty-state"><div class="spinner" style="margin:0 auto;"></div></div>';
+  saveCognitive: async function(cid, round, d) {
     try {
-      const res = await API.getRoundData(this.client.clientId, this.activeRound);
-      if (res.status === 'success') {
-        // 캐시 저장 후 렌더
-        this._roundDataCache[this.activeRound] = res.data;
-        if (mode !== 'scores' && !this._hasAnyRoundData(res.data)) { noDataMsg(); return; }
-        renderFn(el, res.data);
+      const c = AppConfig.COG_COLS; const mc = AppConfig.MASTER_COLS;
+      const enc = encodeURIComponent; const now = this._now();
+      const n = v => (v !== null && v !== undefined && v !== '') ? Number(v) : null;
+      const row = {
+        [c.CLIENT_ID]: String(cid), [c.MEASURE_DATE]: String(d.measureDate||''),
+        [c.ROUND]: Number(round),
+        [c.ATTENTION]:     n(d.attention),
+        [c.LANGUAGE]:      n(d.language),
+        [c.SPATIAL]:       n(d.spatial),
+        [c.MEMORY_VERBAL]: n(d.memoryVerbal),
+        [c.MEMORY_VISUAL]: n(d.memoryVisual),
+        [c.EXECUTIVE]:     n(d.executive),
+        [c.CREATED_AT]: now
+      };
+      const existing = await this._get(AppConfig.TABLES.COGNITIVE, `${c.CLIENT_ID}=eq.${enc(cid)}&${c.ROUND}=eq.${round}&limit=1`);
+      if (existing.length) {
+        await this._patch(AppConfig.TABLES.COGNITIVE, `${c.CLIENT_ID}=eq.${enc(cid)}&${c.ROUND}=eq.${round}`, row);
       } else {
-        el.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">${res.message}</div></div>`;
+        await this._post(AppConfig.TABLES.COGNITIVE, { [c.ASSESS_ID]: this._generateId(), ...row });
       }
-    } catch {
-      el.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🔌</div><div class="empty-state-text">연결 오류</div></div>';
-    }
+      const flags = await this._refreshMasterFlags(cid, round);
+      await this._patch(AppConfig.TABLES.ASSESS_MASTER, `${mc.CLIENT_ID}=eq.${enc(cid)}&${mc.ROUND}=eq.${round}`, {
+        [mc.ATTENTION]:     n(d.attention),
+        [mc.LANGUAGE]:      n(d.language),
+        [mc.SPATIAL]:       n(d.spatial),
+        [mc.MEMORY_VERBAL]: n(d.memoryVerbal),
+        [mc.MEMORY_VISUAL]: n(d.memoryVisual),
+        [mc.EXECUTIVE]:     n(d.executive),
+        ...flags
+      });
+      this._bust('getRoundData','getClientMasterList','getAssessOverview','getInitialData');
+      return { status:'success', data: { message:'인지평가가 저장되었습니다.' } };
+    } catch(e) { return { status:'error', message:'인지평가 저장 오류: ' + e.message }; }
   },
 
-  // ══════════════════════════════════════════════════════════
-  // 회차별 평가 결과 탭 — Assessment(AssessVisuals) 컴포넌트를
-  // 그대로 재사용하는 "읽기 전용" 렌더러
-  // ══════════════════════════════════════════════════════════
-  _renderRoundContent: function(el, data) {
-    const round = this.activeRound;
-    const master = data?.master;
-    const cog  = data?.cognitive;
-    const ergo = data?.ergo;
-    const evx  = data?.everex;
-    const fra  = data?.fra;
-    const inb  = data?.inbody;
-    const str  = data?.stress;
-    const cmt  = data?.comment;
-
-    const hasAny = !!(cog||ergo||evx||fra||inb||str);
-    if (!hasAny) {
-      el.innerHTML = `<div class="empty-state" style="padding:36px;"><div class="empty-state-icon">📝</div><div class="empty-state-text">${this._weekEvalLabel(round)} 데이터가 없습니다.</div></div>`;
-      return;
-    }
-
-    const AV = AssessVisuals;
-    const BR = AV.UI_BR, INK = AV.UI_INK, G500 = AV.UI_G500, CREAM2 = AV.UI_CREAM2, BR_DARK = AV.UI_BR_DARK;
-    const gender = this.client?.gender, birthDate = this.client?.birthDate;
-
-    // ── 평가항목 카드: 라벨(좌측정렬) → 시각화(값 내장) → 상태배지 → 범례(1행) ──
-    const itemCard = (label, vizHtml, badgeHtml, legendHtml) => `
-      <div style="flex:1 1 170px;min-width:150px;display:flex;flex-direction:column;align-items:center;padding:16px 14px;border-radius:10px;background:#fff;border:1px solid ${CREAM2};box-sizing:border-box;">
-        <div style="font-size:12px;font-weight:700;color:${INK};margin-bottom:12px;align-self:flex-start;text-transform:uppercase;letter-spacing:0.02em;">${label}</div>
-        <div style="flex:1;display:flex;align-items:center;justify-content:center;width:100%;">${vizHtml || `<span style="font-size:12px;color:${G500};">데이터 없음</span>`}</div>
-        ${badgeHtml ? `<div style="margin-top:10px;">${badgeHtml}</div>` : ''}
-        ${legendHtml ? `<div style="width:100%;margin-top:10px;">${legendHtml}</div>` : ''}
-      </div>`;
-
-    // ── 섹션 카드(흰 배경 + 연한 브라운 테두리) — 평가결과 그리드만 (전문가 코멘트는 별도 탭으로 이동) ──
-    const secCard = (icon, title, gridItemsHtml) => `
-      <div style="background:#fff;border:1px solid ${CREAM2};border-radius:10px;padding:14px 18px;box-sizing:border-box;margin-bottom:14px;">
-        ${AV.uiSectionHead(icon, title)}
-        <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:stretch;">${gridItemsHtml}</div>
-      </div>`;
-
-    // 평가일 표시 헬퍼
-    const dateTag = (d) => d ? `<span style="font-size:11.5px;font-weight:400;color:${G500};margin-left:6px;">[평가일: ${d}]</span>` : '';
-    const cogDate  = cog?.measureDate||'';
-    const moveDate = [ergo?.measureDate,evx?.measureDate,fra?.measureDate].filter(Boolean).sort().pop()||'';
-    const metaDate = [inb?.measureDate,str?.measureDate].filter(Boolean).sort().pop()||'';
-
-    // FRA 기준 항목명 (StandardsCache — 없으면 기본값)
-    const nervItems = (typeof StandardsCache!=='undefined'&&StandardsCache.get('inbodyFra_nervous'))||
-      [{label:'신경계 평가'},{label:'반응시간 평가'},{label:'자세유지시간 평가'}];
-    const balItems  = (typeof StandardsCache!=='undefined'&&StandardsCache.get('inbodyFra_balance'))||
-      [{label:'통합 균형 능력 평가'},{label:'빠르게 무게중심 옮기기'},{label:'과녁 따라 무게중심'}];
-    const sensItems = (typeof StandardsCache!=='undefined'&&StandardsCache.get('inbodyFra_sensory'))||
-      [{label:'감각계 평가'},{label:'체성감각 평가'},{label:'시각 평가'},{label:'전정감각 평가'}];
-
-    // ── 움직임평가: 심폐기능은 리포트와 동일한 그라데이션 막대 + 범례 1행, FRA는 막대형 ──
-    const cardioIdxLabel = ergo?.cardioScore!=null ? AV.calcCardioIndex(ergo.cardioScore, gender, birthDate) : null;
-    const cardioGrade = cardioIdxLabel
-      ? (() => { const m = AV._cardioGrades(gender).find(g=>cardioIdxLabel.includes(g.l)); return m?{label:cardioIdxLabel,color:m.color}:null; })()
-      : null;
-    const moveGridHtml = !(ergo||evx||fra) ? '' : [
-      itemCard('심폐기능지수 (VO2peak)',
-        ergo?.cardioScore!=null ? `<div style="width:100%;"><div style="text-align:center;margin-bottom:6px;"><span style="font-size:24px;font-weight:800;color:${cardioGrade?.color||INK};">${ergo.cardioScore}</span><span style="font-size:11px;color:${G500};"> ml/kg/min</span></div>${AV.cardioBar(ergo.cardioScore, gender, birthDate)}${AV.cardioBarLabels(ergo.cardioScore, gender, birthDate)}</div>` : '',
-        null, ergo?.cardioScore!=null ? AV.legendListRow(AV.cardioLegendItems(ergo.cardioScore, gender, birthDate)) : null),
-      itemCard('신체움직임점수', AV.uiScoreWithBar(evx?.bodyMovementIndex, 100, '#0288D1'), null, null),
-      itemCard('신경계',       AV.fraBarBlock('신경계 점수', fra?.nervousScore, 100, nervItems), null, null),
-      itemCard('통합균형능력', AV.fraBarBlock('통합 균형능력', fra?.balanceScore, 100, balItems), null, null),
-      itemCard('감각계',       AV.fraBarBlock('감각계 점수', fra?.sensoryScore, 100, sensItems), null, null),
-    ].join('');
-
-    // ── 대사평가: 스트레스도 동일한 그라데이션 막대 + 범례 1행 ──
-    const stressGrade = str?.stressScore!=null ? AV.calcStressIndex(str.stressScore) : null;
-    const metaGridHtml = !(inb||str) ? '' : [
-      itemCard('체성분점수', AV.uiScoreWithBar(inb?.bodyCompScore, 100, '#2E7D32',
-        inb?.bodyCompScore!=null ? '※ 근육량이 많을 경우 100점을 초과할 수 있습니다.' : null), null, null),
-      itemCard('스트레스점수',
-        str?.stressScore!=null ? `<div style="width:100%;"><div style="text-align:center;margin-bottom:6px;"><span style="font-size:24px;font-weight:800;color:${stressGrade?.color||INK};">${str.stressScore}</span><span style="font-size:11px;color:${G500};"> 점</span></div>${AV.stressBar(str.stressScore)}</div>` : '',
-        null, str?.stressScore!=null ? AV.legendListRow(AV.stressLegendItems(str.stressScore)) : null),
-    ].join('');
-
-    el.innerHTML = `
-      <div style="padding:14px 18px;">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
-          <span style="font-size:16px;font-weight:800;color:${INK};">${this._weekEvalLabel(round)}</span>
-          <span style="font-size:12px;color:${G500};margin-left:auto;">수정은 평가관리에서</span>
-        </div>
-
-        <!-- 🧠 인지 평가: 좌 Progress List(2) : 우 Radar Chart(1) -->
-        ${cog ? `<div style="background:#fff;border:1px solid ${CREAM2};border-radius:16px;padding:24px;box-sizing:border-box;margin-bottom:14px;">
-          ${AV.uiSectionHead('🧠',`인지 평가${dateTag(cogDate)}`)}
-          ${AV.cog6ReportBlock(cog)}
-        </div>` : ''}
-
-        <!-- 🏃 움직임 평가 -->
-        ${(ergo||evx||fra) ? secCard('🏃',`움직임 평가${dateTag(moveDate)}`, moveGridHtml) : ''}
-
-        <!-- 💊 대사 평가 -->
-        ${(inb||str) ? secCard('💊',`대사(생활) 평가${dateTag(metaDate)}`, metaGridHtml) : ''}
-      </div>`;
-
-    this._bindRoundButtons(el);
-  },
-
-  // ══════════════════════════════════════════════════════════
-  // 전문가 코멘트 탭 — 선택된 회차의 코멘트 3종을 리포트 마지막 페이지와
-  // 동일한 카드 언어로 표시 (읽기 전용)
-  // ══════════════════════════════════════════════════════════
-  _renderCommentContent: function(el, data) {
-    const round = this.activeRound;
-    const cmt = data?.comment;
-    const AV = AssessVisuals;
-    const INK = AV.UI_INK, G500 = AV.UI_G500, CREAM2 = AV.UI_CREAM2, BR_DARK = AV.UI_BR_DARK;
-
-    const items = [
-      {icon:'🧠', role:'인지 전문가 코멘트',   text:cmt?.cogComment},
-      {icon:'🏃', role:'운동 전문가 코멘트',   text:cmt?.exComment},
-      {icon:'💼', role:'케어 매니저 코멘트',   text:cmt?.cmComment}
-    ];
-
-    el.innerHTML = `
-      <div style="padding:14px 18px;">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
-          <span style="font-size:16px;font-weight:800;color:${INK};">${this._weekEvalLabel(round)} · 전문가 코멘트</span>
-          <span style="font-size:12px;color:${G500};margin-left:auto;">수정은 평가관리에서</span>
-        </div>
-        <div style="background:#fff;border:1px solid ${CREAM2};border-radius:10px;padding:14px 18px;box-sizing:border-box;">
-          ${AV.uiSectionHead('💬','전문가 코멘트')}
-          <div style="display:flex;flex-direction:column;">
-            ${items.map((item,i,arr)=>`
-              <div style="display:flex;flex-direction:column;padding:14px 2px;${i<arr.length-1?`border-bottom:1px solid ${CREAM2};`:''}">
-                <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
-                  <span style="font-size:14px;">${item.icon}</span>
-                  <span style="font-size:13px;font-weight:800;color:${BR_DARK};letter-spacing:0.02em;">${item.role}</span>
-                </div>
-                <div style="font-size:13px;line-height:1.8;color:${item.text?INK:G500};white-space:pre-wrap;">${item.text || '등록된 코멘트가 없습니다.'}</div>
-              </div>`).join('')}
-          </div>
-        </div>
-      </div>`;
-
-    this._bindRoundButtons(el);
-  },
-
-  _renderTrendInEl: async function(el) {
-    el.innerHTML = '<div style="padding:20px;text-align:center;"><div class="spinner" style="margin:0 auto;"></div></div>';
+  saveErgo: async function(cid, round, d) {
     try {
-      UI.showLoading();
-      // 캐시에서 우선 로드
-      const masterList = this._masterListCache || (await API.getClientMasterList(this.client.clientId).then(r=>r.data?.masterList||[]));
-      // 선택된 상위 회차(activeRound)까지만 — 예: 4주차 선택 시 초기~4주만 표시
-      const currentRound = this.activeRound;
-      const sorted = masterList.filter(m=>m.reportGenerated && m.round<=currentRound).sort((a,b)=>a.round-b.round);
-      if (!sorted.length) {
-        el.innerHTML = `<div class="empty-state" style="padding:36px;"><div class="empty-state-icon">📈</div><div class="empty-state-text">리포트가 생성된 평가가 없습니다</div></div>`;
-        return;
+      const c = AppConfig.ERGO_COLS; const mc = AppConfig.MASTER_COLS;
+      const enc = encodeURIComponent; const now = this._now();
+      const cardioIndex = this._calcCardioIndex(Number(d.cardioScore), d.gender, d.birthDate);
+      const row = {
+        [c.CLIENT_ID]: String(cid), [c.MEASURE_DATE]: String(d.measureDate||''),
+        [c.ROUND]: Number(round), [c.CARDIO_SCORE]: Number(d.cardioScore),
+        [c.CARDIO_INDEX]: cardioIndex, [c.CREATED_AT]: now
+      };
+      const existing = await this._get(AppConfig.TABLES.MOVEMENT_ERGO, `${c.CLIENT_ID}=eq.${enc(cid)}&${c.ROUND}=eq.${round}&limit=1`);
+      if (existing.length) {
+        await this._patch(AppConfig.TABLES.MOVEMENT_ERGO, `${c.CLIENT_ID}=eq.${enc(cid)}&${c.ROUND}=eq.${round}`, row);
+      } else {
+        await this._post(AppConfig.TABLES.MOVEMENT_ERGO, { [c.ASSESS_ID]: this._generateId(), ...row });
       }
-
-      const AV = AssessVisuals;
-      const BR = AV.UI_BR, BR_DARK = AV.UI_BR_DARK, INK = AV.UI_INK, G500 = AV.UI_G500, CREAM2 = AV.UI_CREAM2, G300 = '#CDC5B8';
-      const n = sorted.length;
-
-      // ✅ 현재 보고 있는 회차(activeRound)의 리포트가 이미 생성되어 있으면 그 생성 시점 스냅샷을 사용
-      const activeRoundMaster = masterList.find(m => m.round === currentRound);
-      const metrics = (activeRoundMaster?.reportGenerated)
-        ? await API.getOrCreateReportTrendMetricsSnapshot(this.client.clientId, currentRound)
-        : await API.getTrendMetrics();
-      const colTemplate = `116px repeat(${n},1fr) 76px`;
-
-      const weekHeadCells = sorted.map((m,i)=>`<div style="grid-column:${i+2};text-align:center;font-size:11px;font-weight:700;color:${G500};">${this._weekLabelShort(m.round)}</div>`).join('');
-      const headerRow = `<div style="display:grid;grid-template-columns:${colTemplate};align-items:end;padding-bottom:6px;border-bottom:2px solid ${BR};">
-        <div style="grid-column:1;font-size:12px;font-weight:700;color:${G500};letter-spacing:0.04em;text-transform:uppercase;">평가 항목</div>
-        ${weekHeadCells}
-        <div style="grid-column:${n+2};font-size:12px;font-weight:700;color:${G500};letter-spacing:0.04em;text-transform:uppercase;text-align:center;">변화<br>(초기 대비)</div>
-      </div>`;
-
-      const CAT_COLOR = { '인지':'#8E7CC3', '운동':'#4A90D2', '대사':'#43A047' };
-      let lastCat = null;
-      const metricRows = metrics.map(met=>{
-        const pts = sorted.map((m,i)=>{ const v=Number(m[met.key]); return isNaN(v)?null:{i,v}; }).filter(Boolean);
-        let chartHtml = `<div style="font-size:11.5px;color:${G500};text-align:center;">-</div>`;
-        let changeHtml = `<span style="color:${G500};font-size:16px;">-</span>`;
-        if (pts.length) {
-          const vals = pts.map(p=>p.v);
-          const vMin = Math.min(...vals), vMax = Math.max(...vals);
-          const range = (vMax-vMin) || 1;
-          const H=54, padT=20, padB=14;
-          const yPos = v => padT + (1-((v-vMin)/range))*(H-padT-padB);
-          const xPct = i => n===1 ? 50 : ((i+0.5)/n*100);
-          let pathD='', areaD='';
-          pts.forEach((p,idx)=>{ const x=xPct(p.i), y=yPos(p.v); pathD += (idx===0?`M${x},${y}`:`L${x},${y}`); });
-          if (pts.length>1) areaD = pathD + ` L${xPct(pts[pts.length-1].i)},${H-padB} L${xPct(pts[0].i)},${H-padB} Z`;
-          let overlay = `<svg width="100%" height="100%" viewBox="0 0 100 ${H}" preserveAspectRatio="none" style="display:block;position:absolute;left:0;top:0;">
-            <rect x="0" y="0" width="100" height="${H}" fill="${CREAM2}" opacity="0.4"/>
-            ${Array.from({length:n},(_,ci)=>{ const x = n===1?50:((ci+0.5)/n*100); return `<line x1="${x}" y1="0" x2="${x}" y2="${H}" stroke="${G300}" stroke-width="1" stroke-dasharray="2,2" vector-effect="non-scaling-stroke"/>`; }).join('')}
-            <line x1="0" y1="${H-padB}" x2="100" y2="${H-padB}" stroke="${G300}" stroke-width="1" stroke-dasharray="2,2" vector-effect="non-scaling-stroke"/>
-            ${pts.length>1?`<path d="${areaD}" fill="${BR}18" stroke="none"/>`:''}
-            ${pts.length>1?`<path d="${pathD}" fill="none" stroke="${BR}" stroke-width="1.8" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/>`:''}
-          </svg>`;
-          pts.forEach((p,idx)=>{
-            const xp = xPct(p.i).toFixed(2);
-            const yp = yPos(p.v);
-            const ypPct = (yp/H*100).toFixed(2);
-            const isLatest = idx===pts.length-1;
-            overlay += `<div style="position:absolute;left:${xp}%;top:${ypPct}%;width:${isLatest?7:5}px;height:${isLatest?7:5}px;border-radius:50%;background:${BR};border:1px solid #fff;transform:translate(-50%,-50%);"></div>`;
-            overlay += `<span style="position:absolute;left:${xp}%;top:${ypPct}%;transform:translate(-50%,calc(-100% - 3px));font-size:${isLatest?'16px':'11px'};font-weight:800;color:${isLatest?BR_DARK:INK};white-space:nowrap;">${p.v}</span>`;
-          });
-          chartHtml = `<div style="position:relative;height:100%;min-height:${H}px;">${overlay}</div>`;
-
-          const first = pts[0].v, last = pts[pts.length-1].v;
-          const diff = pts.length>1 ? Math.round((last-first)*10)/10 : null;
-          // 우울/스트레스는 낮을수록 좋으므로 색상 로직을 반대로: 감소=파랑(좋음), 증가=빨강(주의)
-          const isGood = diff==null ? null : (met.inverse ? diff<0 : diff>0);
-          changeHtml = diff==null ? `<span style="color:${G500};font-size:14px;">-</span>`
-            : diff===0 ? `<span style="color:${G500};font-size:14px;">-</span>`
-            : `<span style="color:${isGood?'#1D5FC4':'#C0392B'};font-weight:800;font-size:14px;white-space:nowrap;">${diff>0?'▲':'▼'} ${Math.abs(diff)}</span>`;
-        }
-        const catChanged = met.category && met.category !== lastCat;
-        if (met.category) lastCat = met.category;
-        const catColor = CAT_COLOR[met.category] || '#AAA';
-        const catHeaderHtml = catChanged ? `<div style="grid-column:1/-1;display:flex;align-items:center;gap:6px;padding:${met===metrics[0]?'2px':'14px'} 0 4px;">
-          <span style="width:7px;height:7px;border-radius:50%;background:${catColor};"></span>
-          <span style="font-size:11px;font-weight:800;color:${catColor};letter-spacing:0.04em;">${met.category}</span>
-        </div>` : '';
-        return `${catHeaderHtml}<div style="display:grid;grid-template-columns:${colTemplate};align-items:stretch;border-bottom:1px solid ${CREAM2};min-height:100px;border-left:3px solid ${catColor};">
-          <div style="grid-column:1;padding:12px 0 12px 8px;display:flex;align-items:center;">
-            <span style="font-size:13px;font-weight:700;color:${INK};word-break:keep-all;">${met.label}</span>
-          </div>
-          <div style="grid-column:2 / span ${n};">${chartHtml}</div>
-          <div style="grid-column:${n+2};text-align:center;padding:12px 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;">
-            ${changeHtml}
-            ${met.inverse?`<span style="font-size:8.5px;color:${G500};">↓ 낮을수록 좋음</span>`:''}
-          </div>
-        </div>`;
-      }).join('');
-
-      el.innerHTML = `
-        <div style="padding:14px 18px;">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
-            <span style="font-size:16px;font-weight:800;color:${INK};">기간별 지표 변화 <span style="font-size:12px;font-weight:400;color:${G500};">(${this._weekLabelShort(1)} ~ ${this._weekLabelShort(currentRound)})</span></span>
-          </div>
-          <div style="background:#fff;border:1px solid ${CREAM2};border-radius:10px;padding:14px 18px;box-sizing:border-box;">
-            <div style="display:flex;gap:16px;margin-bottom:10px;">
-              ${Object.entries(CAT_COLOR).map(([cat,color])=>`<div style="display:flex;align-items:center;gap:5px;">
-                <span style="width:7px;height:7px;border-radius:50%;background:${color};"></span>
-                <span style="font-size:11px;font-weight:700;color:${color};">${cat}</span>
-              </div>`).join('')}
-            </div>
-            ${headerRow}
-            ${metricRows}
-            <div style="font-size:11px;color:${G500};font-style:italic;text-align:left;margin-top:10px;">※ 변화는 초기 평가를 기준으로 산출됩니다.</div>
-          </div>
-        </div>`;
-    } catch(e) {
-      el.innerHTML=`<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">${e.message||'오류'}</div></div>`;
-    } finally { UI.hideLoading(); }
+      const flags = await this._refreshMasterFlags(cid, round);
+      await this._patch(AppConfig.TABLES.ASSESS_MASTER, `${mc.CLIENT_ID}=eq.${enc(cid)}&${mc.ROUND}=eq.${round}`,
+        { [mc.CARDIO_SCORE]: Number(d.cardioScore), [mc.CARDIO_INDEX]: cardioIndex, ...flags });
+      this._bust('getRoundData','getClientMasterList','getAssessOverview','getInitialData');
+      return { status:'success', data: { message:'에르고미터 평가가 저장되었습니다.' } };
+    } catch(e) { return { status:'error', message:'에르고미터 저장 오류: ' + e.message }; }
   },
 
-  _renderReportTab: async function(content) {
-    content.innerHTML = '<div class="empty-state"><div class="spinner" style="margin:0 auto;"></div></div>';
+  saveEverex: async function(cid, round, d) {
     try {
-      UI.showLoading();
-      // 캐시에서 우선 로드
-      const masterList = this._masterListCache || (await API.getClientMasterList(this.client.clientId).then(r=>r.data?.masterList||[]));
-      const completed  = masterList.filter(m => m.reportGenerated).sort((a,b)=>b.round-a.round);
-
-      if (!completed.length) {
-        content.innerHTML = `<div class="empty-state" style="padding:48px;"><div class="empty-state-icon">📊</div><div class="empty-state-text">생성된 통합 리포트가 없습니다</div><div class="empty-state-sub" style="margin-top:8px;">평가관리 메뉴에서 생성하세요.</div></div>`;
-        return;
+      const c = AppConfig.EVEREX_COLS; const mc = AppConfig.MASTER_COLS;
+      const enc = encodeURIComponent; const now = this._now();
+      const row = {
+        [c.CLIENT_ID]: String(cid), [c.MEASURE_DATE]: String(d.measureDate||''),
+        [c.ROUND]: Number(round), [c.BODY_MOVEMENT_INDEX]: Number(d.bodyMovementIndex), [c.CREATED_AT]: now
+      };
+      const existing = await this._get(AppConfig.TABLES.MOVEMENT_EVEREX, `${c.CLIENT_ID}=eq.${enc(cid)}&${c.ROUND}=eq.${round}&limit=1`);
+      if (existing.length) {
+        await this._patch(AppConfig.TABLES.MOVEMENT_EVEREX, `${c.CLIENT_ID}=eq.${enc(cid)}&${c.ROUND}=eq.${round}`, row);
+      } else {
+        await this._post(AppConfig.TABLES.MOVEMENT_EVEREX, { [c.ASSESS_ID]: this._generateId(), ...row });
       }
+      const flags = await this._refreshMasterFlags(cid, round);
+      await this._patch(AppConfig.TABLES.ASSESS_MASTER, `${mc.CLIENT_ID}=eq.${enc(cid)}&${mc.ROUND}=eq.${round}`,
+        { [mc.BODY_MOVEMENT_INDEX]: Number(d.bodyMovementIndex), ...flags });
+      this._bust('getRoundData','getClientMasterList','getAssessOverview','getInitialData');
+      return { status:'success', data: { message:'에버엑스 평가가 저장되었습니다.' } };
+    } catch(e) { return { status:'error', message:'에버엑스 저장 오류: ' + e.message }; }
+  },
 
-      const c = this.client;
-      // 리스트 렌더링
-      const listHtml = completed.map(m => `
-        <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border:1px solid var(--color-gray-200);border-radius:10px;background:white;margin-bottom:8px;">
-          <div style="flex:1;">
-            <div style="font-size:18px;font-weight:700;color:var(--color-gray-900);">${this._weekReportLabel(m.round)}</div>
+  saveFra: async function(cid, round, d) {
+    try {
+      const c = AppConfig.FRA_COLS; const mc = AppConfig.MASTER_COLS;
+      const enc = encodeURIComponent; const now = this._now();
+      const n = v => (v !== null && v !== undefined && v !== '') ? Number(v) : null;
+      const row = {
+        [c.CLIENT_ID]: String(cid), [c.MEASURE_DATE]: String(d.measureDate||''),
+        [c.ROUND]: Number(round), [c.NERVOUS_SCORE]: n(d.nervousScore),
+        [c.BALANCE_SCORE]: n(d.balanceScore), [c.SENSORY_SCORE]: n(d.sensoryScore), [c.CREATED_AT]: now
+      };
+      const existing = await this._get(AppConfig.TABLES.MOVEMENT_INBODY_FRA, `${c.CLIENT_ID}=eq.${enc(cid)}&${c.ROUND}=eq.${round}&limit=1`);
+      if (existing.length) {
+        await this._patch(AppConfig.TABLES.MOVEMENT_INBODY_FRA, `${c.CLIENT_ID}=eq.${enc(cid)}&${c.ROUND}=eq.${round}`, row);
+      } else {
+        await this._post(AppConfig.TABLES.MOVEMENT_INBODY_FRA, { [c.ASSESS_ID]: this._generateId(), ...row });
+      }
+      const flags = await this._refreshMasterFlags(cid, round);
+      await this._patch(AppConfig.TABLES.ASSESS_MASTER, `${mc.CLIENT_ID}=eq.${enc(cid)}&${mc.ROUND}=eq.${round}`,
+        { [mc.NERVOUS_SCORE]: n(d.nervousScore), [mc.BALANCE_SCORE]: n(d.balanceScore), [mc.SENSORY_SCORE]: n(d.sensoryScore), ...flags });
+      this._bust('getRoundData','getClientMasterList','getAssessOverview','getInitialData');
+      return { status:'success', data: { message:'인바디FRA 평가가 저장되었습니다.' } };
+    } catch(e) { return { status:'error', message:'인바디FRA 저장 오류: ' + e.message }; }
+  },
 
-          </div>
-          <button class="btn btn-outline btn-sm report-preview-btn" data-round="${m.round}" style="white-space:nowrap;">👁 미리보기</button>
-          <button class="btn btn-primary btn-sm report-print-btn" data-round="${m.round}" style="white-space:nowrap;">🖨️ 출력</button>
-        </div>`).join('');
+  saveInbody: async function(cid, round, d) {
+    try {
+      const c = AppConfig.INBODY_COLS; const mc = AppConfig.MASTER_COLS;
+      const enc = encodeURIComponent; const now = this._now();
+      const row = {
+        [c.CLIENT_ID]: String(cid), [c.MEASURE_DATE]: String(d.measureDate||''),
+        [c.ROUND]: Number(round), [c.BODY_COMP_SCORE]: Number(d.bodyCompScore), [c.CREATED_AT]: now
+      };
+      const existing = await this._get(AppConfig.TABLES.METABOLISM_INBODY, `${c.CLIENT_ID}=eq.${enc(cid)}&${c.ROUND}=eq.${round}&limit=1`);
+      if (existing.length) {
+        await this._patch(AppConfig.TABLES.METABOLISM_INBODY, `${c.CLIENT_ID}=eq.${enc(cid)}&${c.ROUND}=eq.${round}`, row);
+      } else {
+        await this._post(AppConfig.TABLES.METABOLISM_INBODY, { [c.ASSESS_ID]: this._generateId(), ...row });
+      }
+      const flags = await this._refreshMasterFlags(cid, round);
+      await this._patch(AppConfig.TABLES.ASSESS_MASTER, `${mc.CLIENT_ID}=eq.${enc(cid)}&${mc.ROUND}=eq.${round}`,
+        { [mc.BODY_COMP_SCORE]: Number(d.bodyCompScore), ...flags });
+      this._bust('getRoundData','getClientMasterList','getAssessOverview','getInitialData');
+      return { status:'success', data: { message:'인바디(체성분) 평가가 저장되었습니다.' } };
+    } catch(e) { return { status:'error', message:'인바디 저장 오류: ' + e.message }; }
+  },
 
-      content.innerHTML = `<div style="padding:16px;">${listHtml}</div>`;
+  saveStress: async function(cid, round, d) {
+    try {
+      const c = AppConfig.STRESS_COLS; const mc = AppConfig.MASTER_COLS;
+      const enc = encodeURIComponent; const now = this._now();
+      const row = {
+        [c.CLIENT_ID]: String(cid), [c.MEASURE_DATE]: String(d.measureDate||''),
+        [c.ROUND]: Number(round), [c.STRESS_SCORE]: Number(d.stressScore), [c.CREATED_AT]: now
+      };
+      const existing = await this._get(AppConfig.TABLES.METABOLISM_STRESS, `${c.CLIENT_ID}=eq.${enc(cid)}&${c.ROUND}=eq.${round}&limit=1`);
+      if (existing.length) {
+        await this._patch(AppConfig.TABLES.METABOLISM_STRESS, `${c.CLIENT_ID}=eq.${enc(cid)}&${c.ROUND}=eq.${round}`, row);
+      } else {
+        await this._post(AppConfig.TABLES.METABOLISM_STRESS, { [c.ASSESS_ID]: this._generateId(), ...row });
+      }
+      const flags = await this._refreshMasterFlags(cid, round);
+      await this._patch(AppConfig.TABLES.ASSESS_MASTER, `${mc.CLIENT_ID}=eq.${enc(cid)}&${mc.ROUND}=eq.${round}`,
+        { [mc.STRESS_SCORE]: Number(d.stressScore), ...flags });
+      this._bust('getRoundData','getClientMasterList','getAssessOverview','getInitialData');
+      return { status:'success', data: { message:'스트레스 평가가 저장되었습니다.' } };
+    } catch(e) { return { status:'error', message:'스트레스 저장 오류: ' + e.message }; }
+  },
 
-      // 미리보기 버튼
-      content.querySelectorAll('.report-preview-btn').forEach(btn=>{
-        btn.addEventListener('click', async ()=>{
-          const round = Number(btn.dataset.round);
-          const m = completed.find(x=>x.round===round);
-          if (!m) return;
-          const masterListFull = this._masterListCache || (await API.getClientMasterList(c.clientId).catch(()=>null))?.data?.masterList || [m];
-          const html = await this._buildReportHTML(m, masterListFull);
-          const wrap = document.createElement('div');
-          wrap.className='modal-backdrop';
-          wrap.innerHTML=`<div class="modal" style="max-width:820px;max-height:92vh;display:flex;flex-direction:column;">
-            <div class="modal-header">
-              <h3 class="modal-title">📄 ${this._weekReportLabel(round)} — ${c.name}</h3>
-              <div style="display:flex;gap:8px;">
-                <button class="btn btn-primary btn-sm" id="rpt-print-now">🖨️ PDF 출력</button>
-                <button class="modal-close" id="rpt-close">✕</button>
-              </div>
-            </div>
-            <div class="modal-body" style="overflow-y:auto;flex:1;background:#f5f5f5;padding:16px;">
-              <div id="rpt-preview-area" style="background:white;border-radius:8px;">${html}</div>
-            </div>
-          </div>`;
-          document.body.appendChild(wrap);
-          wrap.querySelector('#rpt-close').onclick=()=>wrap.remove();
-          wrap.onclick=e=>{if(e.target===wrap)wrap.remove();};
-          wrap.querySelector('#rpt-print-now').onclick=()=>this._printReport(m, wrap.querySelector('#rpt-preview-area'));
+  saveComment: async function(cid, round, d) {
+    try {
+      const c = AppConfig.COMMENT_COLS; const mc = AppConfig.MASTER_COLS;
+      const enc = encodeURIComponent; const now = this._now();
+      const role = Auth.getUser()?.role;
+      const canCog = ['ADMIN','CARE_MANAGER','COGNITIVE_SPECIALIST'].includes(role);
+      const canEx  = ['ADMIN','CARE_MANAGER','EXERCISE_SPECIALIST'].includes(role);
+      const canCm  = ['ADMIN','CARE_MANAGER'].includes(role);
+      const existing = await this._get(AppConfig.TABLES.COMMENT, `${c.CLIENT_ID}=eq.${enc(cid)}&${c.ROUND}=eq.${round}&limit=1`);
+      const update = { [c.UPDATED_AT]: now };
+      if (canCog && d.cogComment !== undefined) { update[c.COG_COMMENT] = String(d.cogComment||''); update[c.COG_UPDATED] = now; }
+      if (canEx  && d.exComment  !== undefined) { update[c.EX_COMMENT]  = String(d.exComment ||''); update[c.EX_UPDATED]  = now; }
+      if (canCm  && d.cmComment  !== undefined) { update[c.CM_COMMENT]  = String(d.cmComment ||''); update[c.CM_UPDATED]  = now; }
+      if (existing.length) {
+        await this._patch(AppConfig.TABLES.COMMENT, `${c.CLIENT_ID}=eq.${enc(cid)}&${c.ROUND}=eq.${round}`, update);
+      } else {
+        await this._post(AppConfig.TABLES.COMMENT, {
+          [c.COMMENT_ID]:  this._generateId(), [c.CLIENT_ID]: String(cid), [c.ROUND]: Number(round),
+          [c.COG_COMMENT]: canCog ? String(d.cogComment||'') : '', [c.COG_UPDATED]: now,
+          [c.EX_COMMENT]:  canEx  ? String(d.exComment ||'') : '', [c.EX_UPDATED]:  now,
+          [c.CM_COMMENT]:  canCm  ? String(d.cmComment ||'') : '', [c.CM_UPDATED]:  now,
+          [c.UPDATED_AT]:  now
         });
-      });
-
-      // 출력 버튼
-      content.querySelectorAll('.report-print-btn').forEach(btn=>{
-        btn.addEventListener('click', async ()=>{
-          const round = Number(btn.dataset.round);
-          const m = completed.find(x=>x.round===round);
-          if (!m) return;
-          const masterListFull = this._masterListCache || (await API.getClientMasterList(c.clientId).catch(()=>null))?.data?.masterList || [m];
-          const tempDiv=document.createElement('div');
-          tempDiv.innerHTML = await this._buildReportHTML(m, masterListFull);
-          this._printReport(m, tempDiv);
-        });
-      });
-
-    } catch(e) {
-      content.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">${e.message}</div></div>`;
-    } finally { UI.hideLoading(); }
+      }
+      const masterPatch = {};
+      if (canCog && d.cogComment !== undefined) masterPatch[mc.COG_COMMENT] = String(d.cogComment||'');
+      if (canEx  && d.exComment  !== undefined) masterPatch[mc.EX_COMMENT]  = String(d.exComment ||'');
+      if (canCm  && d.cmComment  !== undefined) masterPatch[mc.CM_COMMENT]  = String(d.cmComment ||'');
+      const flags = await this._refreshMasterFlags(cid, round);
+      await this._patch(AppConfig.TABLES.ASSESS_MASTER, `${mc.CLIENT_ID}=eq.${enc(cid)}&${mc.ROUND}=eq.${round}`,
+        { ...masterPatch, ...flags });
+      this._bust('getRoundData','getClientMasterList','getAssessOverview','getInitialData');
+      return { status:'success', data: { message:'코멘트가 저장되었습니다.' } };
+    } catch(e) { return { status:'error', message:'코멘트 저장 오류: ' + e.message }; }
   },
 
-  _bindRoundButtons: function(el) {
-    const self = this;
-    // 평가관리로 이동
-    el.querySelectorAll('.goto-assess-round-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const round = Number(btn.dataset.round);
-        AssessmentsPage._pendingClientId = self.client.clientId;
-        AssessmentsPage._pendingRound    = round;
-        Router.navigate('assessments');
-      });
-    });
-    // 회차 리포트 생성
-    el.querySelectorAll('.gen-round-report-btn').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const round = Number(btn.dataset.round);
-        const master = self.roundData?.master;
-        const alreadyExists = master?.reportGenerated;
-        let ok = true;
-        if (alreadyExists) {
-          ok = await UI.confirm({
-            title:'이미 생성된 리포트가 있습니다.',
-            message:'기존 리포트를 삭제하고 다시 생성하시겠습니까?',
-            confirmText:'재생성', cancelText:'취소', type:'warning'
-          });
-        }
-        if (!ok) return;
-        try {
-          UI.showLoading();
-          const res = await API.generateReport(self.client.clientId, round, alreadyExists);
-          if (res.status === 'success') {
-            UI.toast(res.data.message, 'success');
-            // 즉시 보기
-            if (res.data.masterData) {
-              self._showInstantReport(res.data.masterData);
-            }
-            await self.render(self.client.clientId);
-          } else {
-            UI.toast(res.message || '생성 실패', 'error');
-          }
-        } catch { UI.toast('서버 오류', 'error'); }
-        finally { UI.hideLoading(); }
-      });
-    });
-  },
-
-  _showInstantReport: async function(masterData) {
-    const c = this.client;
-    // 추이 그래프를 위해 전체 masterList 조회
-    let masterList = [masterData];
+  deleteSheetRow: async function(cid, round, type) {
     try {
-      const res = await API.getClientMasterList(c.clientId);
-      if (res.status === 'success') masterList = res.data.masterList || [masterData];
-    } catch(e) {}
-    const reportHtml = await this._buildReportHTML(masterData, masterList);
-    const wrap = document.createElement('div');
-    wrap.className = 'modal-backdrop';
-    wrap.innerHTML = `
-      <div class="modal" style="max-width:800px;max-height:92vh;display:flex;flex-direction:column;">
-        <div class="modal-header">
-          <h3 class="modal-title">📄 리포트 생성 완료 — ${c.name} ${this._weekReportLabel(masterData.round)}</h3>
-          <div style="display:flex;gap:8px;">
-            <button class="btn btn-secondary btn-sm" id="instant-print">🖨️ PDF 출력</button>
-            <button class="modal-close" id="instant-close">✕</button>
-          </div>
-        </div>
-        <div class="modal-body" style="overflow-y:auto;flex:1;">
-          <div id="instant-report-area">${reportHtml}</div>
-        </div>
-      </div>`;
-    document.body.appendChild(wrap);
-    wrap.querySelector('#instant-close').onclick = () => wrap.remove();
-    wrap.onclick = e => { if(e.target===wrap) wrap.remove(); };
-    wrap.querySelector('#instant-print').onclick = () => {
-      this._printReport(masterData, wrap.querySelector('#instant-report-area'));
-    };
+      const enc = encodeURIComponent;
+      const mc = AppConfig.MASTER_COLS;
+      const tableMap = {
+        cognitive: [AppConfig.TABLES.COGNITIVE,           AppConfig.COG_COLS],
+        ergo:      [AppConfig.TABLES.MOVEMENT_ERGO,       AppConfig.ERGO_COLS],
+        everex:    [AppConfig.TABLES.MOVEMENT_EVEREX,     AppConfig.EVEREX_COLS],
+        fra:       [AppConfig.TABLES.MOVEMENT_INBODY_FRA, AppConfig.FRA_COLS],
+        inbody:    [AppConfig.TABLES.METABOLISM_INBODY,   AppConfig.INBODY_COLS],
+        stress:    [AppConfig.TABLES.METABOLISM_STRESS,   AppConfig.STRESS_COLS],
+        comment:   [AppConfig.TABLES.COMMENT,             AppConfig.COMMENT_COLS]
+      };
+      const [table, cols] = tableMap[type] || [];
+      if (!table) return { status:'error', message:'잘못된 타입입니다.' };
+      await this._delete(table, `${cols.CLIENT_ID}=eq.${enc(cid)}&${cols.ROUND}=eq.${round}`);
+      const flags = await this._refreshMasterFlags(cid, round);
+      await this._patch(AppConfig.TABLES.ASSESS_MASTER, `${mc.CLIENT_ID}=eq.${enc(cid)}&${mc.ROUND}=eq.${round}`, flags);
+      this._bust('getRoundData','getClientMasterList','getClients','getAssessOverview','getInitialData');
+      return { status:'success', data: { message:'데이터가 삭제되었습니다.' } };
+    } catch(e) { return { status:'error', message:'삭제 오류: ' + e.message }; }
   },
 
-  _buildReportHTML: async function(master, allMasterList) {
-    // ══════════════════════════════════════════════════════════
-    // 통합 리포트(PDF) v5 — 카테고리 박스(흰배경+#F2ECE2 테두리),
-    // 원형차트 내부 값 표기+하단 상태 배지, 심폐/스트레스 그라데이션 복원,
-    // 범례 "라벨(색상) : 범위(#8B8377)", 기간별 지표 변화는 표+인라인 꺾은선.
-    // ══════════════════════════════════════════════════════════
-    const c   = this.client;
-    const logoSrc = document.getElementById('logo-data')?.value || '';
-    const age = c.birthDate ? (new Date().getFullYear() - new Date(c.birthDate).getFullYear()) : '-';
-    const weekEvalLabel = (n) => n===1 ? '초기' : `${(n-1)*4}주차`;
-    const today = new Date();
-    const pad2  = n => String(n).padStart(2,'0');
-    const todayStr = `${today.getFullYear()}.${pad2(today.getMonth()+1)}.${pad2(today.getDate())}`;
-    const trendMasters = allMasterList || [master];
-    // ✅ 이미 생성된 리포트는 "생성 시점"의 설정 스냅샷을 그대로 사용 (이후 기준값이 바뀌어도 영향 없음)
-    //    아직 생성 전(초안 미리보기)이면 지금 시점의 최신 설정을 보여줍니다.
-    const trendMetricsCfg = master.reportGenerated
-      ? await API.getOrCreateReportTrendMetricsSnapshot(master.clientId, master.round)
-      : await API.getTrendMetrics();
+  generateReport: async function(cid, round, force) {
+    try {
+      const mc = AppConfig.MASTER_COLS; const enc = encodeURIComponent;
+      const masterRows = await this._get(AppConfig.TABLES.ASSESS_MASTER,
+        `${mc.CLIENT_ID}=eq.${enc(cid)}&${mc.ROUND}=eq.${round}&limit=1`);
+      if (!masterRows.length) return { status:'error', message:'평가 데이터가 없습니다.' };
+      const m = this._rowToMaster(masterRows[0]);
+      if (m.reportGenerated && !force)
+        return { status:'success', data: { alreadyExists: true, message:'이미 생성된 통합 리포트가 있습니다.' } };
+      if (!m.cognitiveDone || !m.movementDone || !m.metabolismDone)
+        return { status:'error', message:'인지평가, 움직임평가, 대사평가를 완료한 후 통합 리포트를 생성할 수 있습니다.' };
 
-    const nervItems = (typeof StandardsCache!=='undefined'&&StandardsCache.get('inbodyFra_nervous'))||
-      [{label:'신경계 평가'},{label:'반응시간 평가'},{label:'자세유지시간 평가'}];
-    const balItems  = (typeof StandardsCache!=='undefined'&&StandardsCache.get('inbodyFra_balance'))||
-      [{label:'통합 균형 능력 평가'},{label:'빠르게 무게중심 옮기기'},{label:'과녁 따라 무게중심'}];
-    const sensItems = (typeof StandardsCache!=='undefined'&&StandardsCache.get('inbodyFra_sensory'))||
-      [{label:'감각계 평가'},{label:'체성감각 평가'},{label:'시각 평가'},{label:'전정감각 평가'}];
+      const cc=AppConfig.COG_COLS; const ec=AppConfig.ERGO_COLS; const xc=AppConfig.EVEREX_COLS;
+      const fc=AppConfig.FRA_COLS; const ic=AppConfig.INBODY_COLS; const sc=AppConfig.STRESS_COLS;
+      const [cR,eR,xR,fR,iR,sR] = await Promise.all([
+        this._get(AppConfig.TABLES.COGNITIVE,           `${cc.CLIENT_ID}=eq.${enc(cid)}&${cc.ROUND}=eq.${round}&select=${cc.MEASURE_DATE}&limit=1`),
+        this._get(AppConfig.TABLES.MOVEMENT_ERGO,       `${ec.CLIENT_ID}=eq.${enc(cid)}&${ec.ROUND}=eq.${round}&select=${ec.MEASURE_DATE}&limit=1`),
+        this._get(AppConfig.TABLES.MOVEMENT_EVEREX,     `${xc.CLIENT_ID}=eq.${enc(cid)}&${xc.ROUND}=eq.${round}&select=${xc.MEASURE_DATE}&limit=1`),
+        this._get(AppConfig.TABLES.MOVEMENT_INBODY_FRA, `${fc.CLIENT_ID}=eq.${enc(cid)}&${fc.ROUND}=eq.${round}&select=${fc.MEASURE_DATE}&limit=1`),
+        this._get(AppConfig.TABLES.METABOLISM_INBODY,   `${ic.CLIENT_ID}=eq.${enc(cid)}&${ic.ROUND}=eq.${round}&select=${ic.MEASURE_DATE}&limit=1`),
+        this._get(AppConfig.TABLES.METABOLISM_STRESS,   `${sc.CLIENT_ID}=eq.${enc(cid)}&${sc.ROUND}=eq.${round}&select=${sc.MEASURE_DATE}&limit=1`)
+      ]);
+      const allDates = [cR[0]?.[cc.MEASURE_DATE],eR[0]?.[ec.MEASURE_DATE],xR[0]?.[xc.MEASURE_DATE],
+        fR[0]?.[fc.MEASURE_DATE],iR[0]?.[ic.MEASURE_DATE],sR[0]?.[sc.MEASURE_DATE]]
+        .filter(Boolean).map(d => this._safeDateStr(d));
+      const assessDate      = allDates.length ? allDates.sort().reverse()[0] : '';
+      const reportCreatedAt = this._now();
 
-    // ── 디자인 토큰 ──────────────────────────────────────────
-    const BR      = '#9B734B';
-    const BR_DARK = '#6B4E35';
-    const INK     = '#221D17';
-    const G500    = '#8B8377'; // 범례 값 범위 전용 색
-    const G300    = '#CDC5B8';
-    const CREAM   = '#FBF9F5';
-    const CREAM2  = '#F2ECE2'; // 카테고리 박스 테두리 & 모노 차트 트랙
-    const LINE    = '#E6DCCB';
+      await this._patch(AppConfig.TABLES.ASSESS_MASTER, `${mc.CLIENT_ID}=eq.${enc(cid)}&${mc.ROUND}=eq.${round}`,
+        { [mc.REPORT_GENERATED]: true, [mc.ASSESS_DATE]: assessDate, [mc.REPORT_CREATED_AT]: reportCreatedAt });
 
-    const reportNo  = `${c.clientId||'-'}-R${String(master.round).padStart(2,'0')}-${today.getFullYear()}${pad2(today.getMonth()+1)}${pad2(today.getDate())}`;
-    const cardioMax = c.gender==='남자' ? 44 : 37;
+      // ✅ 지금 이 순간의 "기간별 지표 변화" 설정을 스냅샷으로 고정 저장
+      //    → 이후 관리자가 기준값을 바꿔도 이 리포트는 계속 지금 설정을 사용
+      try {
+        const liveMetrics = await this.getTrendMetrics();
+        await this.saveReportTrendMetricsSnapshot(cid, round, liveMetrics);
+      } catch(e) { /* 스냅샷 저장 실패해도 리포트 생성 자체는 계속 진행 */ }
 
-    const valColor = (grade) => grade ? (grade.color||grade.c) : INK;
-
-    // 상태 배지(동그란 박스 안에 상태값)
-    const statusPill = (grade) => {
-      if (!grade) return '';
-      const label = grade.label || grade.l;
-      const color = grade.color || grade.c;
-      const bg    = grade.bg || grade.b || (color+'1A');
-      return `<span style="display:inline-block;background:${bg};color:${color};font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:20px;white-space:nowrap;">${label}</span>`;
-    };
-    // 원형/반원 차트 아래 상태 배지 배치
-    const chartWithPill = (chartHtml, grade) => `<div style="display:flex;flex-direction:column;align-items:center;gap:5px;">
-      ${chartHtml}
-      ${grade?statusPill(grade):''}
-    </div>`;
-    // 차트 옆(가로)에 상태 배지 배치 — 인지점수/우울점수/치매위험요인/심폐기능/스트레스 공통 (req9,10)
-    const chartWithPillRow = (chartHtml, grade, extra) => `<div style="display:flex;align-items:center;gap:14px;">
-      ${chartHtml}
-      <div style="display:flex;flex-direction:column;align-items:flex-start;gap:4px;">
-        ${extra||''}
-        ${grade?statusPill(grade):''}
-      </div>
-    </div>`;
-
-    const respSvg = (svg) => svg.replace(/<svg width="\d+" height="\d+"/, '<svg width="100%" height="auto"');
-
-    // 인바디 스타일 가로 행(신경계·균형·감각 + 시공간·기억력 공용) — 값 색상은 등급색(없으면 검정)
-    const ORANGE = '#D9822B'; // 인지기능평가: 개선/중등도/주의/관심 공통 색상
-    const mapCogGrade = (grade) => {
-      if (!grade) return grade;
-      const hit = ['개선','중등도','주의','관심'].some(l => (grade.label||'').includes(l));
-      return hit ? {...grade, color:ORANGE} : grade;
-    };
-    // 인지점수 전용: 주의=빨강, 개선=주황, 양호/최적=원래 색 유지 (req9)
-    const mapCogScoreGrade = (grade) => {
-      if (!grade) return grade;
-      if (grade.label === '관심') return {...grade, color:ORANGE};
-      if (grade.label === '주의') return {...grade, color:'#C0392B'};
-      return grade;
-    };
-
-    const inbodyRow = (label, score, max, grade, unit) => {
-      max = max || 100;
-      const pct = score!=null ? Math.min(100,Math.max(0,(Number(score)/max)*100)) : null;
-      const fillColor = grade ? grade.color : BR;
-      return `<div style="display:flex;align-items:center;gap:12px;padding:6px 0;">
-        <div style="width:96px;flex-shrink:0;">
-          <div style="font-size:12.5px;font-weight:700;color:${INK};text-transform:uppercase;">${label}</div>
-        </div>
-        <div style="flex:1;min-width:0;">
-          <div style="position:relative;height:11px;background:${CREAM2};border-radius:5px;">
-            <div style="position:absolute;left:0;top:0;bottom:0;width:${pct||0}%;background:${fillColor};border-radius:5px;"></div>
-            ${pct!=null?`<div style="position:absolute;left:calc(${pct}% - 3px);top:-1px;width:7px;height:7px;border-radius:50%;background:${INK};border:1.5px solid #fff;"></div>`:''}
-          </div>
-        </div>
-        <div style="width:108px;flex-shrink:0;display:flex;align-items:center;justify-content:flex-end;gap:6px;">
-          <span style="font-size:16.5px;font-weight:800;color:${valColor(grade)};">${score!=null?score:'-'}</span>${unit?`<span style="font-size:10.5px;color:${G500};">${unit}</span>`:''}
-          ${grade?statusPill(grade):''}
-        </div>
-      </div>`;
-    };
-    const itemLine = (items) => `<div style="font-size:10px;color:${G500};margin:4px 0 0;">${(items||[]).map(x=>x.label).join(', ')}</div>`;
-    // 항목 그룹 타이틀(시공간·기억력 / 인바디 FRA) — 다른 평가항목과 동일한 라벨 스타일
-    const groupTitle = (label) => `<div style="font-size:14px;font-weight:700;color:${INK};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">${label}</div>`;
-
-    const barFull = (score, max, thickness) => {
-      const pct = score!=null ? Math.min(100,Math.max(0,(Number(score)/max)*100)) : 0;
-      return `<div style="width:100%;height:${thickness||12}px;background:${CREAM2};border-radius:6px;overflow:hidden;">
-        <div style="height:100%;width:${pct}%;background:${BR};border-radius:6px;"></div>
-      </div>`;
-    };
-
-    // 인바디 FRA 세로형 블록 — 타이틀(상단) → 값 → 막대그래프 → 평가항목(캡션)
-    const fraBlock = (label, score, max, items) => `<div style="display:flex;flex-direction:column;gap:5px;">
-      <div style="display:flex;align-items:baseline;justify-content:space-between;white-space:nowrap;gap:8px;">
-        <span style="font-size:14px;font-weight:700;color:${INK};text-transform:uppercase;letter-spacing:0.03em;">${label}</span>
-        <span><span style="font-size:18.5px;font-weight:800;color:${INK};">${score!=null?score:'-'}</span><span style="font-size:10.5px;color:${G500};">점</span></span>
-      </div>
-      ${barFull(score,max,12)}
-      ${itemLine(items)}
-    </div>`;
-
-    // ── 범례: ● 상태명(색상) : 범위(#8B8377) — 1열(세로) / 1행(가로) / 그리드(N열) ──
-    const legendCol = (items) => `<div style="display:flex;flex-direction:column;gap:5px;">
-      ${items.map(it=>`<div style="display:flex;align-items:center;gap:5px;white-space:nowrap;">
-        <span style="width:7px;height:7px;border-radius:50%;background:${it.color};flex-shrink:0;"></span>
-        <span style="font-size:10.5px;font-weight:${it.active?'800':'600'};color:${it.color};">${it.label}</span>
-        <span style="font-size:10.5px;color:${G500};">: ${it.range}</span>
-      </div>`).join('')}
-    </div>`;
-    const legendRow = (items) => `<div style="display:flex;gap:16px;flex-wrap:wrap;">
-      ${items.map(it=>`<div style="display:flex;align-items:center;gap:5px;white-space:nowrap;">
-        <span style="width:7px;height:7px;border-radius:50%;background:${it.color};flex-shrink:0;"></span>
-        <span style="font-size:10.5px;font-weight:${it.active?'800':'600'};color:${it.color};">${it.label}</span>
-        <span style="font-size:10.5px;color:${G500};">: ${it.range}</span>
-      </div>`).join('')}
-    </div>`;
-    const legendGrid = (items, cols) => `<div style="display:grid;grid-template-columns:repeat(${cols||3},1fr);gap:5px 14px;">
-      ${items.map(it=>`<div style="display:flex;align-items:center;gap:5px;white-space:nowrap;">
-        <span style="width:7px;height:7px;border-radius:50%;background:${it.color};flex-shrink:0;"></span>
-        <span style="font-size:10.5px;font-weight:${it.active?'800':'600'};color:${it.color};">${it.label}</span>
-        <span style="font-size:10.5px;color:${G500};">: ${it.range}</span>
-      </div>`).join('')}
-    </div>`;
-    // 범례를 시각화/점수 하단에 1행으로 — 항목별 라벨(윗줄) + 범위(아랫줄) 2단 구성 (req9,10)
-    const legendRowStacked = (items) => `<div style="display:flex;gap:22px;flex-wrap:wrap;">
-      ${items.map(it=>`<div style="display:flex;flex-direction:column;gap:2px;">
-        <div style="display:flex;align-items:center;gap:5px;white-space:nowrap;">
-          <span style="width:7px;height:7px;border-radius:50%;background:${it.color};flex-shrink:0;"></span>
-          <span style="font-size:11.5px;font-weight:${it.active?'800':'600'};color:${it.color};">${it.label}</span>
-        </div>
-        <span style="font-size:10.5px;color:${G500};padding-left:12px;">: ${it.range}</span>
-      </div>`).join('')}
-    </div>`;
-
-    // ── 등급별 범례 데이터(기존 계산식 임계값 그대로, 개선·중등도·관심은 주황 / 인지점수의 주의만 빨강) ──
-    const cogLegendItems = (grade) => [
-      {label:'주의',range:'0~33',color:'#C0392B'},
-      {label:'관심',range:'34~66',color:ORANGE},
-      {label:'양호',range:'67~100',color:'#4C8C4A'}
-    ].map(it=>({...it, active: grade && grade.label===it.label}));
-    const subLegendItems = (grade) => [
-      {label:'주의',range:'0~33',color:ORANGE},
-      {label:'관심',range:'34~66',color:ORANGE},
-      {label:'양호',range:'67~100',color:'#4C8C4A'}
-    ].map(it=>({...it, active: grade && grade.label===it.label}));
-    const depLegendItems = (grade) => [
-      {label:'경도',range:'0~20',color:'#4C8C4A'},
-      {label:'중등도',range:'21~24',color:ORANGE},
-      {label:'높은수준',range:'25~60',color:'#C0392B'}
-    ].map(it=>({...it, active: grade && (grade.label||'').startsWith(it.label)}));
-    const demLegendItems = (grade) => [
-      {label:'낮음',range:'0~29',color:'#4C8C4A'},
-      {label:'주의',range:'30~59',color:ORANGE},
-      {label:'높음',range:'60~100',color:'#C0392B'}
-    ].map(it=>({...it, active: grade && grade.label===it.label}));
-
-    const cardioLegendItems = (score, gender, birthDate) => {
-      const isMale = gender==='남자';
-      const age2 = birthDate ? new Date().getFullYear()-new Date(birthDate).getFullYear() : null;
-      const isOld = age2!=null && age2>=66;
-      const rowsMale = [['최우수','#1B5E20','40.0↑','37.0↑'],['우수','#2E7D32','36.0~39.9','33.0~37.0'],['평균이상','#388E3C','32.0~35.9','29.0~32.9'],['평균','#F57F17','29.0~31.9','26.0~28.9'],['평균이하','#E65100','25.0~28.9','22.0~25.9'],['최하위','#C62828','25.0↓','22.0↓']];
-      const rowsFemale = [['최우수','#1B5E20','33.0↑','32.0↑'],['우수','#2E7D32','29.0~32.9','28.0~32.0'],['평균이상','#388E3C','25.0~28.9','25.0~27.9'],['평균','#F57F17','22.0~24.9','22.0~24.9'],['평균이하','#E65100','19.0~21.9','19.0~21.9'],['최하위','#C62828','19.0↓','19.0↓']];
-      const rows = isMale?rowsMale:rowsFemale;
-      const cardioIdx = AssessVisuals.calcCardioIndex(score, gender, birthDate);
-      return rows.map(r=>({label:r[0],color:r[1],range: isOld?r[3]:r[2], active: cardioIdx===r[0]}));
-    };
-    const stressLegendItems = (score) => {
-      const grades = AssessVisuals._stressGrades();
-      const current = AssessVisuals.calcStressIndex(score);
-      let prev = 0;
-      return grades.map((g,i)=>{
-        const range = i===grades.length-1 ? `${prev}↑` : `${prev}~${g.max}`;
-        prev = g.max+1;
-        return {label:g.l, range, color:g.color, active: current && current.label===g.l};
-      });
-    };
-
-    // 지표 카드(가로 flex: 시각화(값 내장/등급 배지) 좌측 / 범례 우측 1열)
-    const metricCell = (label, visualHtml, legendHtml) => `<div style="display:flex;flex-direction:column;gap:6px;min-width:0;">
-      <div style="font-size:14px;font-weight:700;color:${INK};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">${label}</div>
-      <div style="display:flex;align-items:center;justify-content:${legendHtml?'space-between':'flex-start'};gap:24px;">
-        <div style="${legendHtml?'flex-shrink:0;':'flex:1;min-width:0;'}">${visualHtml}</div>
-        ${legendHtml?`<div style="flex:1;min-width:0;">${legendHtml}</div>`:''}
-      </div>
-    </div>`;
-    // 지표 카드(세로: 타이틀 → 시각화+배지 → 범례 1행) — req9,10
-    const metricCellStacked = (label, visualHtml, legendHtml, gap) => `<div style="display:flex;flex-direction:column;gap:${gap||10}px;min-width:0;">
-      <div style="font-size:14px;font-weight:700;color:${INK};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">${label}</div>
-      <div>${visualHtml}</div>
-      ${legendHtml?`<div>${legendHtml}</div>`:''}
-    </div>`;
-
-    // ── 평가 항목 사이 연한 회색 구분선 (req1) ──────────────
-    const DIVIDER = '#E2E2E2';
-    // min-width:0 필수 — 없으면 그리드 트랙이 내용 크기만큼 늘어나 컨테이너 밖으로 넘칩니다 (req1 버그 원인)
-    const vDivide = (html) => `<div style="border-right:1px solid ${DIVIDER};padding-right:28px;box-sizing:border-box;height:100%;min-width:0;">${html}</div>`;
-    const padLeft = (html) => `<div style="padding-left:28px;box-sizing:border-box;height:100%;min-width:0;">${html}</div>`;
-    const hDivideRow = (margin) => `<div style="grid-column:1/-1;height:1px;background:${DIVIDER};margin:${margin||16}px 0;"></div>`;
-
-    // 섹션 제목(좌측 정렬 + 우측 구분선 + 선택적 우측 콘텐츠(범례 등) — 구분선이 flex:1이라 좌우 GAP이 최대로 벌어짐)
-    const sectionHead = (icon, title, rightHtml) => `
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-        <div style="font-size:17px;font-weight:800;color:${INK};letter-spacing:0.02em;white-space:nowrap;">${icon} ${title}</div>
-        <div style="flex:1;height:1px;background:rgba(155,115,75,0.3);"></div>
-        ${rightHtml?`<div style="flex-shrink:0;">${rightHtml}</div>`:''}
-      </div>`;
-
-    // 카테고리 박스: 배경 흰색 + 테두리 #F2ECE2
-    const categoryBox = (headHtml, bodyHtml, extraStyle) => `
-      <div style="background:#fff;border:1px solid ${CREAM2};border-radius:10px;padding:12px 18px;margin-bottom:12px;${extraStyle||''}">
-        ${headHtml}
-        <div style="height:8px;"></div>
-        ${bodyHtml}
-      </div>`;
-
-    const pageHeader = (titleMain) => `
-      <div style="display:flex;align-items:flex-end;justify-content:space-between;padding-bottom:10px;margin-bottom:14px;border-bottom:2px solid ${BR};">
-        <div>
-          <div style="font-size:10.5px;font-weight:700;letter-spacing:0.15em;color:${BR};text-transform:uppercase;margin-bottom:3px;">CARE HUB · INTEGRATED HEALTH REPORT</div>
-          <div style="font-size:21px;font-weight:800;color:${INK};">${titleMain}</div>
-        </div>
-        <div style="text-align:right;">
-          <div style="font-size:14px;font-weight:700;color:${INK};">${c.name} <span style="font-weight:400;color:${G500};font-size:12px;">${age}세 · ${c.gender||'-'}</span></div>
-        </div>
-      </div>`;
-
-    // 페이지 번호는 하단 중앙에 표기 — 내용 길이와 무관하게 항상 동일한 위치에 고정되도록
-    // margin-top:auto(플렉스) 대신 position:absolute로 고정 (5페이지 전체 동일 bottom 값)
-    const FOOTER_BOTTOM = 20; // 모든 페이지 공통 하단 여백(px)
-    const pageFooter = (pageIdx, pageTotal, hPad) => `
-      <div style="position:absolute;left:0;right:0;bottom:${FOOTER_BOTTOM}px;padding:0 ${hPad||36}px;box-sizing:border-box;">
-        <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding-top:8px;border-top:1px solid ${LINE};background:#fff;">
-          <div style="font-size:10px;color:${G500};letter-spacing:0.03em;">CARE HUB IN HANAM · 케어허브 하남</div>
-          <div style="text-align:center;font-size:10.5px;font-weight:700;color:${G500};">${pageIdx} / ${pageTotal}</div>
-          <div style="text-align:right;font-size:10px;color:${G300};">REPORT NO. ${reportNo}</div>
-        </div>
-      </div>`;
-
-    // 동연령대 상위 분포도(모노크롬 히스토그램, 등급 없음 → 값은 검정) — 값/차트 가로 flex 좌우정렬
-    const percentileMini = (p) => {
-      if (p==null) return `<div style="font-size:11.5px;color:${G500};">데이터 없음</div>`;
-      const heights=[21,32,44,58,44,32,21];
-      const barW=14,gap=4,n=heights.length,totalW=n*barW+(n-1)*gap,maxH=Math.max(...heights);
-      const idx=Math.min(n-1,Math.max(0,Math.round((100-p)/100*(n-1))));
-      let bars='';
-      heights.forEach((h,i)=>{ bars+=`<rect x="${i*(barW+gap)}" y="${maxH-h}" width="${barW}" height="${h}" rx="2" fill="${i===idx?BR:CREAM2}"/>`; });
-      return `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;width:100%;padding-top:10px;">
-        <div style="white-space:nowrap;text-align:center;"><span style="font-size:16px;font-weight:700;color:${INK};">상위 ${p}%예요</span></div>
-        <svg width="${totalW}" height="${maxH}" viewBox="0 0 ${totalW} ${maxH}">${bars}</svg>
-      </div>`;
-    };
-
-    // ── 기간별 지표 변화: 표 + 행별 인라인 꺾은선(스파크라인), 마지막 행=측정회차 ──
-    const trendTableChart = () => {
-      const currentRound = master.round;
-      const sorted = [...trendMasters].filter(m=>m.round<=currentRound && m.reportGenerated).sort((a,b)=>a.round-b.round);
-      const n = sorted.length;
-      if (!n) return `<div style="text-align:center;color:${G500};font-size:14px;padding:20px 0;">측정 데이터가 없습니다.</div>`;
-
-      const metrics = trendMetricsCfg;
-      const colTemplate = `116px repeat(${n},1fr) 76px`;
-
-      // 측정회차는 별도 행이 아니라 "평가 항목/변화"와 같은 헤더 행에 표기
-      const weekHeadCells = sorted.map((m,i)=>`<div style="grid-column:${i+2};text-align:center;font-size:11px;font-weight:700;color:${G500};">${weekEvalLabel(m.round)}</div>`).join('');
-      const headerRow = `<div style="display:grid;grid-template-columns:${colTemplate};align-items:end;padding-bottom:6px;border-bottom:2px solid ${BR};">
-        <div style="grid-column:1;font-size:12px;font-weight:700;color:${G500};letter-spacing:0.04em;text-transform:uppercase;">평가 항목</div>
-        ${weekHeadCells}
-        <div style="grid-column:${n+2};font-size:12px;font-weight:700;color:${G500};letter-spacing:0.04em;text-transform:uppercase;text-align:center;">변화<br>(초기 대비)</div>
-      </div>`;
-
-      const CAT_COLOR = { '인지':'#8E7CC3', '운동':'#4A90D2', '대사':'#43A047' };
-      let lastCat = null;
-      const metricRows = metrics.map(met=>{
-        const pts = sorted.map((m,i)=>{ const v=Number(m[met.key]); return isNaN(v)?null:{i,v}; }).filter(Boolean);
-        let chartHtml = `<div style="font-size:11.5px;color:${G500};text-align:center;">-</div>`;
-        let changeHtml = `<span style="color:${G500};font-size:16px;">-</span>`;
-        if (pts.length) {
-          const vals = pts.map(p=>p.v);
-          const vMin = Math.min(...vals), vMax = Math.max(...vals);
-          const range = (vMax-vMin) || 1;
-          const H=44, padT=16, padB=11;
-          const yPos = v => padT + (1-((v-vMin)/range))*(H-padT-padB);
-          const xPct = i => n===1 ? 50 : ((i+0.5)/n*100);
-          let pathD='', areaD='';
-          pts.forEach((p,idx)=>{ const x=xPct(p.i), y=yPos(p.v); pathD += (idx===0?`M${x},${y}`:`L${x},${y}`); });
-          if (pts.length>1) areaD = pathD + ` L${xPct(pts[pts.length-1].i)},${H-padB} L${xPct(pts[0].i)},${H-padB} Z`;
-          let overlay = `<svg width="100%" height="100%" viewBox="0 0 100 ${H}" preserveAspectRatio="none" style="display:block;position:absolute;left:0;top:0;">
-            <rect x="0" y="0" width="100" height="${H}" fill="${CREAM2}" opacity="0.4"/>
-            ${Array.from({length:n},(_,ci)=>{ const x = n===1?50:((ci+0.5)/n*100); return `<line x1="${x}" y1="0" x2="${x}" y2="${H}" stroke="${G300}" stroke-width="1" stroke-dasharray="2,2" vector-effect="non-scaling-stroke"/>`; }).join('')}
-            <line x1="0" y1="${H-padB}" x2="100" y2="${H-padB}" stroke="${G300}" stroke-width="1" stroke-dasharray="2,2" vector-effect="non-scaling-stroke"/>
-            ${pts.length>1?`<path d="${areaD}" fill="${BR}18" stroke="none"/>`:''}
-            ${pts.length>1?`<path d="${pathD}" fill="none" stroke="${BR}" stroke-width="1.8" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/>`:''}
-          </svg>`;
-          pts.forEach((p,idx)=>{
-            const xp = xPct(p.i).toFixed(2);
-            const yp = yPos(p.v);
-            const ypPct = (yp/H*100).toFixed(2);
-            const isLatest = idx===pts.length-1;
-            overlay += `<div style="position:absolute;left:${xp}%;top:${ypPct}%;width:${isLatest?7:5}px;height:${isLatest?7:5}px;border-radius:50%;background:${BR};border:1px solid #fff;transform:translate(-50%,-50%);"></div>`;
-            // 가장 최근 값만 18px로 강조 표기 (req2)
-            overlay += `<span style="position:absolute;left:${xp}%;top:${ypPct}%;transform:translate(-50%,calc(-100% - 3px));font-size:${isLatest?'18px':'11px'};font-weight:800;color:${isLatest?BR_DARK:INK};white-space:nowrap;">${p.v}</span>`;
-          });
-          chartHtml = `<div style="position:relative;height:100%;min-height:${H}px;">${overlay}</div>`;
-
-          const first = pts[0].v, last = pts[pts.length-1].v;
-          const diff = pts.length>1 ? Math.round((last-first)*10)/10 : null;
-          // 우울/스트레스는 낮을수록 좋으므로 색상 로직 반대 적용
-          const isGood = diff==null ? null : (met.inverse ? diff<0 : diff>0);
-          changeHtml = diff==null ? `<span style="color:${G500};font-size:16px;">-</span>`
-            : diff===0 ? `<span style="color:${G500};font-size:14px;">-</span>`
-            : `<span style="color:${isGood?'#1D5FC4':'#C0392B'};font-weight:800;font-size:16px;white-space:nowrap;">${diff>0?'▲':'▼'} ${Math.abs(diff)}</span>`;
-        }
-        const catColor = CAT_COLOR[met.category] || '#AAA';
-        // 차트 배경이 상하 여백 없이 행 전체를 채우도록 — 패딩은 라벨/변화 칸에만 적용 (req3)
-        // ※ PDF는 한 페이지 안에 들어가야 하므로 별도 구분 행 대신 좌측 색상 바로만 카테고리를 구분합니다.
-        return `<div style="display:grid;grid-template-columns:${colTemplate};align-items:stretch;border-bottom:1px solid ${CREAM2};flex:1;border-left:3px solid ${catColor};">
-          <div style="grid-column:1;padding:10px 0 10px 6px;display:flex;align-items:center;">
-            <span style="font-size:14px;font-weight:700;color:${INK};word-break:keep-all;">${met.label}</span>
-          </div>
-          <div style="grid-column:2 / span ${n};">${chartHtml}</div>
-          <div style="grid-column:${n+2};text-align:center;padding:10px 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;">
-            ${changeHtml}
-            ${met.inverse?`<span style="font-size:9px;color:${G500};">↓ 낮을수록 좋음</span>`:''}
-          </div>
-        </div>`;
-      }).join('');
-
-      const catLegend = `<div style="display:flex;gap:16px;margin-bottom:8px;">
-        ${Object.entries(CAT_COLOR).map(([cat,color])=>`<div style="display:flex;align-items:center;gap:5px;">
-          <span style="width:7px;height:7px;border-radius:50%;background:${color};"></span>
-          <span style="font-size:10.5px;font-weight:700;color:${color};">${cat}</span>
-        </div>`).join('')}
-      </div>`;
-      return `${catLegend}${headerRow}${metricRows}`;
-    };
-
-    // ✅ 초기(1회차) 리포트는 비교 대상 회차가 없어 "기간별 지표 변화" 페이지를 제외합니다.
-    const isInitialRound = master.round === 1;
-    const totalPages = isInitialRound ? 4 : 5;
-    const pTrend  = 3;
-    const pExpert = isInitialRound ? 3 : 4;
-    const pEnd    = isInitialRound ? 4 : 5;
-
-    return `
-<!-- ===================== PAGE 1: 표지 ===================== -->
-<div style="width:100%;min-height:100vh;position:relative;display:flex;flex-direction:column;padding:68px 60px;box-sizing:border-box;page-break-after:always;background:#fff;">
-
-  <div style="flex:1;display:flex;flex-direction:column;justify-content:space-between;">
-  <div>
-    <div style="display:flex;justify-content:flex-end;margin-bottom:34px;">
-      <span style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;color:${G500};border:1px solid ${LINE};padding:4px 10px;border-radius:20px;">CONFIDENTIAL · 개인 건강정보</span>
-    </div>
-    <div style="text-align:center;">
-      ${logoSrc?`<img src="${logoSrc}" alt="Care Hub" style="max-width:170px;height:auto;object-fit:contain;">`:`<div style="font-size:18.5px;font-weight:800;letter-spacing:0.15em;color:${BR};">CARE HUB IN HANAM</div>`}
-    </div>
-  </div>
-
-  <div style="text-align:center;">
-    <div style="font-size:12.5px;letter-spacing:0.3em;color:${BR};font-weight:700;margin-bottom:18px;text-transform:uppercase;">Integrated Health Report</div>
-    <div style="position:relative;display:inline-block;padding:12px 36px;">
-      <span style="position:absolute;top:0;left:0;width:14px;height:14px;border-top:2px solid ${BR};border-left:2px solid ${BR};"></span>
-      <span style="position:absolute;top:0;right:0;width:14px;height:14px;border-top:2px solid ${BR};border-right:2px solid ${BR};"></span>
-      <span style="position:absolute;bottom:0;left:0;width:14px;height:14px;border-bottom:2px solid ${BR};border-left:2px solid ${BR};"></span>
-      <span style="position:absolute;bottom:0;right:0;width:14px;height:14px;border-bottom:2px solid ${BR};border-right:2px solid ${BR};"></span>
-      <div style="font-size:44px;font-weight:800;color:${INK};letter-spacing:-0.01em;">통합 건강 리포트</div>
-    </div>
-    <div style="font-size:14px;font-weight:700;color:${BR_DARK};margin-top:14px;">${weekEvalLabel(master.round)} 리포트</div>
-    <div style="width:44px;height:2px;background:${BR};margin:24px auto 20px;"></div>
-    <div style="font-size:25px;font-weight:700;color:${INK};">${c.name} 님</div>
-  </div>
-
-  <div style="margin-bottom:60px;">
-    <div style="display:flex;justify-content:center;">
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);">
-        ${[
-          {l:'나이',v:`${age}세`},
-          {l:'성별',v:c.gender||'-'},
-          {l:'입소 등록일',v:c.firstVisit||'-'},
-          {l:'리포트 생성일',v:todayStr},
-        ].map((f,i)=>`<div style="padding:0 18px;text-align:center;${i>0?`border-left:1px solid ${LINE};`:''}">
-          <div style="font-size:10.5px;font-weight:700;letter-spacing:0.06em;color:${BR};text-transform:uppercase;margin-bottom:5px;">${f.l}</div>
-          <div style="font-size:15.5px;font-weight:700;color:${INK};">${f.v}</div>
-        </div>`).join('')}
-      </div>
-    </div>
-  </div>
-  </div>
-
-  ${pageFooter(1, totalPages, 60)}
-</div>
-
-<!-- ===================== PAGE 2: 평가 결과 ===================== -->
-<div style="width:100%;min-height:100vh;position:relative;padding:24px 36px 56px;box-sizing:border-box;page-break-after:always;font-family:'Noto Sans KR',sans-serif;display:flex;flex-direction:column;background:#fff;">
-  ${pageHeader(`${weekEvalLabel(master.round)} 평가 결과`)}
-
-  ${categoryBox(sectionHead('🧠','인지 기능 평가'), `
-    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
-      ${AssessVisuals.cog6ReportBlockFixed(master)}
-    </div>`, 'flex:1.8;display:flex;flex-direction:column;')}
-
-  ${(() => {
-    const cardioIdxLabel = AssessVisuals.calcCardioIndex(master.cardioScore, c.gender, c.birthDate);
-    const cardioGrade = cardioIdxLabel
-      ? (() => { const m=AssessVisuals._cardioGrades(c.gender).find(g=>cardioIdxLabel.includes(g.l)); return m?{label:cardioIdxLabel,color:m.color}:null; })()
-      : null;
-
-    const cardioCell = `<div style="display:flex;flex-direction:column;gap:6px;">
-      <div style="font-size:14px;font-weight:700;color:${INK};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">심폐기능지수 (VO2peak)</div>
-      <div style="margin-bottom:5px;white-space:nowrap;display:flex;align-items:center;justify-content:flex-end;gap:7px;"><span style="font-size:21px;font-weight:800;color:${valColor(cardioGrade)};">${master.cardioScore??'-'}</span><span style="font-size:10.5px;color:${G500};">ml/kg/min</span>${statusPill(cardioGrade)}</div>
-      ${AssessVisuals.cardioBar(master.cardioScore, c.gender, c.birthDate)}
-      ${AssessVisuals.cardioBarLabels(master.cardioScore, c.gender, c.birthDate)}
-      <div style="margin-top:8px;">${legendGrid(cardioLegendItems(master.cardioScore, c.gender, c.birthDate), 3)}</div>
-    </div>`;
-
-    const bodyMoveCell = `<div style="display:flex;flex-direction:column;gap:6px;">
-      <div style="font-size:14px;font-weight:700;color:${INK};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">신체 움직임 점수</div>
-      <div style="white-space:nowrap;text-align:right;"><span style="font-size:21px;font-weight:800;color:${INK};">${master.bodyMovementIndex??'-'}</span><span style="font-size:10.5px;color:${G500};">점 / 100점</span></div>
-      ${barFull(master.bodyMovementIndex,100,12)}
-    </div>`;
-
-    const fraCol = `<div style="display:flex;flex-direction:column;gap:16px;">
-      ${groupTitle('인바디 FRA')}
-      ${fraBlock('신경계 점수', master.nervousScore, 100, nervItems)}
-      ${fraBlock('통합 균형능력', master.balanceScore, 100, balItems)}
-      ${fraBlock('감각계 점수', master.sensoryScore, 100, sensItems)}
-    </div>`;
-
-    return categoryBox(sectionHead('🏃','움직임 기능 평가'), `
-      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
-      <div style="display:grid;grid-template-columns:1fr 1fr;column-gap:0;">
-        <div style="grid-column:1;">
-          ${vDivide(`<div style="display:flex;flex-direction:column;">
-            ${cardioCell}
-            <div style="height:1px;background:${DIVIDER};margin:14px 0;"></div>
-            ${bodyMoveCell}
-          </div>`)}
-        </div>
-        <div style="grid-column:2;">${padLeft(fraCol)}</div>
-      </div>
-      </div>`, 'flex:1;display:flex;flex-direction:column;');
-  })()}
-
-  ${(() => {
-    const stressGrade = AssessVisuals.calcStressIndex(master.stressScore);
-    const bodyCompCell = `<div style="display:flex;flex-direction:column;gap:6px;">
-      <div style="font-size:14px;font-weight:700;color:${INK};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">체성분 종합 점수</div>
-      <div style="white-space:nowrap;text-align:right;"><span style="font-size:21px;font-weight:800;color:${INK};">${master.bodyCompScore??'-'}</span><span style="font-size:10.5px;color:${G500};">점 / 100점</span></div>
-      ${barFull(master.bodyCompScore,100,12)}
-      <div style="font-size:10px;color:${G500};">근육량이 많을 경우 100점을 초과할 수 있습니다.</div>
-    </div>`;
-    const stressCell = `<div style="display:flex;flex-direction:column;gap:6px;">
-      <div style="font-size:14px;font-weight:700;color:${INK};text-transform:uppercase;letter-spacing:0.03em;text-align:left;">스트레스 점수</div>
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;">
-        <div style="flex:1;min-width:0;">
-          <div style="margin-bottom:5px;white-space:nowrap;display:flex;align-items:center;gap:7px;"><span style="font-size:21px;font-weight:800;color:${valColor(stressGrade)};">${master.stressScore??'-'}</span><span style="font-size:10.5px;color:${G500};">점</span>${statusPill(stressGrade)}</div>
-          ${AssessVisuals.stressBar(master.stressScore)}
-        </div>
-        <div style="width:88px;flex-shrink:0;">${legendCol(stressLegendItems(master.stressScore))}</div>
-      </div>
-    </div>`;
-    return categoryBox(sectionHead('💊','대사 · 생활 평가'), `
-      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
-      <div style="display:grid;grid-template-columns:1fr 1fr;column-gap:0;">
-        ${vDivide(stressCell)}
-        ${padLeft(bodyCompCell)}
-      </div>
-      </div>`, 'flex:1;display:flex;flex-direction:column;');
-  })()}
-
-  ${pageFooter(2, totalPages, 36)}
-</div>
-
-${isInitialRound ? '' : `
-<!-- ===================== PAGE 3: 기간별 지표 변화 ===================== -->
-<div style="width:100%;min-height:100vh;position:relative;padding:30px 36px 56px;box-sizing:border-box;page-break-after:always;font-family:'Noto Sans KR',sans-serif;display:flex;flex-direction:column;background:#fff;">
-  ${pageHeader('기간별 지표 변화')}
-
-  <div style="display:flex;flex-direction:column;flex:1;min-height:0;">${trendTableChart()}</div>
-  <div style="font-size:10px;color:${G500};font-style:italic;text-align:left;margin:8px 0 0;">※ 변화는 초기 평가를 기준으로 산출됩니다.</div>
-
-  ${pageFooter(pTrend, totalPages, 36)}
-</div>`}
-
-<!-- ===================== PAGE 4: 전문가 소견 ===================== -->
-<div style="width:100%;min-height:100vh;position:relative;padding:30px 36px 56px;box-sizing:border-box;page-break-after:always;font-family:'Noto Sans KR',sans-serif;display:flex;flex-direction:column;background:#fff;">
-  ${pageHeader('전문가 소견')}
-
-  ${categoryBox(sectionHead('🗒️','전문가 소견'), `
-    <div style="display:flex;flex-direction:column;flex:1;">
-      ${[
-        {icon:'🧠', role:'인지 전문가 소견', text:master.cogComment},
-        {icon:'🏃', role:'운동 전문가 소견', text:master.exComment},
-        {icon:'💼', role:'케어 매니저 소견', text:master.cmComment}
-      ].map((item,i,arr) => `
-        <div style="flex:1;display:flex;flex-direction:column;padding:6px 2px;${i<arr.length-1?`border-bottom:1px solid rgba(155,115,75,0.18);`:''}">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-            <span style="font-size:14px;">${item.icon}</span>
-            <span style="font-size:14px;font-weight:800;color:${BR_DARK};letter-spacing:0.02em;">${item.role}</span>
-          </div>
-          <div style="flex:1;font-size:14px;line-height:1.7;color:${item.text?INK:G500};${item.text?'':'font-style:italic;'}white-space:pre-wrap;text-align:left;overflow:hidden;">${item.text || '작성된 소견이 없습니다.'}</div>
-        </div>`).join('')}
-    </div>`, 'flex:1;display:flex;flex-direction:column;')}
-
-  ${pageFooter(pExpert, totalPages, 36)}
-</div>
-
-<!-- ===================== PAGE 5: 마무리 (간지) ===================== -->
-<div style="width:100%;min-height:100vh;position:relative;display:flex;flex-direction:column;padding:68px 60px;box-sizing:border-box;font-family:'Noto Sans KR',sans-serif;background:#fff;">
-
-  <div style="flex:1;display:flex;flex-direction:column;justify-content:space-between;">
-  <div>
-    <div style="display:flex;justify-content:flex-end;margin-bottom:34px;">
-      <span style="font-size:10.5px;font-weight:700;letter-spacing:0.1em;color:${G500};border:1px solid ${LINE};padding:4px 10px;border-radius:20px;">CONFIDENTIAL · 개인 건강정보</span>
-    </div>
-    <div style="text-align:center;">
-      ${logoSrc?`<img src="${logoSrc}" alt="Care Hub" style="max-width:190px;height:auto;object-fit:contain;">`:`<div style="font-size:18.5px;font-weight:800;letter-spacing:0.15em;color:${BR};">CARE HUB IN HANAM</div>`}
-    </div>
-  </div>
-
-  <div style="text-align:center;">
-    <div style="font-size:12.5px;letter-spacing:0.3em;color:${BR};font-weight:700;margin-bottom:18px;text-transform:uppercase;">Integrated Health Report</div>
-    <div style="position:relative;display:inline-block;padding:12px 36px;">
-      <span style="position:absolute;top:0;left:0;width:14px;height:14px;border-top:2px solid ${BR};border-left:2px solid ${BR};"></span>
-      <span style="position:absolute;top:0;right:0;width:14px;height:14px;border-top:2px solid ${BR};border-right:2px solid ${BR};"></span>
-      <span style="position:absolute;bottom:0;left:0;width:14px;height:14px;border-bottom:2px solid ${BR};border-left:2px solid ${BR};"></span>
-      <span style="position:absolute;bottom:0;right:0;width:14px;height:14px;border-bottom:2px solid ${BR};border-right:2px solid ${BR};"></span>
-      <div style="font-size:44px;font-weight:800;color:${INK};letter-spacing:-0.01em;">검사별 상세 리포트</div>
-    </div>
-    <div style="font-size:14px;font-weight:700;color:${BR_DARK};margin-top:14px;">${weekEvalLabel(master.round)} 리포트</div>
-    <div style="width:44px;height:2px;background:${BR};margin:24px auto 20px;"></div>
-    <div style="font-size:25px;font-weight:700;color:${INK};">${c.name} 님</div>
-  </div>
-
-  <div></div>
-  </div>
-
-  ${pageFooter(pEnd, totalPages, 60)}
-</div>
-  `;
+      const cc2 = AppConfig.CLIENT_COLS;
+      const clientRows = await this._get(AppConfig.TABLES.CLIENTS,
+        `${cc2.CLIENT_ID}=eq.${enc(cid)}&select=${cc2.DONE_ROUNDS},${cc2.TOTAL_ROUNDS}&limit=1`);
+      if (clientRows.length) {
+        const cur = Number(clientRows[0][cc2.DONE_ROUNDS] || 0);
+        const tot = Number(clientRows[0][cc2.TOTAL_ROUNDS] || 0);
+        await this._patch(AppConfig.TABLES.CLIENTS, `${cc2.CLIENT_ID}=eq.${enc(cid)}`,
+          { [cc2.DONE_ROUNDS]: Math.min(cur + 1, tot) });
+      }
+      this._bust('getClientMasterList','getClients','getClientDetail','getInitialData');
+      const updated = await this._get(AppConfig.TABLES.ASSESS_MASTER, `${mc.CLIENT_ID}=eq.${enc(cid)}&${mc.ROUND}=eq.${round}&limit=1`);
+      const masterData = updated.length ? this._rowToMaster(updated[0]) : null;
+      return { status:'success', data: { message:`${round}회차 통합 리포트가 생성되었습니다.`, reportGenerated: true, masterData } };
+    } catch(e) { return { status:'error', message:'리포트 생성 오류: ' + e.message }; }
   },
 
-  _printReport: async function(master, _unused) {
-    const c = this.client || {};
-    const weekTitle = master
-      ? (master.round === 1 ? '초기 통합리포트' : `${(master.round-1)*4}주차 통합리포트`)
-      : '통합 리포트';
-    const masterList = this._masterListCache || [master];
+  invalidateReport: async function(cid, round) {
+    try {
+      const mc = AppConfig.MASTER_COLS; const cc = AppConfig.CLIENT_COLS;
+      const enc = encodeURIComponent;
+      await this._patch(AppConfig.TABLES.ASSESS_MASTER, `${mc.CLIENT_ID}=eq.${enc(cid)}&${mc.ROUND}=eq.${round}`,
+        { [mc.REPORT_GENERATED]: false });
+      const clientRows = await this._get(AppConfig.TABLES.CLIENTS, `${cc.CLIENT_ID}=eq.${enc(cid)}&select=${cc.DONE_ROUNDS}&limit=1`);
+      if (clientRows.length) {
+        const cur = Number(clientRows[0][cc.DONE_ROUNDS] || 0);
+        await this._patch(AppConfig.TABLES.CLIENTS, `${cc.CLIENT_ID}=eq.${enc(cid)}`,
+          { [cc.DONE_ROUNDS]: Math.max(cur - 1, 0) });
+      }
+      this._bust('getClientMasterList','getClients','getInitialData');
+      return { status:'success', data: { message:'리포트가 무효화되었습니다.' } };
+    } catch(e) { return { status:'error', message:'리포트 무효화 오류: ' + e.message }; }
+  },
 
-    // ✅ 팝업 차단 방지: window.open은 클릭 이벤트에 대해 동기적으로 먼저 호출
-    const win = window.open('', '_blank', 'width=900,height=1200');
-    if (!win) {
-      UI.toast('팝업이 차단되었습니다. 주소창 우측 팝업 허용 후 다시 시도해주세요.', 'warning');
-      return;
-    }
-    const reportHtml = await this._buildReportHTML(master, masterList);
+  // ============================================================
+  // ── 기준값 API ─────────────────────────────────────────────
+  // ============================================================
 
-    win.document.open();
-    win.document.write(`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
-      <title>${weekTitle} - ${c.name||''}</title>
-      <style>
-        * { box-sizing:border-box; margin:0; padding:0; }
-        html, body { width:100%; background:white; color:#2C2C2C; }
-        body { font-family:'Noto Sans KR','Malgun Gothic',sans-serif; }
-        @page { margin:6mm; size:A4 portrait; }
-        @media print {
-          body { print-color-adjust:exact; -webkit-print-color-adjust:exact; }
-          #report-print-area > div {
-            page-break-after:always !important;
-            page-break-inside:avoid;
-            break-inside:avoid;
-            width:100%;
-            height:100vh !important;
-            overflow:hidden !important;
+  getStandards: async function() {
+    const cached = this._getCached('getStandards', {});
+    if (cached) return cached;
+    try {
+      const sc = AppConfig.STANDARDS_COLS;
+      const rows = await this._get(AppConfig.TABLES.STANDARDS, `select=*&order=${sc.CATEGORY}.asc,${sc.ORDER}.asc`);
+      if (!rows.length) {
+        return { status:'success', data: { standards: {
+          inbodyFra: {
+            sensory:  [{key:'sensory_1',label:'감각계 평가',order:1},{key:'sensory_2',label:'체성감각 평가',order:2},{key:'sensory_3',label:'시각 평가',order:3},{key:'sensory_4',label:'전정감각 평가',order:4}],
+            balance:  [{key:'balance_1',label:'통합 균형 능력 평가',order:1},{key:'balance_2',label:'빠르게 무게중심 옮기기 평가',order:2},{key:'balance_3',label:'과녁 따라 무게중심 옮기기 평가',order:3}],
+            nervous:  [{key:'nervous_1',label:'신경계 평가',order:1},{key:'nervous_2',label:'반응시간 평가',order:2},{key:'nervous_3',label:'자세유지시간 평가',order:3}]
           }
-          #report-print-area > div:last-child { page-break-after:avoid !important; }
-          svg text { font-family:'Noto Sans KR','Malgun Gothic',sans-serif; }
-        }
-        svg text { font-family:'Noto Sans KR','Malgun Gothic',sans-serif; }
-        ${AssessVisuals._cog6StyleCSS ? AssessVisuals._cog6StyleCSS() : ''}
-      </style>
-    </head><body><div id="report-print-area">${reportHtml}</div>
-    <script>window.onload=function(){setTimeout(function(){window.print();window.close();},600);};<\/script>
-    </body></html>`);
-    win.document.close();
+        }, isDefault: true }};
+      }
+      const standards = {};
+      rows.forEach(r => {
+        const cat = r[sc.CATEGORY]; if (!cat) return;
+        if (!standards[cat]) standards[cat] = [];
+        standards[cat].push({ key: r[sc.KEY], label: r[sc.LABEL], order: Number(r[sc.ORDER]||0) });
+      });
+      const result = { status:'success', data: { standards } };
+      this._setCache('getStandards', {}, result);
+      return result;
+    } catch(e) { return { status:'error', message:'기준값 조회 오류: ' + e.message }; }
   },
 
-
+  saveStandards: async function(cat, items) {
+    try {
+      const sc = AppConfig.STANDARDS_COLS; const now = this._now();
+      await this._delete(AppConfig.TABLES.STANDARDS, `${sc.CATEGORY}=eq.${encodeURIComponent(cat)}`);
+      if (items.length) {
+        await Promise.all(items.map((item, idx) =>
+          this._post(AppConfig.TABLES.STANDARDS, {
+            [sc.CATEGORY]: cat, [sc.KEY]: String(item.key||`${cat}_${idx+1}`),
+            [sc.LABEL]: String(item.label||''), [sc.ORDER]: idx+1, [sc.UPDATED_AT]: now
+          })
+        ));
+      }
+      this._bust('getStandards');
+      // ✅ 관리자가 "고객관리 기준(입소기간)"을 저장하면, 다음 고객 등록/수정부터
+      //    바로 새 값이 적용되도록 캐시를 초기화합니다.
+      if (cat === 'clientPeriod_period') this._bustPeriodMap();
+      if (cat === 'trendMetrics_items') this._bustTrendMetrics();
+      return { status:'success', data: { message:'기준값이 저장되었습니다.' } };
+    } catch(e) { return { status:'error', message:'기준값 저장 오류: ' + e.message }; }
+  }
 };
