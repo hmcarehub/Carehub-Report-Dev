@@ -29,8 +29,6 @@ const AssessmentsPage = {
 
   // 쓰기(저장/수정/삭제) 권한
   _canWrite: function(cat) {
-    // ✅ 퇴소한 고객은 어떤 역할이든 평가값을 수정할 수 없습니다 (조회만 가능)
-    if (this.selectedClient?.status === '퇴소') return false;
     const role = this._role();
     const writeRoles = AppConfig.ASSESS_WRITE_ROLES[cat] || [];
     return writeRoles.includes(role);
@@ -118,8 +116,9 @@ const AssessmentsPage = {
       UI.showLoading();
       const r = await API.getInitialData();
       if (r.status==='success') {
-        // ✅ 초기 평가(1회차)는 입소 30일 전부터 가능하므로, 아직 입소 전인 '입소예정' 고객도 목록에 포함
-        this.allClients = (r.data.clients || []).filter(c => c.status === '입소중' || c.status === '입소예정');
+        // ✅ 초기 평가(1회차)는 입소 30일 전부터 가능하므로 '입소예정' 고객도 포함,
+        //    퇴소한 고객도 재평가/수정이 필요할 수 있어 '퇴소' 상태도 목록에 포함 (목록에서 배지로 구분 표시)
+        this.allClients = (r.data.clients || []).filter(c => c.status === '입소중' || c.status === '입소예정' || c.status === '퇴소');
         this.overview   = r.data.overview || {};
       }
     } catch { UI.toast('데이터 로드 실패','error'); }
@@ -177,8 +176,9 @@ const AssessmentsPage = {
       return `
         <div class="assess-client-item${this.selectedClient?.clientId===c.clientId?' selected':''}" data-id="${c.clientId}">
           <div class="assess-client-info" style="width:100%;">
-            <div style="font-size:15px;font-weight:700;color:var(--color-gray-900);margin-bottom:2px;">
-              ${c.roomNum?`<span style="color:var(--color-primary-dark);">${c.roomNum}호</span> `:''}${c.name}
+            <div style="font-size:15px;font-weight:700;color:var(--color-gray-900);margin-bottom:2px;display:flex;align-items:center;gap:6px;">
+              <span>${c.roomNum?`<span style="color:var(--color-primary-dark);">${c.roomNum}호</span> `:''}${c.name}</span>
+              ${c.status==='퇴소'?'<span style="font-size:10px;font-weight:700;color:#E65100;background:#FFF3E0;border:1px solid #FFB74D;border-radius:6px;padding:1px 6px;flex-shrink:0;">퇴소</span>':''}
             </div>
             <div style="font-size:12px;color:var(--color-gray-500);margin-bottom:6px;">${c.clientId} · ${c.gender||''}</div>
             <div style="display:flex;align-items:center;gap:2px;flex-wrap:wrap;">
@@ -277,7 +277,7 @@ const AssessmentsPage = {
       </div>
       <div class="assess-round-tabs">${roundTabs}</div>
       ${c.status==='퇴소'?`<div style="margin:0 20px;padding:10px 14px;background:#FFF3E0;border:1px solid #FFB74D;border-radius:8px;font-size:12.5px;color:#E65100;display:flex;align-items:center;gap:6px;">
-        ⚠️ 퇴소한 고객입니다. 평가값은 조회만 가능하며 수정·저장할 수 없습니다.
+        ⚠️ 퇴소한 고객입니다. 재평가·수정 입력이 가능하니 값을 정확히 확인 후 저장해주세요.
       </div>`:''}
       <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 20px 0;flex-wrap:wrap;gap:8px;border-bottom:1px solid var(--color-gray-100);">
         <div class="assess-cat-tabs" id="assess-cat-tabs">${catTabs}</div>
@@ -1380,8 +1380,8 @@ const AssessmentsPage = {
         UI.toast(res.data.message,'success');
         const ir=await API.getInitialData();
         if (ir.status==='success') {
-          // ✅ 위와 동일하게 '입소예정' 고객도 포함 (초기 평가는 입소 전부터 가능)
-          this.allClients=(ir.data.clients||[]).filter(c=>c.status==='입소중'||c.status==='입소예정');
+          // ✅ 위와 동일하게 '입소예정'·'퇴소' 고객도 포함 (초기 평가는 입소 전부터 가능, 퇴소 후 재평가도 허용)
+          this.allClients=(ir.data.clients||[]).filter(c=>c.status==='입소중'||c.status==='입소예정'||c.status==='퇴소');
           this.overview=ir.data.overview||{};
           const updated=this.allClients.find(c=>c.clientId===this.selectedClient.clientId);
           if (updated) this.selectedClient=updated;
