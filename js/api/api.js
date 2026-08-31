@@ -289,8 +289,20 @@ const API = {
       const cat  = this._reportSnapshotCat(cid, round);
       const rows = (res.status === 'success' && res.data.standards?.[cat]) || [];
       if (!rows.length) return null;
-      const parsed = rows.map(row => { try { return JSON.parse(row.label); } catch { return null; } }).filter(Boolean);
-      return parsed.length ? parsed : null;
+      let parsed = rows.map(row => { try { return JSON.parse(row.label); } catch { return null; } }).filter(Boolean);
+      if (!parsed.length) return null;
+      // ✅ "구분(카테고리)" 컬럼 도입 이전에 저장된 구버전 스냅샷 호환:
+      //    저장된 사용여부/낮을수록좋음/순서는 그대로 유지하고, category만 현재 카탈로그에서 보강합니다.
+      if (parsed.some(p => !p.category)) {
+        const catalog = await this.getTrendMetricsCatalog();
+        const catByKey = {};
+        catalog.forEach(it => { catByKey[it.key] = it.category; });
+        parsed = parsed.map(p => p.category ? p : { ...p, category: catByKey[p.key] || '' });
+      }
+      // 구분(카테고리) 병합 셀이 올바르게 묶이도록 인지→운동→대사 순으로 정렬
+      const catOrder = { '인지':0, '운동':1, '대사':2 };
+      parsed.sort((a,b) => (catOrder[a.category]??99) - (catOrder[b.category]??99));
+      return parsed;
     } catch(e) {
       return null;
     }
