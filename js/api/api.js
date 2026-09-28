@@ -730,7 +730,8 @@ login: async function(id, pw) {
       if (exists.length) return { status:'error', message:'이미 사용 중인 고객 ID입니다.' };
       const periodMap    = await this.getPeriodMap();
       const periodInfo   = periodMap[d.admitPeriod] || { days:0, totalRounds:0 };
-      const endDate      = this._calcEndDateFromDays(d.admitDate, periodInfo.days);
+      // ✅ 화면에서 직접 지정한 종료예정일이 있으면 그 값을 우선 사용, 없으면 입소기간 기준으로 자동 계산
+      const endDate      = d.endDate ? this._safeDateStr(d.endDate) : this._calcEndDateFromDays(d.admitDate, periodInfo.days);
       const totalRounds  = periodInfo.totalRounds;
       const status      = this._calcClientStatus(d.admitDate, endDate);
       await this._post(T, {
@@ -753,7 +754,8 @@ login: async function(id, pw) {
       const T = AppConfig.TABLES.CLIENTS;
       const periodMap    = await this.getPeriodMap();
       const periodInfo   = periodMap[d.admitPeriod] || { days:0, totalRounds:0 };
-      const endDate      = this._calcEndDateFromDays(d.admitDate, periodInfo.days);
+      // ✅ 화면에서 직접 지정한 종료예정일이 있으면 그 값을 우선 사용, 없으면 입소기간 기준으로 자동 계산
+      const endDate      = d.endDate ? this._safeDateStr(d.endDate) : this._calcEndDateFromDays(d.admitDate, periodInfo.days);
       const totalRounds  = periodInfo.totalRounds;
       const status      = this._calcClientStatus(d.admitDate, endDate);
       const rows = await this._get(T, `${c.CLIENT_ID}=eq.${encodeURIComponent(d.clientId)}&select=${c.DONE_ROUNDS}&limit=1`);
