@@ -378,6 +378,62 @@ _getPeriodMapSorted: async function() {
   return { map, list };
 },
 
+// ── 종료예정일: 자동 계산(기본) + 직접 수정 지원 ─────────────
+//  - 입소일자/입소기간을 선택·변경하면 종료예정일이 자동 계산되어 채워집니다(기본값).
+//  - 사용자가 종료예정일을 직접 바꾸면 그 값이 유지되며, "자동 계산으로 되돌리기"로 복구할 수 있습니다.
+//  - 입소일자/입소기간을 다시 바꾸면 자동 계산값으로 다시 채워집니다.
+_setupEndDateControl: function(prefix, periodMap, initialEnd) {
+const $ = id => document.getElementById(`${prefix}-${id}`);
+const admitEl = $('admitdate'), periodEl = $('period'), endEl = $('enddate'), hintEl = $('end-hint'), prevBox = $('preview');
+const pad = n => String(n).padStart(2,'0');
+const fmt = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parseLocalDate = s => { if (!s) return null; const [y,m,d] = String(s).substring(0,10).split('-').map(Number); return new Date(y, m-1, d); };
+let manual = false;
+
+const calcAutoEnd = () => {
+const days = periodMap[periodEl.value]?.days || 0;
+if (!admitEl.value || !days) return '';
+const d = parseLocalDate(admitEl.value);
+d.setDate(d.getDate() + days - 1);
+return fmt(d);
+};
+
+const renderHint = () => {
+const auto = calcAutoEnd();
+if (manual && auto) {
+hintEl.innerHTML = `✏️ 직접 수정됨 (자동 계산: <b>${auto}</b>) <span id="${prefix}-end-reset" style="color:var(--color-primary-dark);text-decoration:underline;cursor:pointer;margin-left:4px;">자동 계산으로 되돌리기</span>`;
+$('end-reset').onclick = () => { manual = false; endEl.value = calcAutoEnd(); renderHint(); updatePreview(); };
+} else {
+hintEl.textContent = '입소일자·입소기간 선택 시 자동 계산되며, 필요하면 직접 변경할 수 있습니다.';
+}
+};
+
+const updatePreview = () => {
+if (!admitEl.value || !periodEl.value) { if (prevBox) prevBox.style.display = 'none'; return; }
+const rounds = periodMap[periodEl.value]?.totalRounds ?? 0;
+const today = new Date(); today.setHours(0,0,0,0);
+const admitD = parseLocalDate(admitEl.value);
+const endD = parseLocalDate(endEl.value);
+let status = '-';
+if (endD) status = today < admitD ? '입소예정' : (today > endD ? '퇴소' : '입소중');
+$('preview-rounds').textContent = rounds + '회차';
+$('preview-status').textContent = status;
+if (prevBox) prevBox.style.display = 'block';
+};
+
+// 입소일자/입소기간이 바뀌면 자동 계산값으로 다시 채움
+const onBaseChanged = () => { manual = false; endEl.value = calcAutoEnd(); renderHint(); updatePreview(); };
+admitEl.addEventListener('change', onBaseChanged);
+periodEl.addEventListener('change', onBaseChanged);
+// 종료예정일을 직접 바꾸면 수동 모드
+endEl.addEventListener('change', () => { const auto = calcAutoEnd(); manual = !!endEl.value && !!auto && endEl.value !== auto; renderHint(); updatePreview(); });
+
+// 초기값 (수정 모달: 저장된 종료일이 자동 계산값과 다르면 수동으로 간주)
+if (initialEnd) { endEl.value = initialEnd; const auto = calcAutoEnd(); manual = !!auto && initialEnd !== auto; }
+renderHint();
+updatePreview();
+},
+
 _openCreateModal: async function() {
 const { map: periodMap, list: periodList } = await this._getPeriodMapSorted();
 const periodOptionsHtml = periodList.map(p => `<option value="${p.period}">${p.period}</option>`).join('');
@@ -435,14 +491,18 @@ backdrop.innerHTML = `
                ${periodOptionsHtml}
              </select>
            </div>
+           <div class="form-group">
+             <label class="form-label">종료예정일 <span class="required">*</span></label>
+             <input type="date" id="cm-enddate" class="form-control">
+             <div id="cm-end-hint" style="font-size:11px;color:var(--color-gray-400);margin-top:4px;"></div>
+           </div>
          </div>
          <!-- 자동 계산 미리보기 -->
          <div id="cm-preview" style="margin-top:16px;padding:14px;background:var(--color-primary-pale);border-radius:8px;display:none;">
            <div style="font-size:12px;font-weight:700;color:var(--color-primary-dark);margin-bottom:8px;">📋 자동 계산 결과</div>
            <div style="display:flex;gap:20px;flex-wrap:wrap;font-size:13px;">
-             <span>종료예정일: <strong id="preview-end">-</strong></span>
-             <span>총 회차수: <strong id="preview-rounds">-</strong></span>
-             <span>상태: <strong id="preview-status">-</strong></span>
+             <span>총 회차수: <strong id="cm-preview-rounds">-</strong></span>
+             <span>상태: <strong id="cm-preview-status">-</strong></span>
            </div>
          </div>
          <div class="form-group" style="margin-top:14px;">
@@ -463,38 +523,6 @@ backdrop.querySelector('#cm-close').onclick = close;
 backdrop.querySelector('#cm-cancel').onclick = close;
 backdrop.onclick = e => { if (e.target === backdrop) close(); };
 
-const parseLocalDate = (s) => {
-if (!s) return null;
-const [y, m, d] = String(s).substring(0,10).split('-').map(Number);
-return new Date(y, m - 1, d);
-};
-// 자동 계산 미리보기
-const updatePreview = () => {
-const admitDate = document.getElementById('cm-admitdate').value;
-const period    = document.getElementById('cm-period').value;
-if (!admitDate || !period) { document.getElementById('cm-preview').style.display='none'; return; }
-
-const days    = periodMap[period]?.days || 0;
-const admit   = parseLocalDate(admitDate);          // ✅ 로컬 자정으로 파싱
-const endD    = new Date(admit);
-endD.setDate(endD.getDate() + days - 1);
-const pad     = n => String(n).padStart(2,'0');
-const endStr  = `${endD.getFullYear()}-${pad(endD.getMonth()+1)}-${pad(endD.getDate())}`;
-const rounds  = periodMap[period]?.totalRounds ?? 0;
-
-const today   = new Date(); today.setHours(0,0,0,0);
-const admitD  = parseLocalDate(admitDate);          // ✅ 로컬 자정으로 파싱 (today와 동일 기준)
-
-let status;
-if (today < admitD) status = '입소예정';
-else if (today > endD) status = '퇴소';
-else status = '입소중';
-
-document.getElementById('preview-end').textContent    = endStr;
-document.getElementById('preview-rounds').textContent = rounds + '회차';
-document.getElementById('preview-status').textContent = status;
-document.getElementById('cm-preview').style.display   = 'block';
-};
 
 // 전화번호 자동 포맷
 const phoneInput = document.getElementById('cm-phone');
@@ -502,8 +530,7 @@ phoneInput.addEventListener('input', () => {
 phoneInput.value = ClientsPage._autoFormatPhone(phoneInput.value);
 });
 
-document.getElementById('cm-admitdate').addEventListener('change', updatePreview);
-document.getElementById('cm-period').addEventListener('change', updatePreview);
+this._setupEndDateControl('cm', periodMap, '');
 
 document.getElementById('cm-submit').addEventListener('click', () => this._submitCreate(close));
 },
@@ -519,13 +546,17 @@ phone:       get('cm-phone'),
 firstVisit:  get('cm-firstvisit'),
 admitDate:   get('cm-admitdate'),
 admitPeriod: get('cm-period'),
+endDate:     get('cm-enddate'),
 roomNum:     get('cm-roomnum') || null,
 note:        get('cm-note')
 };
 
 if (!data.clientId || !data.name || !data.birthDate || !data.gender ||
-!data.phone || !data.firstVisit || !data.admitDate || !data.admitPeriod) {
+!data.phone || !data.firstVisit || !data.admitDate || !data.admitPeriod || !data.endDate) {
 UI.toast('필수 항목을 모두 입력해주세요.', 'error'); return;
+}
+if (data.endDate < data.admitDate) {
+UI.toast('종료예정일은 입소일자보다 빠를 수 없습니다.', 'error'); return;
 }
 
 // 입실호수 중복 확인 (입소중 고객 대상)
@@ -613,11 +644,15 @@ backdrop.innerHTML = `
                ${periodList.map(p=>`<option value="${p.period}" ${c.admitPeriod===p.period?'selected':''}>${p.period}</option>`).join('')}
              </select>
            </div>
+           <div class="form-group">
+             <label class="form-label">종료예정일 <span class="required">*</span></label>
+             <input type="date" id="em-enddate" class="form-control" value="${c.endDate||''}">
+             <div id="em-end-hint" style="font-size:11px;color:var(--color-gray-400);margin-top:4px;"></div>
+           </div>
          </div>
          <div id="em-preview" style="margin-top:16px;padding:14px;background:var(--color-primary-pale);border-radius:8px;">
            <div style="font-size:12px;font-weight:700;color:var(--color-primary-dark);margin-bottom:8px;">📋 자동 계산 결과</div>
            <div style="display:flex;gap:20px;flex-wrap:wrap;font-size:13px;">
-             <span>종료예정일: <strong id="em-preview-end">${c.endDate||'-'}</strong></span>
              <span>총 회차수: <strong id="em-preview-rounds">${c.totalRounds??'-'}회차</strong></span>
              <span>상태: <strong id="em-preview-status">${c.status||'-'}</strong></span>
            </div>
@@ -640,35 +675,12 @@ backdrop.querySelector('#em-close').onclick = close;
 backdrop.querySelector('#em-cancel').onclick = close;
 backdrop.onclick = e => { if (e.target === backdrop) close(); };
 
-const updatePreview = () => {
-const admitDate = document.getElementById('em-admitdate').value;
-const period    = document.getElementById('em-period').value;
-if (!admitDate || !period) return;
-const days   = periodMap[period]?.days || 0;
-const admit  = new Date(admitDate);
-const endD   = new Date(admit);
-endD.setDate(endD.getDate() + days - 1);
-const pad    = n => String(n).padStart(2,'0');
-const endStr = `${endD.getFullYear()}-${pad(endD.getMonth()+1)}-${pad(endD.getDate())}`;
-const rounds = periodMap[period]?.totalRounds ?? 0;
-const today  = new Date(); today.setHours(0,0,0,0);
-const admitD = new Date(admitDate);
-let status;
-if (today < admitD) status = '입소예정';
-else if (today > endD) status = '퇴소';
-else status = '입소중';
-
-document.getElementById('em-preview-end').textContent    = endStr;
-document.getElementById('em-preview-rounds').textContent = rounds + '회차';
-document.getElementById('em-preview-status').textContent = status;
-};
 
 const phoneInput = document.getElementById('em-phone');
 phoneInput.addEventListener('input', () => {
 phoneInput.value = this._autoFormatPhone(phoneInput.value);
 });
-document.getElementById('em-admitdate').addEventListener('change', updatePreview);
-document.getElementById('em-period').addEventListener('change', updatePreview);
+this._setupEndDateControl('em', periodMap, c.endDate || '');
 
 document.getElementById('em-submit').addEventListener('click', () => this._submitEdit(c.clientId, close, onSaved));
 },
@@ -684,13 +696,17 @@ phone:       get('em-phone'),
 firstVisit:  get('em-firstvisit'),
 admitDate:   get('em-admitdate'),
 admitPeriod: get('em-period'),
+endDate:     get('em-enddate'),
 roomNum:     get('em-roomnum') || null,   
 note:        get('em-note')
 };
 
 if (!data.name || !data.birthDate || !data.gender ||
-!data.phone || !data.firstVisit || !data.admitDate || !data.admitPeriod) {
+!data.phone || !data.firstVisit || !data.admitDate || !data.admitPeriod || !data.endDate) {
 UI.toast('필수 항목을 모두 입력해주세요.', 'error'); return;
+}
+if (data.endDate < data.admitDate) {
+UI.toast('종료예정일은 입소일자보다 빠를 수 없습니다.', 'error'); return;
 }
 
 const btn = document.getElementById('em-submit');
